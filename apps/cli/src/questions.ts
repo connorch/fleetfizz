@@ -38,13 +38,7 @@ export const askQuestions = Effect.fn("askQuestions")(function* (
     } else if (flags.enforce) {
       decided[pkg] = { kind: "downgrade" };
     } else if (!hasTty()) {
-      for (const q of group) {
-        yield* ledger.line(
-          q.machine,
-          "SKIP",
-          `${pkg} ${q.installed} is above ${range} (no TTY to ask)`,
-        );
-      }
+      // The plan reports each skipped package; there is no one to ask.
       decided[pkg] = { kind: "skip" };
     } else {
       yield* ledger.line("fleet", "ASK", `${pkg} ${where} is above ${range}`);

@@ -167,8 +167,8 @@ const apply = Effect.fn("apply")(function* (
       switch (parsed.kind) {
         case "step":
           current = { id: parsed.id, output: [] };
-          if (labels[parsed.id] !== undefined)
-            yield* ledger.line(machine.name, "RUN", labels[parsed.id]);
+          const label = labels[parsed.id];
+          if (label !== undefined) yield* ledger.line(machine.name, "RUN", label);
           break;
         case "done": {
           const output = current?.id === parsed.done.id ? current.output : [];
