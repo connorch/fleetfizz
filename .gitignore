@@ -1,0 +1,9 @@
+node_modules
+.DS_Store
+*.log
+*.tsbuildinfo
+apps/*/dist
+packages/*/dist
+.vite-plus
+.vitest-*
+.context

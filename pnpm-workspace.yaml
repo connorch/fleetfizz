@@ -1,0 +1,41 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 11+: which dependencies may run build scripts.
+allowBuilds:
+  esbuild: true
+
+catalog:
+  "@effect/platform-node": 4.0.2
+  "@effect/tsgo": 0.51.1
+  "@effect/vitest": 4.0.2
+  "@types/node": 24.12.4
+  "@types/semver": 7.8.0
+  effect: 4.0.2
+  jsonc-parser: 3.3.1
+  semver: 7.8.5
+  typescript: 7.0.2
+  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
+  vite-plus: 1.1.0
+
+overrides:
+  "@types/node": "catalog:"
+  effect: "catalog:"
+  vite: "catalog:"
+
+packageExtensions:
+  "@effect/vitest@*":
+    dependencies:
+      vite-plus: 1.1.0
+    peerDependenciesMeta:
+      vitest:
+        optional: true
+  vite-plus@*:
+    dependencies:
+      vite: npm:@voidzero-dev/vite-plus-core@1.1.0
+
+# vitest's peer range names upstream vite; vite-plus-core is the Vite+ build of it.
+peerDependencyRules:
+  allowAny:
+    - vite
