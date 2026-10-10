@@ -1,0 +1,66 @@
+import { describe, expect, it } from "@effect/vitest";
+import * as Schema from "effect/Schema";
+
+import { FleetConfig, isPin, Range, repoName } from "./schema.ts";
+
+const decode = Schema.decodeUnknownResult(FleetConfig);
+const ok = (input: unknown) => decode(input)._tag === "Success";
+
+describe("FleetConfig", () => {
+  it("accepts a full config", () => {
+    expect(
+      ok({
+        $schema: "./node_modules/fleetfizz/fleet.schema.json",
+        machines: { "connors-mac-studio": { clones: "/Volumes/StudioStack SSD/fleetfizz/clones" } },
+        repos: [
+          { origin: "connorch/skills", ref: "main", install: "pnpm install" },
+          {
+            origin: "kitlangton/psychopomp",
+            ref: "b517dd423fd19282898c33e43acb8eb67546ebab",
+            install: "cargo build --release",
+            platforms: ["darwin"],
+            outputs: ["~/.local/share/psychopomp"],
+            files: { ".env": "A=1\n" },
+          },
+        ],
+        vp: { version: "1.1.0", node: "24.18.1", globals: { vercel: "^59.25.4", skills: "*" } },
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts an empty config", () => {
+    expect(ok({})).toBe(true);
+  });
+
+  it("rejects an origin that is not owner/repo", () => {
+    expect(ok({ repos: [{ origin: "https://github.com/x/y", ref: "main", install: "x" }] })).toBe(
+      false,
+    );
+  });
+
+  it("rejects an empty platforms list and an unknown platform", () => {
+    expect(ok({ vp: { platforms: [] } })).toBe(false);
+    expect(ok({ vp: { platforms: ["windows"] } })).toBe(false);
+  });
+
+  it("validates Ranges", () => {
+    const range = Schema.decodeUnknownResult(Range);
+    for (const good of ["^59.25.4", "1.2.3", "*", "latest", ">=1 <2"]) {
+      expect(range(good)._tag, good).toBe("Success");
+    }
+    for (const bad of ["", "newest", "1.2.3.4"]) {
+      expect(range(bad)._tag, bad).toBe("Failure");
+    }
+  });
+
+  it("classifies a 40-character SHA as a Pin", () => {
+    expect(isPin("b517dd423fd19282898c33e43acb8eb67546ebab")).toBe(true);
+    expect(isPin("main")).toBe(false);
+    expect(isPin("b517dd4")).toBe(false);
+  });
+
+  it("defaults the repo name to owner-repo", () => {
+    expect(repoName({ origin: "connorch/t3code" })).toBe("connorch-t3code");
+    expect(repoName({ origin: "connorch/t3code", name: "t3" })).toBe("t3");
+  });
+});
