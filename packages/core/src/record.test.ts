@@ -1,0 +1,67 @@
+import { describe, expect, it } from "@effect/vitest";
+
+import { decideInstall, type InstallInputs, type InstallRecord } from "./record.ts";
+
+const record: InstallRecord = {
+  commit: "9e02bb1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  path: "/Volumes/StudioStack SSD/fleetfizz/clones/connorch-t3code",
+  install: "pnpm install --frozen-lockfile",
+  files: { ".env": "A=1\n" },
+  outputs: { "/Applications/T3 Code (Alpha).app": "sha256:abc" },
+};
+const same: InstallInputs = { ...record };
+
+describe("decideInstall", () => {
+  it("skips when everything matches", () => {
+    expect(decideInstall(record, same, false)).toEqual({ run: false });
+  });
+
+  it("runs when there is no record", () => {
+    expect(decideInstall(undefined, same, false)).toEqual({ run: true, reason: "never installed" });
+  });
+
+  it("runs on a new commit, a moved clone, or a changed command", () => {
+    expect(
+      decideInstall(record, { ...same, commit: "1234567bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }, false),
+    ).toEqual({
+      run: true,
+      reason: "new commit 1234567",
+    });
+    expect(decideInstall(record, { ...same, path: "/elsewhere" }, false)).toEqual({
+      run: true,
+      reason: "clone moved",
+    });
+    expect(decideInstall(record, { ...same, install: "make" }, false)).toEqual({
+      run: true,
+      reason: "install command changed",
+    });
+  });
+
+  it("runs when a File changed", () => {
+    expect(decideInstall(record, { ...same, files: { ".env": "A=2\n" } }, false)).toEqual({
+      run: true,
+      reason: "files changed",
+    });
+  });
+
+  it("runs on Drift: an Output fingerprint changed or the Output is gone", () => {
+    expect(
+      decideInstall(
+        record,
+        { ...same, outputs: { "/Applications/T3 Code (Alpha).app": "sha256:other" } },
+        false,
+      ),
+    ).toEqual({ run: true, reason: "drift: /Applications/T3 Code (Alpha).app" });
+    expect(
+      decideInstall(
+        record,
+        { ...same, outputs: { "/Applications/T3 Code (Alpha).app": undefined } },
+        false,
+      ),
+    ).toEqual({ run: true, reason: "drift: /Applications/T3 Code (Alpha).app" });
+  });
+
+  it("--rebuild always runs", () => {
+    expect(decideInstall(record, same, true)).toEqual({ run: true, reason: "--rebuild" });
+  });
+});

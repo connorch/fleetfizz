@@ -14,11 +14,14 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
-    "effect": "catalog:"
+    "@fleetfizz/config": "workspace:*",
+    "effect": "catalog:",
+    "semver": "catalog:"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
+    "@types/semver": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"
   }
