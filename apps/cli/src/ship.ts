@@ -25,6 +25,7 @@ import {
   applyScript,
   gatherScript,
   parseLine,
+  readLentToken,
   readTailnet,
   resolveVersions,
   runScript,
@@ -124,13 +125,14 @@ const apply = Effect.fn("apply")(function* (
   machine: Machine,
   local: boolean,
   script: string,
+  secrets: ReadonlyArray<string>,
   ledger: Ledger,
 ) {
   let current: { id: string; output: string[] } | undefined;
   const done: string[] = [];
   const failed: string[] = [];
   const head: string[] = [];
-  const exitCode = yield* runScript({ name: machine.name, local }, script, [""], (line) =>
+  const exitCode = yield* runScript({ name: machine.name, local }, script, secrets, (line) =>
     Effect.gen(function* () {
       const parsed = parseLine(line);
       switch (parsed.kind) {
@@ -285,6 +287,15 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     return;
   }
 
+  // The Lent Token, when any repo ships. Without one, private repos fail at
+  // fetch and public repos still ship.
+  const lent = plans.some((p) => p.repos.length > 0)
+    ? yield* readLentToken()
+    : { token: undefined };
+  if (lent.token === undefined && lent.reason !== undefined) {
+    yield* ledger.line("fleet", "INFO", `no gh token (${lent.reason}); private repos will fail`);
+  }
+
   // Apply, in parallel. No Machine changed before this point.
   const machineNames = tailnet.fleet.map((m) => m.name);
   yield* Effect.forEach(
@@ -297,7 +308,13 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         cloneRoot,
         env: { machine: machine.name, platform: machine.platform, machines: machineNames },
       });
-      const result = yield* apply(machine, machine.name === tailnet.self.name, script, ledger);
+      const result = yield* apply(
+        machine,
+        machine.name === tailnet.self.name,
+        script,
+        [lent.token ?? ""],
+        ledger,
+      );
       yield* record(machine.name, result);
     }),
     { concurrency: "unbounded" },

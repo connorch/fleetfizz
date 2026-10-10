@@ -10,5 +10,6 @@ export {
 export { doneLine, parseLine, stepLine, type Line, type StepDone } from "./protocol.ts";
 export { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 export { parseTailnet, readTailnet, TailnetError, type Machine, type Tailnet } from "./tailnet.ts";
+export { readLentToken, type LentToken } from "./token.ts";
 export { runScript, SpawnError, SSH_UNREACHABLE, type Target } from "./transport.ts";
 export { resolveVersions } from "./versions.ts";
