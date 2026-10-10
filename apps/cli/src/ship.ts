@@ -23,6 +23,7 @@ import {
 } from "@fleetfizz/core";
 import {
   applyScript,
+  END_STEP,
   gatherScript,
   parseLine,
   readLentToken,
@@ -173,6 +174,10 @@ const apply = Effect.fn("apply")(function* (
   }
   if (current !== undefined) {
     yield* ledger.fail(machine.name, [`${current.id} did not finish`, ...current.output]);
+    return "failed" as const;
+  }
+  if (!done.includes(END_STEP)) {
+    yield* ledger.fail(machine.name, ["apply did not finish", ...head]);
     return "failed" as const;
   }
   if (failed.length > 0) return "failed" as const;

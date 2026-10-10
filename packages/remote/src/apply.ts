@@ -28,6 +28,8 @@ export interface ApplyInput {
 }
 
 export const stepId = (repo: string, step: "fetch" | "install") => `repo:${repo}:${step}`;
+// Marks the end of the script, so a script that stopped between steps is detected.
+export const END_STEP = "end";
 
 // Writes the record for `repo` from inside the Managed Clone ($ff_d) after a
 // successful install. Fingerprints are taken now, so the next Gather compares
@@ -90,8 +92,13 @@ const repoSteps = (repo: RepoStep, input: ApplyInput): string[] => {
     `  (cd "$ff_d" && ${envPrefix} "\${SHELL:-/bin/sh}" -lc ${quote(repo.install)})`,
     `  ff_code=$?`,
     `  if [ "$ff_code" -ne 0 ]; then ${doneLine(install, false, "$ff_code")}; else`,
-    ...writeRecord(repo).map((l) => `    ${l}`),
-    `    ${doneLine(install, true)}`,
+    // The install counts only once its record is on disk.
+    "    (",
+    "      set -e",
+    ...writeRecord(repo).map((l) => `      ${l}`),
+    "    )",
+    `    ff_code=$?`,
+    `    if [ "$ff_code" -ne 0 ]; then echo "could not write the install record"; ${doneLine(install, false, "$ff_code")}; else ${doneLine(install, true)}; fi`,
     "  fi",
     "fi",
     "fi",
@@ -111,5 +118,6 @@ export const applyScript = (input: ApplyInput): string => {
     ...(input.cloneRoot.startsWith("~") ? [`mkdir -p "$ff_root"`] : []),
   ];
   for (const repo of input.plan.repos) lines.push(...repoSteps(repo, input));
+  lines.push(doneLine(END_STEP, true));
   return lines.join("\n");
 };
