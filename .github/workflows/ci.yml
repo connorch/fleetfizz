@@ -23,7 +23,7 @@ jobs:
         with:
           node-version-file: .node-version
           cache: true
-          run-install:
+          run-install: |
             - args: [--frozen-lockfile]
       - run: pnpm typecheck
       - run: pnpm lint
