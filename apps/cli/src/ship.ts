@@ -6,6 +6,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
 import {
+  bumpConfig,
   DEFAULT_CLONE_ROOT,
   findConfig,
   loadConfig,
@@ -17,8 +18,10 @@ import {
   NODE_PACKAGE,
   plan,
   VP_PACKAGE,
+  type Answer,
   type Fact,
   type MachinePlan,
+  type Question,
   type Rebuild,
 } from "@fleetfizz/core";
 import {
@@ -36,6 +39,7 @@ import {
 } from "@fleetfizz/remote";
 
 import { makeLedger, type Ledger } from "./ledger.ts";
+import { askQuestions } from "./questions.ts";
 import { summarize } from "./summary.ts";
 
 export interface ShipFlags {
@@ -141,6 +145,12 @@ const apply = Effect.fn("apply")(function* (
           current = { id: parsed.id, output: [] };
           if (parsed.id.endsWith(":install")) {
             yield* ledger.line(machine.name, "RUN", `${parsed.id.split(":")[1]} install`);
+          } else if (parsed.id.startsWith("vp:")) {
+            yield* ledger.line(
+              machine.name,
+              "RUN",
+              parsed.id.replace(/^vp:/, "vp ").replaceAll(":", " "),
+            );
           }
           break;
         case "done": {
@@ -181,15 +191,17 @@ const apply = Effect.fn("apply")(function* (
     return "failed" as const;
   }
   if (failed.length > 0) return "failed" as const;
+  const vpDone = done.filter((id) => id.startsWith("vp:")).length;
   const installed = done.filter((id) => id.endsWith(":install")).map((id) => id.split(":")[1]);
   const repos = done.filter((id) => id.endsWith(":fetch")).length;
-  yield* ledger.line(
-    machine.name,
-    "OK",
-    installed.length === 0
-      ? `${repos} repo${repos === 1 ? "" : "s"} up to date`
-      : installed.map((r) => `${r} installed`).join(" · "),
-  );
+  const parts = [
+    ...(vpDone > 0 ? ["vp"] : []),
+    ...installed.map((r) => `${r} installed`),
+    ...(repos > installed.length
+      ? [`${repos - installed.length} repo${repos - installed.length === 1 ? "" : "s"} up to date`]
+      : []),
+  ];
+  yield* ledger.line(machine.name, "OK", parts.length === 0 ? "up to date" : parts.join(" · "));
   return "ok" as const;
 });
 
@@ -252,29 +264,40 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
 
   const versions = yield* resolveVersions(packagesToResolve(config));
 
-  const plans: MachinePlan[] = gathered.map(({ machine, state }) =>
-    plan({
-      config,
-      machine: { name: machine.name, platform: machine.platform },
-      state,
-      versions,
-      rebuild: rebuildOf(flags),
-      answers: {},
-    }),
-  );
+  const planAll = (cfg: FleetConfig, answers: Readonly<Record<string, Answer>>): MachinePlan[] =>
+    gathered.map(({ machine, state }) =>
+      plan({
+        config: cfg,
+        machine: { name: machine.name, platform: machine.platform },
+        state,
+        versions,
+        rebuild: rebuildOf(flags),
+        answers,
+      }),
+    );
+  let plans = planAll(config, {});
 
-  for (const p of plans) {
-    yield* ledger.line(p.machine.name, "PLAN", summarize(p));
-    for (const s of p.skipped) yield* ledger.line(p.machine.name, "SKIP", `${s.what}: ${s.reason}`);
-    for (const f of p.failures)
-      yield* ledger.line(p.machine.name, "FAIL", `${f.what}: ${f.reason}`);
-    for (const q of p.questions) {
-      yield* ledger.line(p.machine.name, "ASK", `${q.package} ${q.installed} is above ${q.range}`);
+  // Questions: every Machine's, before anything changes. A bump edits the
+  // config, so the plan is made again from the new Ranges.
+  const questions = plans.flatMap((p) => p.questions);
+  if (questions.length > 0 && !flags.dryRun) {
+    const decided = yield* askQuestions(questions, flags, ledger);
+    let cfg = config;
+    for (const [pkg, decision] of Object.entries(decided)) {
+      if (decision.kind === "bump") {
+        const range = yield* bumpConfig(configPath, pkg, decision.installed);
+        yield* ledger.line("fleet", "INFO", `bumped ${pkg} to ${range} in ${configPath}`);
+      }
     }
-    yield* record(p.machine.name, p.failures.length > 0 ? "failed" : "ok");
+    if (Object.values(decided).some((d) => d.kind === "bump")) cfg = yield* loadConfig(configPath);
+    const answers = Object.fromEntries(
+      Object.entries(decided).flatMap(([pkg, d]) =>
+        d.kind === "bump" ? [] : [[pkg, d.kind] as const],
+      ),
+    );
+    plans = planAll(cfg, answers);
   }
 
-  const askedAny = plans.some((p) => p.questions.length > 0);
   if (flags.dryRun) {
     const tally = Object.values(yield* Ref.get(outcomes));
     const n = (kind: Outcome) => tally.filter((o) => o === kind).length;
@@ -284,11 +307,6 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       `planned ${n("ok")}  skipped ${n("skipped")}  failed ${n("failed")}`,
     );
     if (n("failed") > 0) process.exitCode = 1;
-    return;
-  }
-  if (askedAny) {
-    yield* Console.error("questions are not implemented yet; run with --dry-run");
-    process.exitCode = 1;
     return;
   }
 
@@ -306,7 +324,11 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   yield* Effect.forEach(
     gathered.map(({ machine }, i) => ({ machine, plan: plans[i] })),
     Effect.fn("applyOne")(function* ({ machine, plan: p }) {
-      if (p === undefined || p.repos.length === 0) return;
+      if (p === undefined) return;
+      if (p.repos.length === 0 && p.vp.length === 0) {
+        yield* ledger.line(machine.name, "OK", "up to date");
+        return;
+      }
       const cloneRoot = config.machines?.[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
       const script = applyScript({
         plan: p,

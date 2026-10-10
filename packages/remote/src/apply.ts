@@ -3,7 +3,7 @@
 // fleetfizz shows it only when the step fails.
 import * as Schema from "effect/Schema";
 
-import type { MachinePlan, RepoStep } from "@fleetfizz/core";
+import type { MachinePlan, RepoStep, VpStep } from "@fleetfizz/core";
 
 import { RECORDS_DIR } from "./gather.ts";
 import { doneLine, stepLine } from "./protocol.ts";
@@ -28,6 +28,35 @@ export interface ApplyInput {
 }
 
 export const stepId = (repo: string, step: "fetch" | "install") => `repo:${repo}:${step}`;
+export const vpStepId = (step: VpStep): string =>
+  step.kind === "reinstall"
+    ? `vp:reinstall:${step.name}`
+    : step.kind === "globals"
+      ? "vp:globals"
+      : `vp:${step.kind}`;
+
+// One vp step: the command in a subshell, then its marker.
+const vpStep = (step: VpStep): string[] => {
+  const id = vpStepId(step);
+  const command = (() => {
+    switch (step.kind) {
+      case "vp":
+        return `command vp upgrade ${quote(step.version)}`;
+      case "node":
+        return `command vp env default ${quote(step.version)}`;
+      case "reinstall":
+        return `command vp install -g ${quote(`${step.name}@${step.version}`)}`;
+      case "globals":
+        return `command vp install -g ${step.packages.map((p) => quote(`${p.name}@${p.version}`)).join(" ")}`;
+    }
+  })();
+  return [
+    stepLine(id),
+    `( ${command} )`,
+    `ff_code=$?`,
+    `if [ "$ff_code" -ne 0 ]; then ${doneLine(id, false, "$ff_code")}; else ${doneLine(id, true)}; fi`,
+  ];
+};
 // Marks the end of the script, so a script that stopped between steps is detected.
 export const END_STEP = "end";
 
@@ -117,6 +146,8 @@ export const applyScript = (input: ApplyInput): string => {
     `ff_root=${quotePath(input.cloneRoot)}`,
     ...(input.cloneRoot.startsWith("~") ? [`mkdir -p "$ff_root"`] : []),
   ];
+  // The vp section first: Install Commands need pnpm and Node.
+  for (const step of input.plan.vp) lines.push(...vpStep(step));
   for (const repo of input.plan.repos) lines.push(...repoSteps(repo, input));
   lines.push(doneLine(END_STEP, true));
   return lines.join("\n");
