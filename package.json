@@ -10,9 +10,13 @@
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
     "test": "vp run -r test",
-    "check": "pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test",
+    "changeset": "changeset",
+    "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "1.0.1",
+    "@changesets/cli": "3.0.3",
     "@effect/tsgo": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
