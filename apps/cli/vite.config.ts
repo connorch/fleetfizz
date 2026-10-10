@@ -16,6 +16,9 @@ export default mergeConfig(
       // runtime dependency (effect, semver) are inlined.
       deps: { alwaysBundle: () => true },
       banner: { js: "#!/usr/bin/env node" },
+      // jsonc-parser has no exports map; its `main` is a UMD build with
+      // internal requires that cannot be inlined. Bundle its ESM build.
+      alias: { "jsonc-parser": "jsonc-parser/lib/esm/main.js" },
     },
   }),
 );

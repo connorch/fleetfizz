@@ -173,6 +173,15 @@ catalogs:
     '@effect/vitest':
       specifier: 4.0.2
       version: 4.0.2
+    '@types/semver':
+      specifier: 7.8.0
+      version: 7.8.0
+    jsonc-parser:
+      specifier: 3.3.1
+      version: 3.3.1
+    semver:
+      specifier: 7.8.5
+      version: 7.8.5
     typescript:
       specifier: 7.0.2
       version: 7.0.2
@@ -245,6 +254,12 @@ importers:
       effect:
         specifier: 4.0.2
         version: 4.0.2
+      jsonc-parser:
+        specifier: 'catalog:'
+        version: 3.3.1
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
@@ -252,6 +267,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.8.0
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -261,9 +279,15 @@ importers:
 
   packages/core:
     dependencies:
+      '@fleetfizz/config':
+        specifier: workspace:*
+        version: link:../config
       effect:
         specifier: 4.0.2
         version: 4.0.2
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
@@ -271,6 +295,9 @@ importers:
       '@types/node':
         specifier: 24.12.4
         version: 24.12.4
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.8.0
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -280,6 +307,12 @@ importers:
 
   packages/remote:
     dependencies:
+      '@fleetfizz/config':
+        specifier: workspace:*
+        version: link:../config
+      '@fleetfizz/core':
+        specifier: workspace:*
+        version: link:../core
       effect:
         specifier: 4.0.2
         version: 4.0.2
@@ -826,6 +859,9 @@ packages:
 
   '@types/node@24.12.4':
     resolution: {integrity: sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
@@ -2114,6 +2150,8 @@ snapshots:
   '@types/node@24.12.4':
     dependencies:
       undici-types: 7.16.0
+
+  '@types/semver@7.8.0': {}
 
   '@types/ws@8.18.2':
     dependencies:

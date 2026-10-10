@@ -1,18 +1,64 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
-import { Command } from "effect/cli";
+import { Command, Flag } from "effect/cli";
 
 import packageJson from "../package.json" with { type: "json" };
+import { ship } from "./ship.ts";
 
-const ship = Command.make("ship").pipe(
+const shipCommand = Command.make("ship", {
+  dryRun: Flag.Boolean("dry-run").pipe(
+    Flag.withDefault(false),
+    Flag.withDescription("Gather and plan only. Print every Machine's plan and change nothing."),
+  ),
+  only: Flag.String("only").pipe(
+    Flag.atLeast(0),
+    Flag.withDescription("Ship only to these Machines (repeat the flag)."),
+  ),
+  rebuild: Flag.String("rebuild").pipe(
+    Flag.atLeast(0),
+    Flag.withDescription(
+      "Run a repo's Install Command even when its record matches; `all` for every repo.",
+    ),
+  ),
+  bump: Flag.Boolean("bump").pipe(
+    Flag.withDefault(false),
+    Flag.withDescription("Answer every above-range question by bumping the config."),
+  ),
+  enforce: Flag.Boolean("enforce").pipe(
+    Flag.withDefault(false),
+    Flag.withDescription("Answer every above-range question by downgrading into the range."),
+  ),
+  config: Flag.String("config").pipe(
+    Flag.optional,
+    Flag.withDescription("Config file. Default: search upward from cwd for fleet.config.jsonc."),
+  ),
+}).pipe(
   Command.withDescription("Ship the config to every reachable Machine."),
-  Command.withHandler(() => Effect.logWarning("ship is not implemented yet")),
+  Command.withHandler((flags) =>
+    ship({
+      dryRun: flags.dryRun,
+      only: flags.only,
+      rebuild: flags.rebuild,
+      bump: flags.bump,
+      enforce: flags.enforce,
+      config: flags.config._tag === "Some" ? flags.config.value : undefined,
+    }).pipe(
+      // Problems the person can fix print as one message, not a trace.
+      Effect.catch((e) =>
+        Effect.gen(function* () {
+          yield* Console.error(e.message);
+          process.exitCode = 1;
+        }),
+      ),
+    ),
+  ),
 );
 
 const fleetfizz = Command.make("fleetfizz").pipe(
   Command.withDescription("Keep every Machine on your tailnet in line with one config."),
-  Command.withSubcommands([ship]),
+  Command.withSubcommands([shipCommand]),
 );
 
 Command.run(fleetfizz, { version: packageJson.version }).pipe(

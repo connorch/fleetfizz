@@ -8,6 +8,10 @@
     },
     "machines": {
       "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
       "additionalProperties": {
         "type": "object",
         "properties": {
@@ -16,7 +20,7 @@
             "minLength": 1
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
     "repos": {
@@ -26,6 +30,13 @@
         "properties": {
           "platforms": {
             "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "enum": ["darwin", "linux"]
+              }
+            ],
+            "minItems": 1,
             "items": {
               "type": "string",
               "enum": ["darwin", "linux"]
@@ -33,6 +44,13 @@
           },
           "machines": {
             "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ],
+            "minItems": 1,
             "items": {
               "type": "string",
               "minLength": 1
@@ -40,7 +58,8 @@
           },
           "origin": {
             "type": "string",
-            "minLength": 1
+            "title": "GitHub origin",
+            "description": "a GitHub \"owner/repo\""
           },
           "ref": {
             "type": "string",
@@ -53,10 +72,27 @@
           "name": {
             "type": "string",
             "minLength": 1
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "files": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "required": ["origin", "ref", "install"],
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
     "vp": {
@@ -64,6 +100,13 @@
       "properties": {
         "platforms": {
           "type": "array",
+          "prefixItems": [
+            {
+              "type": "string",
+              "enum": ["darwin", "linux"]
+            }
+          ],
+          "minItems": 1,
           "items": {
             "type": "string",
             "enum": ["darwin", "linux"]
@@ -71,6 +114,13 @@
         },
         "machines": {
           "type": "array",
+          "prefixItems": [
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "minItems": 1,
           "items": {
             "type": "string",
             "minLength": 1
@@ -86,15 +136,19 @@
         },
         "globals": {
           "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
           "additionalProperties": {
             "type": "string",
             "minLength": 1
           }
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true,
+  "additionalProperties": false,
   "$defs": {}
 }
