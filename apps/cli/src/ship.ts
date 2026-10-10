@@ -34,6 +34,8 @@ import {
   resolveVersions,
   runScript,
   SSH_UNREACHABLE,
+  stepId,
+  vpStepId,
   type Machine,
   type Tailnet,
 } from "@fleetfizz/remote";
@@ -126,11 +128,33 @@ const gather = Effect.fn("gather")(function* (
 
 // Apply on one Machine: stream the script's markers into ledger lines. A step
 // counts as done only when its ff-done says so; its output is shown on failure.
+// What each step's RUN line says.
+const runLabels = (p: MachinePlan): Readonly<Record<string, string>> =>
+  Object.fromEntries([
+    ...p.vp.map((step) => {
+      switch (step.kind) {
+        case "vp":
+          return [vpStepId(step), `vp upgrade ${step.version}`];
+        case "node":
+          return [vpStepId(step), `node default ${step.version}`];
+        case "reinstall":
+          return [vpStepId(step), `${step.name} reinstall`];
+        case "globals":
+          return [
+            vpStepId(step),
+            `install ${step.packages.map((g) => `${g.name}@${g.version}`).join(" ")}`,
+          ];
+      }
+    }),
+    ...p.repos.map((r) => [stepId(r.name, "install"), `${r.name} install`]),
+  ]);
+
 const apply = Effect.fn("apply")(function* (
   machine: Machine,
   local: boolean,
   script: string,
   secrets: ReadonlyArray<string>,
+  labels: Readonly<Record<string, string>>,
   ledger: Ledger,
 ) {
   let current: { id: string; output: string[] } | undefined;
@@ -298,6 +322,18 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     plans = planAll(cfg, answers);
   }
 
+  for (const p of plans) {
+    yield* ledger.line(p.machine.name, "PLAN", summarize(p));
+    for (const sk of p.skipped)
+      yield* ledger.line(p.machine.name, "SKIP", `${sk.what}: ${sk.reason}`);
+    for (const f of p.failures)
+      yield* ledger.line(p.machine.name, "FAIL", `${f.what}: ${f.reason}`);
+    for (const q of p.questions) {
+      yield* ledger.line(p.machine.name, "ASK", `${q.package} ${q.installed} is above ${q.range}`);
+    }
+    yield* record(p.machine.name, p.failures.length > 0 ? "failed" : "ok");
+  }
+
   if (flags.dryRun) {
     const tally = Object.values(yield* Ref.get(outcomes));
     const n = (kind: Outcome) => tally.filter((o) => o === kind).length;
@@ -340,6 +376,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         machine.name === tailnet.self.name,
         script,
         [lent.token ?? ""],
+        runLabels(p),
         ledger,
       );
       yield* record(machine.name, result);
