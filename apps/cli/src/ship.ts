@@ -362,7 +362,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     Effect.fn("applyOne")(function* ({ machine, plan: p }) {
       if (p === undefined) return;
       if (p.repos.length === 0 && p.vp.length === 0) {
-        yield* ledger.line(machine.name, "OK", "up to date");
+        if (p.failures.length === 0) yield* ledger.line(machine.name, "OK", "up to date");
         return;
       }
       const cloneRoot = config.machines?.[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
