@@ -1,6 +1,6 @@
 # Install Tracked Repos from origin into Managed Clones
 
-Every Tracked Repo installs from its origin ref, on every Machine, from a Managed Clone that fleetfizz owns and resets (`git reset --hard`, then `git clean`) on every Ship. There is no special case for the Starting Machine, and fleetfizz never uses or modifies a developer's own clones. The config is read from the working copy where fleetfizz runs (like Terraform), but nothing is installed from it.
+Every Tracked Repo installs from its origin ref, on every Machine, from a Managed Clone that fleetfizz owns and resets (`git reset --hard`, then `git clean -fd`) on every Ship. Ignored files such as `node_modules` and build caches survive the clean, so installs stay incremental. There is no special case for the Starting Machine, and fleetfizz never uses or modifies a developer's own clones. The config is read from the working copy where fleetfizz runs (like Terraform), but nothing is installed from it.
 
 ## Considered Options
 
