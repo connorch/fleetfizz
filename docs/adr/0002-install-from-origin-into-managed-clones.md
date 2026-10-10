@@ -9,8 +9,9 @@ Every Tracked Repo installs from its origin ref, on every Machine, from a Manage
 
 ## Consequences
 
-- To test a local change, run the repo's Install Command in your own checkout by hand. The next Ship puts origin back only if the commit changed or `--rebuild` is passed, because fleetfizz cannot detect a hand install.
-- The Install Command runs only when the Install Record (commit, Managed Clone path, Install Command hash) differs from the last success on that Machine. A failed install keeps the old record, so the next Ship retries.
+- The Install Command runs only when the Install Record (commit, Managed Clone path, Install Command hash, Files, and Output fingerprints) differs from the last success on that Machine. A failed install keeps the old record, so the next Ship retries.
+- A Tracked Repo may declare Outputs, the paths its Install Command produces. Their fingerprints (symlink target, file hash, or directory tree hash) are stored in the Install Record and checked on every Ship, so a hand install from a developer's own clone counts as Drift and the next Ship restores origin. Repos without Outputs rely on the commit alone, and `--rebuild` is the manual override.
+- A Tracked Repo may declare Files, gitignored files written into the Managed Clone before every install (an `.env`). Their content is public config, never a secret.
 - If the Clone Root does not exist, its repos fail. fleetfizz never falls back to the internal drive, which would silently re-clone gigabytes there (the Mac Studio's Clone Root is an external SSD).
 - fleetfizz never deletes: not Managed Clones, not Globals. Removing an entry from the config only stops managing it.
 - A stable path to a Managed Clone is the Install Command's job (`ln -sfn "$PWD" <path>`), not a fleetfizz feature.

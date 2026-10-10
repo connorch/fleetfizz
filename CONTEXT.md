@@ -79,8 +79,20 @@ The shell command that installs a Tracked Repo from its Managed Clone.
 _Avoid_: build script, hook
 
 **Install Record**:
-For one Machine and one Tracked Repo: the commit, Managed Clone path, and Install Command of the last successful install.
+For one Machine and one Tracked Repo: the commit, Managed Clone path, Install Command, Files, and Output fingerprints of the last successful install.
 _Avoid_: lock, cache, receipt
+
+**Output**:
+A path outside the Managed Clone that a Tracked Repo's Install Command produces, declared in the config so a Ship can tell whether it still matches the last install.
+_Avoid_: artifact, build product
+
+**Drift**:
+An Output whose fingerprint no longer matches its Install Record, usually because someone installed the repo by hand. Drift makes the next Ship run the Install Command again.
+_Avoid_: stale, dirty
+
+**File**:
+A gitignored file, declared in the config, that a Ship writes into a Managed Clone before its Install Command runs.
+_Avoid_: template, asset
 
 ### The vp section
 
@@ -107,14 +119,14 @@ _Avoid_: credential forwarding, shared token
 - A **Ship** runs **Gather** on every reachable targeted **Machine**, then one **Plan**, then asks every **Question**, then **Apply** on every **Machine**
 - No **Machine** changes until every **Question** from every **Machine** is answered
 - A **Machine** has one **Clone Root**, which holds one **Managed Clone** per targeted **Tracked Repo**
-- A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, or the **Install Command** differs from it
+- A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, a **File**, or an **Output** differs from it (**Drift**)
 - The **Starting Machine** lends its **Lent Token** to each other **Machine** for the length of one **Ship**; **Install Commands** never see it
 - An offline **Machine** is skipped, never failed, and stays behind until the next **Ship**
 
 ## Example dialogue
 
 > **Dev:** "I ran pnpm install:desktop:local in my own t3code checkout on the MacBook Pro. Does the next **Ship** put origin back?"
-> **Connor:** "Not by itself. The **Managed Clone** is still at the same commit, so its **Install Record** matches and the **Install Command** is skipped. Ship with `--rebuild connorch-t3code`."
+> **Connor:** "Only if the app is one of t3code's **Outputs**. Then its fingerprint no longer matches the **Install Record**, that is **Drift**, and the **Ship** reinstalls. Without **Outputs**, the commit is unchanged, so ship with `--rebuild connorch-t3code`."
 
 > **Dev:** "Someone ran `vp update -g` and vercel is now 60.1.0, but the **Range** is `^59.25.4`."
 > **Connor:** "That's a **Question**. The **Ship** asks it on the **Starting Machine** before any **Machine** changes: bump the **Range**, skip it on that **Machine**, or downgrade."
