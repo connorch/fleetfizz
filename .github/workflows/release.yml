@@ -21,6 +21,8 @@ jobs:
         with:
           node-version-file: .node-version
           cache: true
+          # Writes the .npmrc that `changeset publish` authenticates with (NODE_AUTH_TOKEN).
+          registry-url: https://registry.npmjs.org
           run-install: |
             - args: [--frozen-lockfile]
       - uses: changesets/action@v2
