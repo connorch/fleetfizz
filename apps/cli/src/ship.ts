@@ -5,7 +5,13 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
-import { findConfig, loadConfig, repoName, type FleetConfig } from "@fleetfizz/config";
+import {
+  DEFAULT_CLONE_ROOT,
+  findConfig,
+  loadConfig,
+  repoName,
+  type FleetConfig,
+} from "@fleetfizz/config";
 import {
   assembleState,
   NODE_PACKAGE,
@@ -16,6 +22,7 @@ import {
   type Rebuild,
 } from "@fleetfizz/core";
 import {
+  applyScript,
   gatherScript,
   parseLine,
   readTailnet,
@@ -78,7 +85,7 @@ const gather = Effect.fn("gather")(function* (
   config: FleetConfig,
   ledger: Ledger,
 ) {
-  const cloneRoot = config.machines?.[machine.name]?.clones ?? "~/.local/share/fleetfizz/clones";
+  const cloneRoot = config.machines?.[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
   const repos = (config.repos ?? []).map((r) => ({ name: repoName(r), outputs: r.outputs ?? [] }));
   const facts: Fact[] = [];
   const output: string[] = [];
@@ -103,11 +110,80 @@ const gather = Effect.fn("gather")(function* (
     );
     return { kind: "skipped" as const };
   }
-  if (facts.length === 0) {
-    yield* ledger.fail(machine.name, ["gather returned no state", ...output]);
+  const state = assembleState(facts);
+  if (!state.complete) {
+    yield* ledger.fail(machine.name, ["gather did not finish", ...output]);
     return { kind: "failed" as const };
   }
-  return { kind: "gathered" as const, state: assembleState(facts) };
+  return { kind: "gathered" as const, state };
+});
+
+// Apply on one Machine: stream the script's markers into ledger lines. A step
+// counts as done only when its ff-done says so; its output is shown on failure.
+const apply = Effect.fn("apply")(function* (
+  machine: Machine,
+  local: boolean,
+  script: string,
+  ledger: Ledger,
+) {
+  let current: { id: string; output: string[] } | undefined;
+  const done: string[] = [];
+  const failed: string[] = [];
+  const head: string[] = [];
+  const exitCode = yield* runScript({ name: machine.name, local }, script, [""], (line) =>
+    Effect.gen(function* () {
+      const parsed = parseLine(line);
+      switch (parsed.kind) {
+        case "step":
+          current = { id: parsed.id, output: [] };
+          if (parsed.id.endsWith(":install")) {
+            yield* ledger.line(machine.name, "RUN", `${parsed.id.split(":")[1]} install`);
+          }
+          break;
+        case "done": {
+          const output = current?.id === parsed.done.id ? current.output : [];
+          current = undefined;
+          if (parsed.done.ok) done.push(parsed.done.id);
+          else {
+            failed.push(parsed.done.id);
+            const code = parsed.done.code === undefined ? "" : ` (exit ${parsed.done.code})`;
+            yield* ledger.fail(machine.name, [`${parsed.done.id} failed${code}`, ...output]);
+          }
+          break;
+        }
+        case "text":
+          if (line.trim() !== "") (current?.output ?? head).push(line.trimEnd());
+          break;
+        case "state":
+          break;
+      }
+    }),
+  ).pipe(
+    Effect.catch((e) => Effect.succeed(e.message.includes("tailscale") ? SSH_UNREACHABLE : -1)),
+  );
+  if (exitCode === SSH_UNREACHABLE) {
+    yield* ledger.line(
+      machine.name,
+      "SKIP",
+      `ssh: ${head[0]?.replace(/^tailscale: /, "") ?? "connection failed"}`,
+    );
+    return "skipped" as const;
+  }
+  if (current !== undefined) {
+    yield* ledger.fail(machine.name, [`${current.id} did not finish`, ...current.output]);
+    return "failed" as const;
+  }
+  if (failed.length > 0) return "failed" as const;
+  const installed = done.filter((id) => id.endsWith(":install")).map((id) => id.split(":")[1]);
+  const repos = done.filter((id) => id.endsWith(":fetch")).length;
+  yield* ledger.line(
+    machine.name,
+    "OK",
+    installed.length === 0
+      ? `${repos} repo${repos === 1 ? "" : "s"} up to date`
+      : installed.map((r) => `${r} installed`).join(" · "),
+  );
+  return "ok" as const;
 });
 
 export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
@@ -191,18 +267,48 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     yield* record(p.machine.name, p.failures.length > 0 ? "failed" : "ok");
   }
 
-  if (!flags.dryRun) {
-    yield* Console.error("apply is not implemented yet; run with --dry-run");
+  const askedAny = plans.some((p) => p.questions.length > 0);
+  if (flags.dryRun) {
+    const tally = Object.values(yield* Ref.get(outcomes));
+    const n = (kind: Outcome) => tally.filter((o) => o === kind).length;
+    yield* ledger.line(
+      "fleet",
+      "DONE",
+      `planned ${n("ok")}  skipped ${n("skipped")}  failed ${n("failed")}`,
+    );
+    if (n("failed") > 0) process.exitCode = 1;
+    return;
+  }
+  if (askedAny) {
+    yield* Console.error("questions are not implemented yet; run with --dry-run");
     process.exitCode = 1;
     return;
   }
+
+  // Apply, in parallel. No Machine changed before this point.
+  const machineNames = tailnet.fleet.map((m) => m.name);
+  yield* Effect.forEach(
+    gathered.map(({ machine }, i) => ({ machine, plan: plans[i] })),
+    Effect.fn("applyOne")(function* ({ machine, plan: p }) {
+      if (p === undefined || p.repos.length === 0) return;
+      const cloneRoot = config.machines?.[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
+      const script = applyScript({
+        plan: p,
+        cloneRoot,
+        env: { machine: machine.name, platform: machine.platform, machines: machineNames },
+      });
+      const result = yield* apply(machine, machine.name === tailnet.self.name, script, ledger);
+      yield* record(machine.name, result);
+    }),
+    { concurrency: "unbounded" },
+  );
 
   const tally = Object.values(yield* Ref.get(outcomes));
   const n = (kind: Outcome) => tally.filter((o) => o === kind).length;
   yield* ledger.line(
     "fleet",
     "DONE",
-    `planned ${n("ok")}  skipped ${n("skipped")}  failed ${n("failed")}`,
+    `ok ${n("ok")}  skipped ${n("skipped")}  failed ${n("failed")}`,
   );
   if (n("failed") > 0) process.exitCode = 1;
 });

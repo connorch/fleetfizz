@@ -23,6 +23,8 @@ export const InstallRecordSchema = Schema.Struct({
 
 export const Fact = Schema.Union([
   Schema.Struct({ fact: Schema.Literal("home"), path: Schema.String }),
+  // Printed last, so a Gather cut off midway is detected.
+  Schema.Struct({ fact: Schema.Literal("end") }),
   // version is null when `vp` is not on PATH.
   Schema.Struct({
     fact: Schema.Literal("vp"),
@@ -44,8 +46,9 @@ export const Fact = Schema.Union([
     origin: Schema.optionalKey(Schema.String),
   }),
   Schema.Struct({
-    fact: Schema.Literal("records"),
-    records: Schema.Record(Schema.String, InstallRecordSchema),
+    fact: Schema.Literal("record"),
+    name: Schema.String,
+    record: InstallRecordSchema,
   }),
   // fingerprint is null when the Output path does not exist.
   Schema.Struct({
@@ -64,6 +67,8 @@ export interface RepoState {
 }
 
 export interface MachineState {
+  // True only when the Gather script ran to its end.
+  readonly complete: boolean;
   readonly home?: string;
   readonly vp?: { readonly version: string | null; readonly path?: string };
   readonly node?: string | null;
@@ -75,7 +80,13 @@ export interface MachineState {
   readonly outputs: Readonly<Record<string, Readonly<Record<string, string | null>>>>;
 }
 
-export const emptyState: MachineState = { globals: [], repos: {}, records: {}, outputs: {} };
+export const emptyState: MachineState = {
+  complete: false,
+  globals: [],
+  repos: {},
+  records: {},
+  outputs: {},
+};
 
 export const assembleState = (facts: ReadonlyArray<Fact>): MachineState => {
   let state: MachineState = emptyState;
@@ -83,6 +94,9 @@ export const assembleState = (facts: ReadonlyArray<Fact>): MachineState => {
     switch (fact.fact) {
       case "home":
         state = { ...state, home: fact.path };
+        break;
+      case "end":
+        state = { ...state, complete: true };
         break;
       case "vp":
         state = {
@@ -111,8 +125,8 @@ export const assembleState = (facts: ReadonlyArray<Fact>): MachineState => {
         state = { ...state, repos: { ...state.repos, [fact.name]: repo } };
         break;
       }
-      case "records":
-        state = { ...state, records: fact.records };
+      case "record":
+        state = { ...state, records: { ...state.records, [fact.name]: fact.record } };
         break;
       case "output":
         state = {

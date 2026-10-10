@@ -61,6 +61,16 @@ describe("decideInstall", () => {
     ).toEqual({ run: true, reason: "drift: /Applications/T3 Code (Alpha).app" });
   });
 
+  it("runs when a newly declared Output does not exist yet", () => {
+    expect(
+      decideInstall(
+        record,
+        { ...same, outputs: { ...same.outputs, "~/.local/bin/t3": undefined } },
+        false,
+      ),
+    ).toEqual({ run: true, reason: "drift: ~/.local/bin/t3" });
+  });
+
   it("--rebuild always runs", () => {
     expect(decideInstall(record, same, true)).toEqual({ run: true, reason: "--rebuild" });
   });

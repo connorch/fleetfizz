@@ -1,5 +1,6 @@
 // Runs a generated script on one Machine: `tailscale ssh <name> <script>` for
-// a remote Machine, `$SHELL -c <script>` on the Starting Machine. The script
+// a remote Machine, `$SHELL -lc <script>` on the Starting Machine (a login
+// shell, like the remote side, so PATH is the user's usual one). The script
 // travels in argv and carries no secrets; secrets go on stdin, one per line,
 // in a fixed order. Output is streamed line by line so the caller can parse
 // markers as they arrive (ADR 0001).
@@ -32,7 +33,7 @@ const command = (target: Target, script: string, secrets: ReadonlyArray<string>)
   const stdin = Stream.encodeText(Stream.make(secrets.map((s) => `${s}\n`).join("")));
   const options = { stdin, stdout: "pipe", stderr: "pipe" } as const;
   return target.local
-    ? ChildProcess.make(process.env.SHELL ?? "/bin/sh", ["-c", script], options)
+    ? ChildProcess.make(process.env.SHELL ?? "/bin/sh", ["-lc", script], options)
     : ChildProcess.make("tailscale", ["ssh", target.name, script], options);
 };
 

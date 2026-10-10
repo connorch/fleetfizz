@@ -42,7 +42,10 @@ export const decideInstall = (
   if (record.install !== now.install) return { run: true, reason: "install command changed" };
   if (!sameRecord(record.files, now.files)) return { run: true, reason: "files changed" };
   for (const [path, fingerprint] of Object.entries(now.outputs)) {
-    if (record.outputs[path] !== fingerprint) return { run: true, reason: `drift: ${path}` };
+    // A missing Output is Drift even when it was never recorded (newly declared).
+    if (fingerprint === undefined || record.outputs[path] !== fingerprint) {
+      return { run: true, reason: `drift: ${path}` };
+    }
   }
   return { run: false };
 };

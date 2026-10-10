@@ -1,5 +1,5 @@
 // The read-only Gather script: one ssh per Machine, printing ff-state Facts.
-import { prelude, quote, quotePath } from "./shell.ts";
+import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 
 export interface GatherRepo {
   readonly name: string;
@@ -12,19 +12,7 @@ export interface GatherInput {
 }
 
 export const STATE_DIR = "~/.local/state/fleetfizz";
-export const RECORDS_FILE = `${STATE_DIR}/install-records.json`;
-
-// Fingerprints one path: a symlink by its target, a file by its sha256, a
-// directory by the sha256 of its sorted file list and file hashes (never
-// mtimes). Prints nothing when the path is missing.
-const fingerprintFn = [
-  "ff_fp() {",
-  '  if [ -L "$1" ]; then printf \'link:%s\' "$(readlink "$1")";',
-  '  elif [ -f "$1" ]; then printf \'file:%s\' "$(shasum -a 256 < "$1" | cut -d" " -f1)";',
-  '  elif [ -d "$1" ]; then printf \'tree:%s\' "$( (cd "$1" && find . -type f -print0 | sort -z | xargs -0 shasum -a 256) | shasum -a 256 | cut -d" " -f1)";',
-  "  fi",
-  "}",
-].join("\n");
+export const RECORDS_DIR = `${STATE_DIR}/records`;
 
 export const gatherScript = (input: GatherInput): string => {
   const lines = [
@@ -63,9 +51,13 @@ export const gatherScript = (input: GatherInput): string => {
       );
     }
   }
-  lines.push(
-    `ff_r=${quotePath(RECORDS_FILE)}`,
-    `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"records\\",\\"records\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
-  );
+  for (const repo of input.repos) {
+    const name = quote(repo.name);
+    lines.push(
+      `ff_r=${quotePath(RECORDS_DIR)}/${quote(`${repo.name}.json`)}`,
+      `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"record\\",\\"name\\":\\"$(ff_json ${name})\\",\\"record\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
+    );
+  }
+  lines.push(`ff_state '{"fact":"end"}'`);
   return lines.join("\n");
 };

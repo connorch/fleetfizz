@@ -33,6 +33,7 @@ const versions = {
 // The MacBook Pro as of the brief: old vp, old Globals, nothing cloned.
 const macbook: MachineState = {
   ...emptyState,
+  complete: true,
   home: "/Users/connor",
   vp: { version: "1.0.0-rc.0", path: "/Users/connor/.vite-plus/bin/vp" },
   node: "24.18.1",
