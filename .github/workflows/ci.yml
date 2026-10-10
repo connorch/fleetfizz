@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version-file: .node-version
+          cache: true
+          run-install:
+            - args: [--frozen-lockfile]
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm fmt:check
+      - run: pnpm test
+      - run: pnpm build
+      - name: Smoke the bundle
+        run: node apps/cli/dist/fleetfizz.mjs --help
