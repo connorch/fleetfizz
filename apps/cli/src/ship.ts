@@ -167,15 +167,8 @@ const apply = Effect.fn("apply")(function* (
       switch (parsed.kind) {
         case "step":
           current = { id: parsed.id, output: [] };
-          if (parsed.id.endsWith(":install")) {
-            yield* ledger.line(machine.name, "RUN", `${parsed.id.split(":")[1]} install`);
-          } else if (parsed.id.startsWith("vp:")) {
-            yield* ledger.line(
-              machine.name,
-              "RUN",
-              parsed.id.replace(/^vp:/, "vp ").replaceAll(":", " "),
-            );
-          }
+          if (labels[parsed.id] !== undefined)
+            yield* ledger.line(machine.name, "RUN", labels[parsed.id]);
           break;
         case "done": {
           const output = current?.id === parsed.done.id ? current.output : [];
