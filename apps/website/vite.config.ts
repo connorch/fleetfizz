@@ -10,7 +10,13 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     tanstackStart({
-      prerender: { enabled: true, crawlLinks: true, failOnError: true },
+      prerender: {
+        enabled: true,
+        crawlLinks: true,
+        failOnError: true,
+        // Design mocks live under /mock and never ship.
+        filter: (page) => !page.path.startsWith("/mock"),
+      },
     }),
     nitro({ preset: "vercel-static" }),
     viteReact(),
