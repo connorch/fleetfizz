@@ -43,7 +43,9 @@ export const CONFIG_STEP = "config";
 // layout keeps its bin directory there instead, so those go on PATH as well.
 const VP_INSTALL = [
   "curl -fsSL https://vite.plus | bash",
-  `{ . "\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env" 2>/dev/null || true; }`,
+  // `.` of a missing file ends a non-interactive dash, so check first.
+  `ff_env="\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env"`,
+  `{ [ ! -f "$ff_env" ] || . "$ff_env"; }`,
   `export PATH="\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"`,
   "hash -r 2>/dev/null || true",
 ].join(" && ");
