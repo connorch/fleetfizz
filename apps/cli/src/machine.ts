@@ -116,6 +116,8 @@ export const apply = Effect.fn("apply")(function* (
   ledger: Ledger,
 ) {
   let current: { id: string; output: string[] } | undefined;
+  // Any step marker: the Machine has started changing.
+  let started = false;
   const done: string[] = [];
   const failed: string[] = [];
   const head: string[] = [];
@@ -128,6 +130,7 @@ export const apply = Effect.fn("apply")(function* (
       Effect.gen(function* () {
         switch (line.kind) {
           case "step":
+            started = true;
             current = { id: line.id, output: [] };
             yield* ledger.stepStarted(target.name, line.id);
             break;
@@ -170,7 +173,10 @@ export const apply = Effect.fn("apply")(function* (
       output: current.output,
     });
   }
-  if (run.kind !== "ran") return yield* finish(run.kind);
+  // ssh's exit 255 after a step started is a dropped connection on a Machine
+  // that is partly changed: a failure, not a SKIP.
+  if (run.kind !== "ran")
+    return yield* finish(run.kind === "skipped" && started ? "failed" : run.kind);
   if (current !== undefined) return yield* finish("failed");
   if (!done.includes(END_STEP)) {
     yield* ledger.fail(target.name, ["apply did not finish", ...head]);
