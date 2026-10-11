@@ -30,20 +30,22 @@ describe("stampText", () => {
 `);
   });
 
-  it("replaces an existing stamp in place and keeps unreached Machines' entries", () => {
+  it("replaces an existing stamp in place, keeps unreached Fleet Machines' entries, and drops removed Machines", () => {
     const text = `{
   "shippedAt": "2026-10-09T00:00:00.000Z",
   "shippedFrom": "connors-macbook-pro",
   "shippedTo": { "connors-macbook-pro": "2026-10-09T00:00:00.000Z", "bluefin": "2026-10-01T00:00:00.000Z" },
-  "machines": { "connors-mac-studio": {} },
+  "machines": { "connors-mac-studio": {}, "connors-macbook-pro": {} },
 }`;
     const out = stampText(text, { ...stamp, reached: ["connors-mac-studio"] });
     expect(out).toContain(`"shippedAt": "2026-10-10T20:00:00.000Z"`);
     expect(out).toContain(`"shippedFrom": "connors-mac-studio"`);
     expect(out).toContain(`"connors-mac-studio": "2026-10-10T20:00:00.000Z"`);
     expect(out).toContain(`"connors-macbook-pro": "2026-10-09T00:00:00.000Z"`);
-    expect(out).toContain(`"bluefin": "2026-10-01T00:00:00.000Z"`);
-    expect(out.endsWith(`"machines": { "connors-mac-studio": {} },\n}`)).toBe(true);
+    expect(out).not.toContain("bluefin");
+    expect(
+      out.endsWith(`"machines": { "connors-mac-studio": {}, "connors-macbook-pro": {} },\n}`),
+    ).toBe(true);
   });
 });
 

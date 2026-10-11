@@ -7,7 +7,8 @@ export interface Stamp {
   readonly shippedAt: string;
   readonly shippedFrom: string;
   // The Machines this Ship reaches. Each gets `shippedAt` in `shippedTo`;
-  // entries for other Machines are kept as they were.
+  // entries for other Fleet Machines are kept as they were, and entries for
+  // Machines no longer in `machines` are dropped.
   readonly reached: ReadonlyArray<string>;
 }
 
@@ -30,7 +31,10 @@ export const stampText = (text: string, stamp: Stamp): string => {
       }),
     );
   const previous: unknown = jsonc.parse(text, undefined, { allowTrailingComma: true });
-  const existing = shippedToOf(previous);
+  const fleet = machinesOf(previous);
+  const existing = Object.fromEntries(
+    Object.entries(shippedToOf(previous)).filter(([name]) => fleet.includes(name)),
+  );
   const shippedTo = {
     ...existing,
     ...Object.fromEntries(stamp.reached.map((name) => [name, stamp.shippedAt])),
@@ -38,6 +42,12 @@ export const stampText = (text: string, stamp: Stamp): string => {
   let out = set(text, "shippedAt", stamp.shippedAt);
   out = set(out, "shippedFrom", stamp.shippedFrom);
   return set(out, "shippedTo", shippedTo);
+};
+
+const machinesOf = (config: unknown): ReadonlyArray<string> => {
+  if (typeof config !== "object" || config === null || !("machines" in config)) return [];
+  const value = config.machines;
+  return typeof value === "object" && value !== null ? Object.keys(value) : [];
 };
 
 const shippedToOf = (config: unknown): Record<string, string> => {
