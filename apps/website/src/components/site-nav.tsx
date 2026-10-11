@@ -8,7 +8,7 @@ export const GITHUB_URL = "https://github.com/connorch/fleetfizz";
 
 export function SiteNav() {
   return (
-    <header>
+    <header className="relative z-10">
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-6">
         <Link to="/" className="flex items-center">
           <Wordmark />

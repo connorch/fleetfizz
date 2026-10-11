@@ -1,3 +1,4 @@
+import { cn } from "@fleetfizz/ui/lib/utils";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { Palette } from "./bubbles";
 
@@ -52,7 +53,9 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-export function FizzBackground() {
+// `className` positions the scene: fixed behind the whole page by default, or
+// absolute inside a band that scrolls away.
+export function FizzBackground({ className }: { className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const palette = usePalette(ref);
   const reduced = useReducedMotion();
@@ -64,7 +67,10 @@ export function FizzBackground() {
     <div
       ref={ref}
       aria-hidden="true"
-      className="bg-fizz fixed inset-0 -z-10 text-white [--bubble-emissive:0.4] [--bubble-rim:1.1] [--glow:var(--color-fizz)] [--scene-opacity:0.8] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)] dark:[--scene-opacity:0.28]"
+      className={cn(
+        "bg-fizz text-white [--bubble-emissive:0.4] [--bubble-rim:1.1] [--glow:var(--color-fizz)] [--scene-opacity:0.8] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)] dark:[--scene-opacity:0.28]",
+        className ?? "fixed inset-0 -z-10",
+      )}
     >
       {/* Slightly out of focus. Oversized so the blur has no soft edge. The
           scene stays dimmed in dark mode so the text reads over it. */}
