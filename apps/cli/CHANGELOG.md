@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.3.0
+
+### Minor Changes
+
+- [`88f5835`](https://github.com/connorch/fleetfizz/commit/88f58356e1a25e3c46f338ac3845c8f96aeeacde) Thanks [@connorch](https://github.com/connorch)! - The command is `fizz` (`fizz ship`). The npm package stays `fleetfizz`.
+
 ## 0.2.3
 
 ### Patch Changes
