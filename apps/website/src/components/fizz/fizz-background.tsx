@@ -64,7 +64,7 @@ export function FizzBackground() {
     <div
       ref={ref}
       aria-hidden="true"
-      className="bg-fizz fixed inset-0 -z-10 text-white [--bubble-emissive:0.12] [--bubble-rim:0.5] [--glow:var(--color-fizz)] [--scene-opacity:1] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)] dark:[--scene-opacity:0.55]"
+      className="bg-fizz fixed inset-0 -z-10 text-white [--bubble-emissive:0.12] [--bubble-rim:0.5] [--glow:var(--color-fizz)] [--scene-opacity:1] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)] dark:[--scene-opacity:0.45]"
     >
       {/* Slightly out of focus. Oversized so the blur has no soft edge. The
           scene stays dimmed in dark mode so the text reads over it. */}
