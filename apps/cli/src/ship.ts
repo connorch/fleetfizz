@@ -153,6 +153,12 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       new ShipError(`this Machine (${tailnet.self.name}) is not in machines in ${path}`),
     );
   }
+  const outsideFleet = flags.only.filter((name) => !fleet.has(name));
+  if (outsideFleet.length > 0) {
+    return yield* Effect.fail(
+      new ShipError(`not in machines in ${path}: ${outsideFleet.join(", ")}`),
+    );
+  }
   const targetsList = tailnet.fleet.filter(
     (m) => fleet.has(m.name) && (flags.only.length === 0 || flags.only.includes(m.name)),
   );

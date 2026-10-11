@@ -47,7 +47,8 @@ const VP_INSTALL = [
   `ff_env="\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env"`,
   `{ [ ! -f "$ff_env" ] || . "$ff_env"; }`,
   `export PATH="\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"`,
-  "hash -r 2>/dev/null || true",
+  // Braced so its `|| true` cannot swallow a failed installer earlier in the chain.
+  "{ hash -r 2>/dev/null || true; }",
 ].join(" && ");
 
 // One vp step: the command in a subshell, then its marker.
