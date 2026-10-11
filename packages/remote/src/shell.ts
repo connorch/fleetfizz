@@ -11,7 +11,19 @@ export const quotePath = (path: string): string => {
 };
 
 // Shell functions every generated script starts with.
+// Puts vp's bin on PATH. A login shell has sourced vp's env file already, but
+// over ssh Ubuntu's .bashrc returns before reaching it in a non-interactive
+// shell, so every script does this itself (dash exits on `.` of a missing
+// file, hence the check). A VP_HOME or legacy ~/.vite-plus layout keeps its
+// bin elsewhere, so those go on PATH as well.
+export const vpEnv = [
+  `ff_env="\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env"`,
+  `{ [ ! -f "$ff_env" ] || . "$ff_env"; }`,
+  `export PATH="\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"`,
+].join("\n");
+
 export const prelude = [
+  vpEnv,
   // JSON-escapes $1 for embedding inside a double-quoted JSON string.
   `ff_json() { printf '%s' "$1" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | tr -d '\\n'; }`,
   `ff_state() { printf 'ff-state %s\\n' "$1"; }`,

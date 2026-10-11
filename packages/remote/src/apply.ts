@@ -8,7 +8,7 @@ import type { MachinePlan, RepoStep, VpStep } from "@fleetfizz/core";
 
 import { CONFIG_DIR_SH, RECORDS_DIR } from "./gather.ts";
 import { doneLine, stepLine } from "./protocol.ts";
-import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
+import { fingerprintFn, prelude, quote, quotePath, vpEnv } from "./shell.ts";
 
 // JSON literals for the record template; everything but the commit and the
 // Output fingerprints, which only the Machine knows after the install.
@@ -38,15 +38,11 @@ export const vpStepId = (step: VpStep): string =>
 // The config copy, one step on every Machine (ADR 0008).
 export const CONFIG_STEP = "config";
 
-// vp's installer, then its env file so `vp` resolves for the rest of the
-// script. The env file is under XDG config; a VP_HOME or legacy ~/.vite-plus
-// layout keeps its bin directory there instead, so those go on PATH as well.
+// vp's installer, then its env file again so `vp` resolves for the rest of
+// the script.
 const VP_INSTALL = [
   "curl -fsSL https://vite.plus | bash",
-  // `.` of a missing file ends a non-interactive dash, so check first.
-  `ff_env="\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env"`,
-  `{ [ ! -f "$ff_env" ] || . "$ff_env"; }`,
-  `export PATH="\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"`,
+  ...vpEnv.split("\n"),
   // Braced so its `|| true` cannot swallow a failed installer earlier in the chain.
   "{ hash -r 2>/dev/null || true; }",
 ].join(" && ");
