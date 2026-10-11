@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.2.3
+
+### Patch Changes
+
+- [`c3bd1ba`](https://github.com/connorch/fleetfizz/commit/c3bd1ba06a12bd167baa7cec8ef8d1da746c4505) Thanks [@connorch](https://github.com/connorch)! - The stamp drops `shippedTo` entries for Machines no longer listed in `machines`.
+
 ## 0.2.2
 
 ### Patch Changes
