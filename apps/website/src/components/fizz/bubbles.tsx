@@ -52,10 +52,10 @@ const seed = (width: number, height: number): Bubble[] =>
       y: rand(-halfH, halfH),
       z,
       radius,
-      rise: rand(0.1, 0.22),
-      sway: rand(0.1, 0.4),
+      rise: rand(0.05, 0.11),
+      sway: rand(0.1, 0.3),
       phase: rand(0, Math.PI * 2),
-      freq: rand(0.2, 0.6),
+      freq: rand(0.1, 0.3),
       halfW,
       halfH,
     };
