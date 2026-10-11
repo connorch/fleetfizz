@@ -82,12 +82,12 @@ const BookOpenIcon = forwardRef<BookOpenIconHandle, BookOpenIconProps>(
 
     return (
       <LazyMotion features={domMin} strict>
-        <m.div
+        <div
           className={cn("inline-flex items-center justify-center", className)}
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
           {...props}
-          style={{ ...(color === undefined ? {} : { color }), ...props.style }}
+          style={{ color, ...props.style }}
         >
           <m.svg
             xmlns="http://www.w3.org/2000/svg"
@@ -109,7 +109,7 @@ const BookOpenIcon = forwardRef<BookOpenIconHandle, BookOpenIconProps>(
               style={{ transformBox: "view-box", originX: "12px", originY: "12px" }}
             />
           </m.svg>
-        </m.div>
+        </div>
       </LazyMotion>
     );
   },

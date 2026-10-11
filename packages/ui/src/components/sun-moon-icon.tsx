@@ -87,12 +87,12 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
 
     return (
       <LazyMotion features={domMin} strict>
-        <m.div
+        <div
           className={cn("inline-flex items-center justify-center", className)}
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
           {...props}
-          style={{ ...(color === undefined ? {} : { color }), ...props.style }}
+          style={{ color, ...props.style }}
         >
           <m.svg
             xmlns="http://www.w3.org/2000/svg"
@@ -117,7 +117,7 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
             <m.path d="m19 5-1.256 1.256" variants={rayVariants(0.65, -0.65)} />
             <m.path d="M20 12h2" variants={rayVariants(0.9, 0)} />
           </m.svg>
-        </m.div>
+        </div>
       </LazyMotion>
     );
   },
