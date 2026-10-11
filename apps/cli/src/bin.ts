@@ -38,7 +38,7 @@ const shipCommand = Command.make("ship", {
   ),
   config: Flag.String("config").pipe(
     Flag.optional,
-    Flag.withDescription("Config file. Default: $XDG_CONFIG_HOME/fleetfizz/fleet.config.jsonc."),
+    Flag.withDescription("Config file. Default: $XDG_CONFIG_HOME/fleetfizz/config.jsonc."),
   ),
 }).pipe(
   Command.withDescription("Ship the config to every reachable Machine."),

@@ -63,7 +63,7 @@ export const MachineSettings = Schema.Struct({
   clones: Schema.optionalKey(Schema.NonEmptyString),
 });
 
-// The whole fleet.config.jsonc, exactly as a user writes it.
+// The whole config.jsonc, exactly as a user writes it.
 export const FleetConfig = Schema.Struct({
   $schema: Schema.optionalKey(Schema.String),
   // Written by every Ship, never by hand: when and from which Machine this

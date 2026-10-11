@@ -6,7 +6,7 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/
 
 ## Usage
 
-Install fleetfizz as a vp Global on the Machine you will ship from, and write the config at `~/.config/fleetfizz/fleet.config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
+Install fleetfizz as a vp Global on the Machine you will ship from, and write the config at `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
 
 ```sh
 vp install -g fleetfizz
@@ -15,7 +15,7 @@ mkdir -p ~/.config/fleetfizz
 
 ```jsonc
 {
-  "$schema": "./fleet.schema.json",
+  "$schema": "./schema.json",
   // The Fleet: every Machine a Ship touches, by its tailnet name. The Machine
   // you ship from must be listed.
   "machines": {
@@ -46,7 +46,7 @@ fizz ship --dry-run   # gather every Machine and print its plan; change nothing
 fizz ship             # apply the plan everywhere, in parallel
 ```
 
-Every Ship copies this config (and `fleet.schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks before overwriting it; `--overwrite-config` answers yes in advance, and without a terminal the Ship stops instead.
+Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks before overwriting it; `--overwrite-config` answers yes in advance, and without a terminal the Ship stops instead.
 
 Flags: `--only <machine>` (repeatable), `--rebuild <repo>` or `--rebuild all`, `--bump` and `--enforce` to answer above-range questions in advance, `--overwrite-config`, `--config <path>`.
 

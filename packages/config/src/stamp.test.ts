@@ -12,13 +12,13 @@ describe("stampText", () => {
   it("adds the stamp after $schema and keeps comments", () => {
     const text = `{
   // the schema
-  "$schema": "./fleet.schema.json",
+  "$schema": "./schema.json",
   "machines": { "connors-mac-studio": {} }, // the fleet
 }
 `;
     expect(stampText(text, stamp)).toBe(`{
   // the schema
-  "$schema": "./fleet.schema.json",
+  "$schema": "./schema.json",
   "shippedAt": "2026-10-10T20:00:00.000Z",
   "shippedFrom": "connors-mac-studio",
   "shippedTo": {

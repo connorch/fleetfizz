@@ -1,5 +1,5 @@
 // "Bump": answer an above-range Question by editing one Range in
-// fleet.config.jsonc. Only the one string literal changes; comments and
+// config.jsonc. Only the one string literal changes; comments and
 // formatting stay (ADR 0004).
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";

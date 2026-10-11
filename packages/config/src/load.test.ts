@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 
 import { parseConfig } from "./load.ts";
 
-const parse = (text: string) => Effect.result(parseConfig("fleet.config.jsonc", text));
+const parse = (text: string) => Effect.result(parseConfig("config.jsonc", text));
 
 describe("parseConfig", () => {
   it.effect("parses jsonc with comments and trailing commas", () =>

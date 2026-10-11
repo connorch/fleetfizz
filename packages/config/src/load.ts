@@ -6,8 +6,8 @@ import * as jsonc from "jsonc-parser";
 
 import { FleetConfig, repoName, SELF_PACKAGE } from "./schema.ts";
 
-export const CONFIG_FILE = "fleet.config.jsonc";
-export const SCHEMA_FILE = "fleet.schema.json";
+export const CONFIG_FILE = "config.jsonc";
+export const SCHEMA_FILE = "schema.json";
 
 // The config directory on every Machine: $XDG_CONFIG_HOME/fleetfizz, which
 // defaults to ~/.config/fleetfizz (ADR 0008). `env` is the process environment.

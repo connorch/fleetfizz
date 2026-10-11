@@ -23,7 +23,7 @@ The Machine where a Ship is run. Any Machine in the Fleet can be one, and it is 
 _Avoid_: controller, master, local machine
 
 **Config**:
-The one `fleet.config.jsonc` that describes the Fleet, kept at the same path on every Machine. The Starting Machine's copy is the one a Ship reads, and the Ship copies it to every other Machine.
+The one `config.jsonc` that describes the Fleet, kept at the same path on every Machine. The Starting Machine's copy is the one a Ship reads, and the Ship copies it to every other Machine.
 _Avoid_: manifest, fleet file, settings
 
 **Stale Config**:

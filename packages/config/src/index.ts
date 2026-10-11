@@ -1,4 +1,4 @@
-// @fleetfizz/config: the FleetConfig Schema and loading of fleet.config.jsonc.
+// @fleetfizz/config: the FleetConfig Schema and loading of config.jsonc.
 export { bumpConfig, bumpedRange, BumpError, bumpText, rangePath } from "./bump.ts";
 export { fleetConfigJsonSchema } from "./jsonSchema.ts";
 export {

@@ -6,12 +6,12 @@ import * as Schema from "effect/Schema";
 
 import { fleetConfigJsonSchema } from "@fleetfizz/config";
 
-describe("fleet.schema.json", () => {
+describe("schema.json", () => {
   it.effect("is current (run `pnpm schema` to regenerate)", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const checkedIn = yield* fs.readFileString(
-        new URL("../fleet.schema.json", import.meta.url).pathname,
+        new URL("../schema.json", import.meta.url).pathname,
       );
       const parsed = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(
         checkedIn,
