@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0008
+---
+
 # Config lives in the user's repo, validated by the published JSON Schema
 
 fleetfizz contains no personal config, because it may become a product. A user's config is a `fleet.config.jsonc` in a repo they already have (Connor's is in connorch/skills). It is data, not code: JSON with comments, validated in the editor by a JSON Schema that the `fleetfizz` npm package ships (`"$schema": "./node_modules/fleetfizz/fleet.schema.json"`), and at runtime by the Effect Schema the JSON Schema is generated from. That repo depends on `fleetfizz` from npm as a devDependency and runs it from there (`"ship": "fleetfizz ship"`), so the CLI and the schema are always the same version, pinned by that repo's lockfile.

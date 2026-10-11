@@ -7,8 +7,8 @@ fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: th
 ### The Fleet
 
 **Fleet**:
-Every macOS and linux Machine on the tailnet.
-_Avoid_: devices, hosts, cluster
+The Machines listed in the Config. A tailnet member that is not listed is not part of the Fleet.
+_Avoid_: devices, hosts, cluster, whitelist
 
 **Machine**:
 One member of the Fleet, named by the first label of its MagicDNS name (`connors-mac-studio`).
@@ -19,8 +19,16 @@ A Machine's OS family: `darwin` or `linux`. Any other OS is not part of the Flee
 _Avoid_: OS, device type
 
 **Starting Machine**:
-The Machine where a Ship is run; the only Machine that runs fleetfizz. It is also a target of its own Ship.
+The Machine where a Ship is run. Any Machine in the Fleet can be one, and it is also a target of its own Ship.
 _Avoid_: controller, master, local machine
+
+**Config**:
+The one `fleet.config.jsonc` that describes the Fleet, kept at the same path on every Machine. The Starting Machine's copy is the one a Ship reads, and the Ship copies it to every other Machine.
+_Avoid_: manifest, fleet file, settings
+
+**Stale Config**:
+A Config older than one found on another Machine during Gather, which means a Ship from elsewhere missed this Machine. Shipping from it is refused until the person confirms.
+_Avoid_: outdated config, conflict
 
 **Targeting**:
 The Platforms and Machines a config entry applies to; its fields combine with AND, and an unset field means every one.
@@ -116,7 +124,8 @@ _Avoid_: credential forwarding, shared token
 
 ## Relationships
 
-- A **Ship** runs **Gather** on every reachable targeted **Machine**, then one **Plan**, then asks every **Question**, then **Apply** on every **Machine**
+- A **Ship** runs **Gather** on every reachable **Machine** in the **Fleet**, then one **Plan**, then asks every **Question**, then **Apply** on every **Machine**
+- Every **Ship** copies the **Starting Machine**'s **Config** to every reachable **Machine**, and installs its own version of fleetfizz there, so any **Machine** can be the next **Starting Machine**
 - No **Machine** changes until every **Question** from every **Machine** is answered
 - A **Machine** has one **Clone Root**, which holds one **Managed Clone** per targeted **Tracked Repo**
 - A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, a **File**, or an **Output** differs from it (**Drift**)
