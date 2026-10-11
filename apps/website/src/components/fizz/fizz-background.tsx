@@ -66,8 +66,9 @@ export function FizzBackground() {
       aria-hidden="true"
       className="bg-fizz fixed inset-0 -z-10 text-white [--bubble-emissive:0.12] [--bubble-rim:0.5] [--glow:var(--color-fizz)] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)]"
     >
+      {/* Slightly out of focus. Oversized so the blur has no soft edge. */}
       <div
-        className="absolute inset-0 transition-opacity delay-1000 duration-[2500ms] ease-out"
+        className="absolute -inset-4 blur-[3px] transition-opacity delay-1000 duration-[2500ms] ease-out"
         style={{ opacity: ready ? 1 : 0 }}
       >
         {palette && (
