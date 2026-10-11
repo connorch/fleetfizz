@@ -11,8 +11,10 @@ export const SCHEMA_FILE = "fleet.schema.json";
 
 // The config directory on every Machine: $XDG_CONFIG_HOME/fleetfizz, which
 // defaults to ~/.config/fleetfizz (ADR 0008). `env` is the process environment.
+// An empty XDG_CONFIG_HOME counts as unset, as `${XDG_CONFIG_HOME:-...}` does
+// in the generated scripts.
 export const configDir = (env: Readonly<Record<string, string | undefined>>): string =>
-  `${env.XDG_CONFIG_HOME ?? `${env.HOME ?? "~"}/.config`}/fleetfizz`;
+  `${env.XDG_CONFIG_HOME || `${env.HOME ?? "~"}/.config`}/fleetfizz`;
 export const configPath = (env: Readonly<Record<string, string | undefined>>): string =>
   `${configDir(env)}/${CONFIG_FILE}`;
 

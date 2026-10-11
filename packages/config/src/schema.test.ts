@@ -13,6 +13,7 @@ describe("FleetConfig", () => {
         $schema: "./fleet.schema.json",
         shippedAt: "2026-10-10T20:00:00.000Z",
         shippedFrom: "connors-mac-studio",
+        shippedTo: { "connors-mac-studio": "2026-10-10T20:00:00.000Z" },
         machines: {
           "connors-mac-studio": { clones: "/Volumes/StudioStack SSD/fleetfizz/clones" },
           "connors-macbook-pro": {},

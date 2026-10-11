@@ -98,11 +98,13 @@ const packagesToResolve = (config: FleetConfig): string[] => {
 const rebuildOf = (flags: ShipFlags): Rebuild =>
   flags.rebuild.length === 0 ? "none" : flags.rebuild.includes("all") ? "all" : flags.rebuild;
 
-// A Machine whose config was shipped after the one being shipped: a Ship from
-// elsewhere missed this Machine, so copying this config would roll it back
-// (ADR 0008). The Starting Machine's own file is the input unless --config
-// named another, in which case it is checked like any other. A config that
-// does not parse is reported and then overwritten; it cannot be newer.
+// A Machine that received a config more recently than this config last
+// reached it: a Ship from elsewhere missed this Machine, so copying this
+// config would roll it back (ADR 0008). The comparison is per Machine
+// (`shippedTo`), so a Ship that missed a Machine cannot outdate it. The
+// Starting Machine's own file is the input unless --config named another, in
+// which case it is checked like any other. A config that does not parse is
+// reported and then overwritten; it cannot be newer.
 const staleConfigs = Effect.fn("staleConfigs")(function* (
   local: FleetConfig,
   inputIsLocalFile: boolean,
@@ -118,7 +120,7 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
       continue;
     }
     const remote = parsed.success;
-    if (isNewer(remote.shippedAt, local.shippedAt)) {
+    if (isNewer(remote.shippedTo?.[machine.name], local.shippedTo?.[machine.name])) {
       stale.push(
         `${machine.name} (shipped ${remote.shippedAt} from ${remote.shippedFrom ?? "unknown"})`,
       );
@@ -288,6 +290,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   const stamped = stampText(yield* fs.readFileString(path), {
     shippedAt,
     shippedFrom: tailnet.self.name,
+    reached: planned.map((g) => g.machine.name),
   });
   yield* fs.writeFileString(path, stamped);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;

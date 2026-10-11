@@ -27,7 +27,7 @@ The one `fleet.config.jsonc` that describes the Fleet, kept at the same path on 
 _Avoid_: manifest, fleet file, settings
 
 **Stale Config**:
-A Config older than one found on another Machine during Gather, which means a Ship from elsewhere missed this Machine. Shipping from it is refused until the person confirms.
+A Config that a Ship of the Starting Machine's Config would roll back: that Machine received a Config more recently than this one last reached it, so a Ship from elsewhere missed this Machine. Shipping over it is refused until the person confirms.
 _Avoid_: outdated config, conflict
 
 **Targeting**:

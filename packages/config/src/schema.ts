@@ -67,9 +67,12 @@ export const MachineSettings = Schema.Struct({
 export const FleetConfig = Schema.Struct({
   $schema: Schema.optionalKey(Schema.String),
   // Written by every Ship, never by hand: when and from which Machine this
-  // copy was last shipped. A Ship refuses to overwrite a newer copy (ADR 0008).
+  // copy was last shipped, and per Machine, when a Ship of this config last
+  // reached it. A Ship refuses to overwrite a copy that was shipped to its
+  // Machine more recently than this config reached it (ADR 0008).
   shippedAt: Schema.optionalKey(Schema.String),
   shippedFrom: Schema.optionalKey(Schema.NonEmptyString),
+  shippedTo: Schema.optionalKey(Schema.Record(Schema.NonEmptyString, Schema.String)),
   // The Fleet: keyed by Machine name, every name must exist on the tailnet,
   // and the Starting Machine must be one of them.
   machines: Schema.Record(Schema.NonEmptyString, MachineSettings).check(

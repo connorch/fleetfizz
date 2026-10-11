@@ -2,7 +2,11 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { isNewer, stampText } from "./stamp.ts";
 
-const stamp = { shippedAt: "2026-10-10T20:00:00.000Z", shippedFrom: "connors-mac-studio" };
+const stamp = {
+  shippedAt: "2026-10-10T20:00:00.000Z",
+  shippedFrom: "connors-mac-studio",
+  reached: ["connors-mac-studio", "connors-macbook-pro"],
+};
 
 describe("stampText", () => {
   it("adds the stamp after $schema and keeps comments", () => {
@@ -17,22 +21,29 @@ describe("stampText", () => {
   "$schema": "./fleet.schema.json",
   "shippedAt": "2026-10-10T20:00:00.000Z",
   "shippedFrom": "connors-mac-studio",
+  "shippedTo": {
+    "connors-mac-studio": "2026-10-10T20:00:00.000Z",
+    "connors-macbook-pro": "2026-10-10T20:00:00.000Z"
+  },
   "machines": { "connors-mac-studio": {} }, // the fleet
 }
 `);
   });
 
-  it("replaces an existing stamp in place", () => {
+  it("replaces an existing stamp in place and keeps unreached Machines' entries", () => {
     const text = `{
   "shippedAt": "2026-10-09T00:00:00.000Z",
   "shippedFrom": "connors-macbook-pro",
+  "shippedTo": { "connors-macbook-pro": "2026-10-09T00:00:00.000Z", "bluefin": "2026-10-01T00:00:00.000Z" },
   "machines": { "connors-mac-studio": {} },
 }`;
-    expect(stampText(text, stamp)).toBe(`{
-  "shippedAt": "2026-10-10T20:00:00.000Z",
-  "shippedFrom": "connors-mac-studio",
-  "machines": { "connors-mac-studio": {} },
-}`);
+    const out = stampText(text, { ...stamp, reached: ["connors-mac-studio"] });
+    expect(out).toContain(`"shippedAt": "2026-10-10T20:00:00.000Z"`);
+    expect(out).toContain(`"shippedFrom": "connors-mac-studio"`);
+    expect(out).toContain(`"connors-mac-studio": "2026-10-10T20:00:00.000Z"`);
+    expect(out).toContain(`"connors-macbook-pro": "2026-10-09T00:00:00.000Z"`);
+    expect(out).toContain(`"bluefin": "2026-10-01T00:00:00.000Z"`);
+    expect(out.endsWith(`"machines": { "connors-mac-studio": {} },\n}`)).toBe(true);
   });
 });
 
