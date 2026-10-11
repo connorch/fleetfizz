@@ -75,14 +75,15 @@ const vpStep = (step: VpStep): string[] => {
 };
 
 // Writes the Starting Machine's config and the schema beside it, from stdin
-// lines 2 and 3, atomically.
+// lines 2 and 3, atomically. One && chain, so the step fails on the first
+// failed write (set -e would not stop at the left side of an && list).
 const configStep = (): string[] => {
   const dir = CONFIG_DIR_SH;
   const write = (variable: string, file: string) =>
     `printf '%s' "$${variable}" | base64 -d > ${dir}/${quote(`${file}.tmp`)} && mv -f ${dir}/${quote(`${file}.tmp`)} ${dir}/${quote(file)}`;
   return [
     stepLine(CONFIG_STEP),
-    `( set -e; mkdir -p ${dir}; ${write("ff_config", CONFIG_FILE)}; ${write("ff_schema", SCHEMA_FILE)} )`,
+    `( mkdir -p ${dir} && ${write("ff_config", CONFIG_FILE)} && ${write("ff_schema", SCHEMA_FILE)} )`,
     `ff_code=$?`,
     `if [ "$ff_code" -ne 0 ]; then ${doneLine(CONFIG_STEP, false, "$ff_code")}; else ${doneLine(CONFIG_STEP, true)}; fi`,
   ];
