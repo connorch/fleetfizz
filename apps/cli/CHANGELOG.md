@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.2.1
+
+### Patch Changes
+
+- [`888aa42`](https://github.com/connorch/fleetfizz/commit/888aa425c0185ca1ed9ed20a0baff943c5047c5a) Thanks [@connorch](https://github.com/connorch)! - Gather fails after two minutes instead of hanging the Ship when something on a Machine blocks (macOS holding a `git` on an external SSD until tailscaled's privacy prompt is answered, for example).
+
 ## 0.2.0
 
 ### Minor Changes
