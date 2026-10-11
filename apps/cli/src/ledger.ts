@@ -122,7 +122,9 @@ const doingOf = (id: string) =>
 // Every item on one Machine: what it has now (from Gather), with the plan's
 // changes, skips, and failures laid over it.
 export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
+  // Keyed by kind too: a Tracked Repo may share a name with a Global.
   const items = new Map<string, Item>();
+  const key = (kind: Item["kind"], name: string) => `${kind}:${name}`;
   const base = (name: string, from?: string): Item => ({
     name,
     kind: "version",
@@ -131,8 +133,8 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
     status: "idle",
     steps: [],
   });
-  const set = (name: string, change: (item: Item) => Item) =>
-    items.set(name, change(items.get(name) ?? base(name)));
+  const set = (name: string, change: (item: Item) => Item, k = key("version", name)) =>
+    items.set(k, change(items.get(k) ?? base(name)));
   // `from` null means nothing is installed now; undefined keeps the gathered one.
   const plans =
     (id: string, to: string, from?: string | null, reason?: string) =>
@@ -149,9 +151,9 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
     };
 
   const vp = state.vp?.version ?? undefined;
-  items.set("vp", base("vp", vp));
-  if (state.node != null) items.set("node", base("node", state.node));
-  for (const g of state.globals) items.set(g.name, base(g.name, g.version));
+  items.set(key("version", "vp"), base("vp", vp));
+  if (state.node != null) items.set(key("version", "node"), base("node", state.node));
+  for (const g of state.globals) items.set(key("version", g.name), base(g.name, g.version));
 
   for (const step of p.vp) {
     const id = vpStepId(step);
@@ -174,7 +176,7 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
   for (const repo of p.repos) {
     const from = short(state.records[repo.name]?.commit);
     const to = short(repo.head);
-    items.set(repo.name, {
+    items.set(key("repo", repo.name), {
       name: repo.name,
       kind: "repo",
       ...(from === undefined ? {} : { from }),
@@ -186,10 +188,13 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
     });
   }
   for (const s of p.skipped) set(s.what, (i) => ({ ...i, status: "skipped", detail: s.reason }));
+  // A failure names a vp item or a repo; a repo that failed planning has no
+  // item yet and gets one of its own.
   for (const f of p.failures) {
-    set(f.what, (i) => ({ ...i, changes: true, status: "failed", detail: f.reason }));
+    const k = items.has(key("repo", f.what)) ? key("repo", f.what) : key("version", f.what);
+    set(f.what, (i) => ({ ...i, changes: true, status: "failed", detail: f.reason }), k);
   }
-  items.set(CONFIG_STEP, {
+  items.set(key("config", CONFIG_STEP), {
     name: CONFIG_STEP,
     kind: "config",
     changes: false,
@@ -275,18 +280,25 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
     plan: (name, p, state) =>
       machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p, state) })),
     start: (name) => machine(name, (m, now) => ({ ...m, status: "running", started: now })),
+    // An item keeps its first failure: a later Step for the same item (vp's
+    // upgrade after its installer) must not hide it.
     stepStarted: (name, id) =>
-      items(name, id, (item, now) => ({
-        ...item,
-        // Every Ship copies the config and fetches every repo; neither is a
-        // change on its own.
-        changes: item.changes || !(id === CONFIG_STEP || id.endsWith(FETCH)),
-        status: "running",
-        doing: doingOf(id),
-        started: item.started ?? now,
-      })),
+      items(name, id, (item, now) =>
+        item.status === "failed"
+          ? item
+          : {
+              ...item,
+              // Every Ship copies the config and fetches every repo; neither is a
+              // change on its own.
+              changes: item.changes || !(id === CONFIG_STEP || id.endsWith(FETCH)),
+              status: "running",
+              doing: doingOf(id),
+              started: item.started ?? now,
+            },
+      ),
     stepDone: (name, id, result) =>
       items(name, id, (item, now) => {
+        if (item.status === "failed") return item;
         if (!result.ok) {
           return {
             ...item,

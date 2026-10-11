@@ -162,15 +162,16 @@ export const apply = Effect.fn("apply")(function* (
     yield* ledger.finish(target.name, outcome);
     return { outcome, done } satisfies Applied;
   });
-  if (run.kind !== "ran") return yield* finish(run.kind);
+  // A step cut off before its marker, by the script or by a dropped connection.
   if (current !== undefined) {
     yield* ledger.stepDone(target.name, current.id, {
       ok: false,
       detail: "did not finish",
       output: current.output,
     });
-    return yield* finish("failed");
   }
+  if (run.kind !== "ran") return yield* finish(run.kind);
+  if (current !== undefined) return yield* finish("failed");
   if (!done.includes(END_STEP)) {
     yield* ledger.fail(target.name, ["apply did not finish", ...head]);
     return yield* finish("failed");

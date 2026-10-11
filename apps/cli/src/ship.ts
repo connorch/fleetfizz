@@ -189,7 +189,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     }
     if (live === noLive) {
       // A saved log cannot be expanded later, so it gets every item.
-      yield* printRows(rows(state, { full: !flags.dryRun, now: state.ended ?? 0, live: false }));
+      yield* printRows(rows(state, { full: true, now: state.ended ?? 0, live: false }));
     }
     if (tally(state).failed > 0) process.exitCode = 1;
   });

@@ -3,6 +3,7 @@
 // --enforce answer every Question in advance (ADR 0006).
 import * as Effect from "effect/Effect";
 
+import { bumpedRange } from "@fleetfizz/config";
 import type { Question } from "@fleetfizz/core";
 
 import type { Ledger } from "./ledger.ts";
@@ -33,7 +34,7 @@ export const askQuestions = Effect.fn("askQuestions")(function* (
     const where = group.map((q) => `${q.installed} on ${q.machine}`).join(", ");
     const range = group[0]?.range ?? "";
     const bump = { kind: "bump", installed: newest(group) } as const;
-    const bumpTitle = `bump the config to ^${newest(group)}`;
+    const bumpTitle = `bump the config to ${bumpedRange(range, newest(group))}`;
     const answer = (decision: Decision) =>
       decision.kind === "bump"
         ? bumpTitle
