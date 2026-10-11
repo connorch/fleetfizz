@@ -85,13 +85,19 @@ export interface Failure {
   readonly reason: string;
 }
 
+// A Failure and the plan section it came from: a Tracked Repo and a Global
+// may share a name.
+export interface PlannedFailure extends Failure {
+  readonly section: "vp" | "repos";
+}
+
 export interface MachinePlan {
   readonly machine: MachineIdentity;
   readonly vp: ReadonlyArray<VpStep>;
   readonly repos: ReadonlyArray<RepoStep>;
   readonly questions: ReadonlyArray<Question>;
   readonly skipped: ReadonlyArray<Skipped>;
-  readonly failures: ReadonlyArray<Failure>;
+  readonly failures: ReadonlyArray<PlannedFailure>;
 }
 
 export const expandHome = (path: string, home: string): string =>
@@ -292,6 +298,9 @@ export const plan = (input: PlanInput): MachinePlan => {
     repos: repos.repos,
     questions: vp.questions,
     skipped: vp.skipped,
-    failures: [...vp.failures, ...repos.failures],
+    failures: [
+      ...vp.failures.map((f) => ({ ...f, section: "vp" as const })),
+      ...repos.failures.map((f) => ({ ...f, section: "repos" as const })),
+    ],
   };
 };

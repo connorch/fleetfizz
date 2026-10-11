@@ -176,11 +176,14 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   });
   const live = canRedraw() ? yield* startLive(store, styled()) : noLive;
 
-  // Saves the report and prints the Ledger where nothing drew it live; a
-  // non-zero exit when any Machine failed.
+  // Runs however the Ship ends (done, failed, or interrupted): saves the report
+  // once anything may have changed, prints the Ledger where nothing drew it
+  // live, and exits non-zero when any Machine failed. Added after startLive,
+  // so it runs before the live view's last frame is drawn.
+  let changing = false;
   const finish = Effect.fn("finish")(function* () {
     const state = yield* ledger.end;
-    if (!flags.dryRun) {
+    if (changing) {
       yield* saveReport(state).pipe(
         Effect.catch((e) =>
           Console.error(`could not save the report for fizz report: ${e.message}`),
@@ -193,6 +196,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     }
     if (tally(state).failed > 0) process.exitCode = 1;
   });
+  yield* Effect.addFinalizer(() => finish());
 
   const cloneRootOf = (machine: Machine) =>
     config.machines[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
@@ -288,7 +292,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
 
   for (const { machine, plan: p, state } of planned) yield* ledger.plan(machine.name, p, state);
 
-  if (flags.dryRun) return yield* finish();
+  if (flags.dryRun) return;
 
   // Stamp the config here, then every Machine gets this exact text (ADR 0008).
   const shippedAt = DateTime.formatIso(yield* DateTime.now);
@@ -298,6 +302,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   // The file being stamped is the Starting Machine's own config unless
   // --config named another, so that Machine counts as reached even when
   // --only left it out of this Ship.
+  changing = true;
   const original = yield* fs.readFileString(path);
   const stampWith = (reached: ReadonlyArray<string>) =>
     stampText(original, {
@@ -336,6 +341,4 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((name) => name !== undefined)));
   yield* fs.writeFileString(path, stampWith(delivered));
-
-  yield* finish();
 }, Effect.scoped);

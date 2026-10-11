@@ -125,16 +125,16 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
   // Keyed by kind too: a Tracked Repo may share a name with a Global.
   const items = new Map<string, Item>();
   const key = (kind: Item["kind"], name: string) => `${kind}:${name}`;
-  const base = (name: string, from?: string): Item => ({
+  const base = (name: string, from?: string, kind: Item["kind"] = "version"): Item => ({
     name,
-    kind: "version",
+    kind,
     ...(from === undefined ? {} : { from }),
     changes: false,
     status: "idle",
     steps: [],
   });
-  const set = (name: string, change: (item: Item) => Item, k = key("version", name)) =>
-    items.set(k, change(items.get(k) ?? base(name)));
+  const set = (name: string, change: (item: Item) => Item, kind: Item["kind"] = "version") =>
+    items.set(key(kind, name), change(items.get(key(kind, name)) ?? base(name, undefined, kind)));
   // `from` null means nothing is installed now; undefined keeps the gathered one.
   const plans =
     (id: string, to: string, from?: string | null, reason?: string) =>
@@ -188,11 +188,10 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
     });
   }
   for (const s of p.skipped) set(s.what, (i) => ({ ...i, status: "skipped", detail: s.reason }));
-  // A failure names a vp item or a repo; a repo that failed planning has no
-  // item yet and gets one of its own.
+  // A repo that failed planning has no item yet and gets one of its own.
   for (const f of p.failures) {
-    const k = items.has(key("repo", f.what)) ? key("repo", f.what) : key("version", f.what);
-    set(f.what, (i) => ({ ...i, changes: true, status: "failed", detail: f.reason }), k);
+    const kind = f.section === "repos" ? "repo" : "version";
+    set(f.what, (i) => ({ ...i, changes: true, status: "failed", detail: f.reason }), kind);
   }
   items.set(key("config", CONFIG_STEP), {
     name: CONFIG_STEP,
@@ -441,7 +440,9 @@ export const rows = (state: LedgerState, options: RenderOptions): Row[] => {
         head.push({ text: "      " }, { text: "gathering", style: "dim" });
         break;
       case "planned":
-        head.push({ text: "      " }, { text: upToDate ? "up to date" : "", style: "dim" });
+        // A dry run ends here, so a plan that already failed says so.
+        if (m.items.some((i) => i.status === "failed")) head.push({ text: "FAIL", style: "fail" });
+        else head.push({ text: "      " }, { text: upToDate ? "up to date" : "", style: "dim" });
         break;
       case "running":
         head.push({ text: "RUN ", style: "run" }, { text: "  " }, time);

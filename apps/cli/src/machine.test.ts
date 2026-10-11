@@ -105,7 +105,7 @@ describe("apply", () => {
 
   it.effect("keeps a Machine failed when its plan had failures, even if every step passed", () =>
     Effect.gen(function* () {
-      const plan = repoPlan([{ what: "vp", reason: "vp is not installed" }]);
+      const plan = repoPlan([{ what: "vp", reason: "vp is not installed", section: "vp" }]);
       const { outcome, machine } = yield* run(plan, [
         stepLine(fetch),
         doneLine(fetch, true),
