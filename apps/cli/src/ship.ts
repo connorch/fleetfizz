@@ -287,10 +287,16 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
 
   // Stamp the config here, then every Machine gets this exact text (ADR 0008).
   const shippedAt = DateTime.formatIso(yield* DateTime.now);
+  // The file being stamped is the Starting Machine's own config unless
+  // --config named another, so that Machine counts as reached even when
+  // --only left it out of this Ship.
   const stamped = stampText(yield* fs.readFileString(path), {
     shippedAt,
     shippedFrom: tailnet.self.name,
-    reached: planned.map((g) => g.machine.name),
+    reached: [
+      ...planned.map((g) => g.machine.name),
+      ...(flags.config === undefined ? [tailnet.self.name] : []),
+    ],
   });
   yield* fs.writeFileString(path, stamped);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
