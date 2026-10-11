@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.2.2
+
+### Patch Changes
+
+- [`e4e4b6f`](https://github.com/connorch/fleetfizz/commit/e4e4b6ff064cf880b846d541d5c9745087116ca0) Thanks [@connorch](https://github.com/connorch)! - Every script puts vp on PATH itself. On Ubuntu, `.bashrc` returns before vp's env file in a non-interactive shell, so a Ship over Tailscale SSH never saw vp and bootstrapped it on every Ship.
+
 ## 0.2.1
 
 ### Patch Changes
