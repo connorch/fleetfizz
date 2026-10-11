@@ -17,7 +17,7 @@ export interface Palette {
 
 const COUNT = 50;
 const CAMERA_Z = 10;
-const NEAR_SHARE = 0.08; // bubbles right in front of the camera
+const NEAR_SHARE = 0.12; // bubbles right in front of the camera
 const FOG_Z = -14; // far bubbles fade out around here
 
 interface Bubble {
@@ -40,11 +40,12 @@ const rand = (lo: number, hi: number) => lo + Math.random() * (hi - lo);
 const seed = (width: number, height: number): Bubble[] =>
   Array.from({ length: COUNT }, (_, i) => {
     const near = i < COUNT * NEAR_SHARE;
-    // A near bubble at z 8.8 is 1.2 from the camera: at radius 0.7 it fills
-    // the screen. Most are smaller, but the occasional giant drifts through.
-    const z = near ? rand(6.5, 8.8) : rand(FOG_Z, 5);
+    // A near bubble can come within half a unit of the camera. Its radius is
+    // capped so the closest surface stays just past the near plane: the bubble
+    // fills the screen many times over and only its rim is on screen.
+    const z = near ? rand(6.5, 9.5) : rand(FOG_Z, 5);
     const dist = CAMERA_Z - z;
-    const radius = near ? rand(0.25, 0.7) : rand(0.25, 0.75);
+    const radius = near ? Math.min(rand(0.3, 1.2), dist * 0.75) : rand(0.25, 0.75);
     const halfW = (width / 2) * (dist / CAMERA_Z) * 1.15 + radius;
     const halfH = (height / 2) * (dist / CAMERA_Z) * 1.15 + radius;
     return {
