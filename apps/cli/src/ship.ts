@@ -1,12 +1,11 @@
 // `fizz ship`: one Ship. Load the config, read the Fleet, Gather every
 // reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
-// and print the ledger.
+// and show it all on the Ledger: live in a terminal, printed once otherwise.
+import * as Console from "effect/Console";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
-import { Prompt } from "effect/cli";
 
 import {
   bumpConfig,
@@ -41,10 +40,11 @@ import {
   type Tailnet,
 } from "@fleetfizz/remote";
 
-import { makeLedger, type Ledger } from "./ledger.ts";
-import { apply, gather, type Outcome } from "./machine.ts";
-import { askQuestions, hasTty } from "./questions.ts";
-import { summarize } from "./summary.ts";
+import { makeLedger, printRows, rows, styled, tally, type Ledger } from "./ledger.ts";
+import { canRedraw, noLive, startLive } from "./live.tsx";
+import { apply, gather } from "./machine.ts";
+import { askQuestions } from "./questions.ts";
+import { saveReport } from "./report.ts";
 
 export interface ShipFlags {
   readonly dryRun: boolean;
@@ -117,7 +117,10 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
     if ((isLocal && inputIsLocalFile) || state.config === undefined) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
     if (parsed._tag === "Failure") {
-      yield* ledger.line(machine.name, "INFO", "its config does not parse; it will be overwritten");
+      yield* ledger.note(
+        "info",
+        `the config on ${machine.name} does not parse; it will be overwritten`,
+      );
       continue;
     }
     const remote = parsed.success;
@@ -159,33 +162,41 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       new ShipError(`not in machines in ${path}: ${outsideFleet.join(", ")}`),
     );
   }
-  const targetsList = tailnet.fleet.filter(
-    (m) => fleet.has(m.name) && (flags.only.length === 0 || flags.only.includes(m.name)),
-  );
-  const ledger = yield* makeLedger(
-    Math.max("fleet".length, ...targetsList.map((m) => m.name.length)),
-  );
+  // Config order, so the Ledger lists Machines the way the config does.
+  const order = Object.keys(config.machines);
+  const targetsList = tailnet.fleet
+    .filter((m) => fleet.has(m.name) && (flags.only.length === 0 || flags.only.includes(m.name)))
+    .toSorted((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
   const count = `${targetsList.length} machine${targetsList.length === 1 ? "" : "s"}`;
-  yield* ledger.line(
-    "fleet",
-    "INFO",
-    [flags.dryRun ? "dry run" : "", count, `local ${tailnet.self.name}`].filter(Boolean).join(", "),
-  );
-
-  const outcomes = yield* Ref.make<Record<string, Outcome>>({});
-  const record = (name: string, outcome: Outcome) =>
-    Ref.update(outcomes, (o) => ({ ...o, [name]: outcome }));
-  // The DONE line: one count per outcome, and a non-zero exit when any failed.
-  const finish = Effect.fn("finish")(function* (okWord: string) {
-    const tally = Object.values(yield* Ref.get(outcomes));
-    const n = (kind: Outcome) => tally.filter((o) => o === kind).length;
-    yield* ledger.line(
-      "fleet",
-      "DONE",
-      `${okWord} ${n("ok")}  skipped ${n("skipped")}  failed ${n("failed")}`,
-    );
-    if (n("failed") > 0) process.exitCode = 1;
+  yield* Console.log(`${flags.dryRun ? "dry run, " : ""}${count} from ${tailnet.self.name}`);
+  const { ledger, store } = yield* makeLedger({
+    from: tailnet.self.name,
+    dryRun: flags.dryRun,
+    machines: targetsList.map((m) => m.name),
   });
+  const live = canRedraw() ? yield* startLive(store, styled()) : noLive;
+
+  // Runs however the Ship ends (done, failed, or interrupted): saves the report
+  // once anything may have changed, prints the Ledger where nothing drew it
+  // live, and exits non-zero when any Machine failed. Added after startLive,
+  // so it runs before the live view's last frame is drawn.
+  let changing = false;
+  const finish = Effect.fn("finish")(function* () {
+    const state = yield* ledger.end;
+    if (changing) {
+      yield* saveReport(state).pipe(
+        Effect.catch((e) =>
+          Console.error(`could not save the report for fizz report: ${e.message}`),
+        ),
+      );
+    }
+    if (live === noLive) {
+      // A saved log cannot be expanded later, so it gets every item.
+      yield* printRows(rows(state, { full: true, now: state.ended ?? 0, live: false }));
+    }
+    if (tally(state).failed > 0) process.exitCode = 1;
+  });
+  yield* Effect.addFinalizer(() => finish());
 
   const cloneRootOf = (machine: Machine) =>
     config.machines[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
@@ -200,21 +211,17 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     Effect.fn("gatherOne")(function* (machine) {
       const local = machine.name === tailnet.self.name;
       if (!machine.online) {
-        yield* ledger.line(machine.name, "SKIP", "offline");
-        yield* record(machine.name, "skipped");
+        yield* ledger.skip(machine.name, "offline");
         return undefined;
       }
       if (!local && !machine.ssh) {
-        yield* ledger.line(machine.name, "SKIP", "no Tailscale SSH server");
-        yield* record(machine.name, "skipped");
+        yield* ledger.skip(machine.name, "no Tailscale SSH server");
         return undefined;
       }
       const script = gatherScript({ cloneRoot: cloneRootOf(machine), repos: gatherRepos });
       const result = yield* gather({ name: machine.name, local }, script, ledger);
-      if (result.kind !== "gathered") {
-        yield* record(machine.name, result.kind);
-        return undefined;
-      }
+      if (result.kind !== "gathered") return undefined;
+      yield* ledger.gathered(machine.name);
       return { machine, local, state: result.state };
     }),
     { concurrency: "unbounded" },
@@ -225,18 +232,20 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   if (stale.length > 0) {
     const what = `newer config on ${stale.join(", ")}`;
     if (flags.dryRun) {
-      yield* ledger.line("fleet", "INFO", `${what}; a Ship would ask before overwriting it`);
+      yield* ledger.note("info", `${what}; a Ship would ask before overwriting it`);
     } else if (flags.overwriteConfig) {
-      yield* ledger.line("fleet", "INFO", `${what}; overwriting it (--overwrite-config)`);
-    } else if (!hasTty()) {
+      yield* ledger.note("info", `${what}; overwriting it (--overwrite-config)`);
+    } else if (live.ask === undefined) {
       return yield* Effect.fail(
         new ShipError(`${what}; copy it here first, or pass --overwrite-config`),
       );
     } else {
-      yield* ledger.line("fleet", "ASK", what);
-      const overwrite = yield* Prompt.run(
-        Prompt.Confirm({ message: "Overwrite it with this Machine's config?" }),
-      );
+      yield* ledger.note("ask", what);
+      const overwrite = yield* live.ask([
+        { title: "overwrite it with this Machine's config", value: true },
+        { title: "stop", value: false },
+      ]);
+      yield* ledger.note("answer", overwrite ? "overwrite it" : "stop");
       if (!overwrite) return yield* Effect.fail(new ShipError("aborted: the config here is older"));
     }
   }
@@ -262,13 +271,18 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   // Questions: every Machine's, before anything changes. A bump edits the
   // config, so the plan is made again from the new Ranges.
   const questions = planned.flatMap((g) => g.plan.questions);
+  if (questions.length > 0 && flags.dryRun) {
+    for (const q of questions) {
+      yield* ledger.note("ask", `${q.package} ${q.installed} on ${q.machine} is above ${q.range}`);
+      yield* ledger.note("answer", "not asked (dry run)");
+    }
+  }
   if (questions.length > 0 && !flags.dryRun) {
-    const decided = yield* askQuestions(questions, flags, ledger);
+    const decided = yield* askQuestions(questions, flags, ledger, live.ask);
     for (const [pkg, decision] of Object.entries(decided)) {
-      if (decision.kind === "bump") {
-        const range = yield* bumpConfig(path, pkg, decision.installed);
-        yield* ledger.line("fleet", "INFO", `bumped ${pkg} to ${range} in ${path}`);
-      }
+      if (decision.kind !== "bump") continue;
+      changing = true;
+      yield* bumpConfig(path, pkg, decision.installed);
     }
     if (Object.values(decided).some((d) => d.kind === "bump")) cfg = yield* loadConfig(path);
     const answers = Object.fromEntries(
@@ -279,18 +293,9 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     planned = planAll(cfg, answers);
   }
 
-  for (const { machine, plan: p } of planned) {
-    yield* ledger.line(machine.name, "PLAN", summarize(p));
-    for (const sk of p.skipped)
-      yield* ledger.line(machine.name, "SKIP", `${sk.what}: ${sk.reason}`);
-    for (const f of p.failures) yield* ledger.line(machine.name, "FAIL", `${f.what}: ${f.reason}`);
-    for (const q of p.questions) {
-      yield* ledger.line(machine.name, "ASK", `${q.package} ${q.installed} is above ${q.range}`);
-    }
-    yield* record(machine.name, p.failures.length > 0 ? "failed" : "ok");
-  }
+  for (const { machine, plan: p, state } of planned) yield* ledger.plan(machine.name, p, state);
 
-  if (flags.dryRun) return yield* finish("planned");
+  if (flags.dryRun) return;
 
   // Stamp the config here, then every Machine gets this exact text (ADR 0008).
   const shippedAt = DateTime.formatIso(yield* DateTime.now);
@@ -300,6 +305,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   // The file being stamped is the Starting Machine's own config unless
   // --config named another, so that Machine counts as reached even when
   // --only left it out of this Ship.
+  changing = true;
   const original = yield* fs.readFileString(path);
   const stampWith = (reached: ReadonlyArray<string>) =>
     stampText(original, {
@@ -317,7 +323,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     ? yield* readLentToken()
     : { token: undefined };
   if (lent.token === undefined && lent.reason !== undefined) {
-    yield* ledger.line("fleet", "INFO", `no gh token (${lent.reason}); private repos will fail`);
+    yield* ledger.note("info", `no gh token (${lent.reason}); private repos will fail`);
   }
 
   // Apply, in parallel. No Machine changed before this point. Install
@@ -333,12 +339,9 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         env: { machine: machine.name, platform: machine.platform, machines: machineNames },
       });
       const applied = yield* apply({ name: machine.name, local }, p, script, stdin, ledger);
-      yield* record(machine.name, applied.outcome);
       return applied.done.includes(CONFIG_STEP) ? machine.name : undefined;
     }),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((name) => name !== undefined)));
   yield* fs.writeFileString(path, stampWith(delivered));
-
-  yield* finish("ok");
-});
+}, Effect.scoped);

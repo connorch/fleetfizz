@@ -9,7 +9,7 @@ The config carries `shippedAt`, `shippedFrom`, and `shippedTo`, a map from Machi
 - **Config in the user's repo, fleetfizz as that repo's devDependency (ADR 0004, superseded).** It made that repo special: it had to be cloned and installed on a Machine before that Machine could ship, and `pnpm ship` had to run from inside it. With every repo an ordinary Tracked Repo, the config has to live outside all of them.
 - **`~/.config/fleetfizz` as a git clone that the Ship fetches and resets (rejected).** History and conflict detection for free, but it needs a config repo, a remote, and the Lent Token on every Machine just to read the config. The config is one small file; copying it is less machinery, and a user who wants history can keep the directory under git themselves without fleetfizz knowing.
 - **One global stamp (rejected).** A Ship that cannot reach a Machine still advances the stamp, so that Machine's newer config loses its protection on the next Ship. The per-Machine map costs one key.
-- **Stamp the config only when its content changed (deferred).** Simpler to reason about: the stamp is set by every Ship, so every Ship copies the config to every Machine. Reconsider if that line in the ledger becomes noise.
+- **Stamp the config only when its content changed (deferred).** Simpler to reason about: the stamp is set by every Ship, so every Ship copies the config to every Machine. Reconsider if that line in the Ledger becomes noise.
 - **fleetfizz listed in `globals` by the user (rejected).** A listed version can differ from the binary that read the config; the implicit pin cannot.
 - **Downgrade a Machine that runs a newer fleetfizz (rejected).** A newer remote means someone shipped a newer version from there; the shipper is the one behind.
 
@@ -18,6 +18,6 @@ The config carries `shippedAt`, `shippedFrom`, and `shippedTo`, a map from Machi
 - Every Machine in the Fleet can be a Starting Machine as soon as one Ship has reached it: it has vp, fleetfizz, and the config.
 - Amends ADR 0001's prerequisites: a remote Machine needs `tailscaled` with SSH, `git`, `curl`, and a shell. vp is no longer a prerequisite.
 - Bootstrapping a new Machine is: enable Tailscale SSH, add it to `machines`, Ship.
-- The Starting Machine's own config is rewritten by every real Ship (the three stamp keys change). A dry run stamps and copies nothing, and reports the staleness as INFO.
+- The Starting Machine's own config is rewritten by every real Ship (the three stamp keys change). A dry run stamps and copies nothing, and reports the staleness as a note.
 - `--config <path>` remains for one-off runs; the upward search from the working directory goes away.
 - Machines on the tailnet that are not listed are ignored silently, and a listed name that is not on the tailnet is an error, as today.
