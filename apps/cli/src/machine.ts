@@ -60,6 +60,11 @@ export type GatherResult =
   | { readonly kind: "gathered"; readonly state: MachineState }
   | { readonly kind: "skipped" | "failed" };
 
+// Gather reads a few files and runs vp; anything longer means something on
+// that Machine is blocking (seen: macOS holding a `git` on an external SSD
+// until tailscaled's privacy prompt is answered). The Ship must not hang.
+const GATHER_TIMEOUT = "2 minutes";
+
 // Gather on one Machine: the script's Facts become its MachineState.
 export const gather = Effect.fn("gather")(function* (
   target: Target,
@@ -78,6 +83,17 @@ export const gather = Effect.fn("gather")(function* (
         else if (line.kind === "text" && line.text.trim() !== "") output.push(line.text.trimEnd());
       }),
     ledger,
+  ).pipe(
+    Effect.timeoutOrElse({
+      duration: GATHER_TIMEOUT,
+      orElse: () =>
+        ledger
+          .fail(target.name, [
+            `gather took more than ${GATHER_TIMEOUT}; something on that Machine is blocking`,
+            ...output,
+          ])
+          .pipe(Effect.as({ kind: "failed" } as const)),
+    }),
   );
   if (run.kind !== "ran") return { kind: run.kind } as GatherResult;
   const state = assembleState(facts);
