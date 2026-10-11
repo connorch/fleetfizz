@@ -327,8 +327,30 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         status: m.status === "failed" ? "failed" : outcome,
         ended: m.ended ?? now,
       })),
+    // Anything still going when the Ship ends was stopped (Ctrl-C or an
+    // error); a dry run legitimately ends with its Machines planned.
     end: Effect.gen(function* () {
-      yield* update((state, now) => ({ ...state, ended: now }));
+      yield* update((state, now) => ({
+        ...state,
+        ended: now,
+        machines: state.machines.map((m) =>
+          m.status === "running" ||
+          m.status === "gathering" ||
+          (m.status === "planned" && !state.dryRun)
+            ? {
+                ...m,
+                status: "failed",
+                detail: "stopped",
+                ended: now,
+                items: m.items.map((i) =>
+                  i.status === "running"
+                    ? { ...i, status: "failed", detail: "stopped", ended: now }
+                    : i,
+                ),
+              }
+            : m,
+        ),
+      }));
       return snapshot.state;
     }),
   };
@@ -397,17 +419,18 @@ const note = (i: Item): Segment => {
 const elapsed = (started: number | undefined, ended: number | undefined, now: number) =>
   started === undefined ? "" : duration((ended ?? now) - started);
 
-// The output a live view keeps under a FAIL; `fizz report` has all of it.
+// The output a live view keeps under a FAIL while the Ship runs; the last
+// frame, like every other rendering, has all of it.
 const LIVE_OUTPUT = 12;
-const outputRows = (output: ReadonlyArray<string>, indent: string, live: boolean): Row[] => {
-  const cut = live && output.length > LIVE_OUTPUT;
+const outputRows = (output: ReadonlyArray<string>, indent: string, running: boolean): Row[] => {
+  const cut = running && output.length > LIVE_OUTPUT;
   const shown = cut ? output.slice(-LIVE_OUTPUT) : output;
   return [
     ...(cut
       ? [
           [
             {
-              text: `${indent}(${output.length - LIVE_OUTPUT} earlier lines in fizz report)`,
+              text: `${indent}(${output.length - LIVE_OUTPUT} earlier lines)`,
               style: "dim" as const,
             },
           ],
@@ -421,6 +444,7 @@ const pad = (text: string, width: number) => text.padEnd(width);
 
 export const rows = (state: LedgerState, options: RenderOptions): Row[] => {
   const { full, now, live } = options;
+  const running = live && state.ended === undefined;
   const shownItems = (m: MachineEntry) =>
     m.items.filter((i) => full || i.changes || i.status === "failed" || i.status === "skipped");
   const visible = state.machines.flatMap(shownItems);
@@ -472,9 +496,9 @@ export const rows = (state: LedgerState, options: RenderOptions): Row[] => {
         { text: t === "" ? "" : `  ${t.padStart(6)}`, style: "dim" },
         ...(i.detail === undefined ? [] : [{ text: `  ${i.detail}` }]),
       ]);
-      if (i.output !== undefined) out.push(...outputRows(i.output, "      ", live));
+      if (i.output !== undefined) out.push(...outputRows(i.output, "      ", running));
     }
-    if (m.output !== undefined) out.push(...outputRows(m.output, "    ", live));
+    if (m.output !== undefined) out.push(...outputRows(m.output, "    ", running));
   }
 
   out.push([]);
