@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.5.0
+
+### Minor Changes
+
+- [#13](https://github.com/connorch/fleetfizz/pull/13) [`37071da`](https://github.com/connorch/fleetfizz/commit/37071da62ffb897a1c84b901c1bf666c6e479425) Thanks [@connorch](https://github.com/connorch)! - The Ledger lists each Machine and what changes on it, live in a terminal (`f` shows every item). `fizz report` prints the full Ledger of the last Ship.
+
 ## 0.4.0
 
 ### Minor Changes
