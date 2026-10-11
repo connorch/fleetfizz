@@ -1,5 +1,12 @@
 # fleetfizz
 
+## 0.4.0
+
+### Minor Changes
+
+- [`52f13a9`](https://github.com/connorch/fleetfizz/commit/52f13a9623e400f2b8c5317e47ac67686aec1ad4) Thanks [@connorch](https://github.com/connorch)! - The config is `~/.config/fleetfizz/config.jsonc` and the schema next to it is `schema.json` (were `fleet.config.jsonc` and `fleet.schema.json`). Move the file on the Machine you ship from; the next Ship writes the new names everywhere else.
+  The first Ship after upgrading does not read the other Machines' old `fleet.config.jsonc`, so it cannot warn if one of them holds a newer config; ship from the Machine that shipped last.
+
 ## 0.3.0
 
 ### Minor Changes
