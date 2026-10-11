@@ -14,8 +14,8 @@ const toRgb = (ctx: CanvasRenderingContext2D, color: string): string => {
   return `rgb(${r}, ${g}, ${b})`;
 };
 
-// Reads the colors from the backdrop's computed style, so Tailwind's theme
-// classes decide them and a theme toggle re-reads them.
+// Reads the palette from the backdrop's computed style, so the Tailwind
+// classes on it decide the look per theme, and a theme toggle re-reads it.
 function usePalette(ref: React.RefObject<HTMLDivElement | null>): Palette | undefined {
   const [palette, setPalette] = useState<Palette>();
   useEffect(() => {
@@ -23,9 +23,13 @@ function usePalette(ref: React.RefObject<HTMLDivElement | null>): Palette | unde
     const read = () => {
       if (!ref.current || !ctx) return;
       const style = getComputedStyle(ref.current);
+      const prop = (name: string) => style.getPropertyValue(name).trim();
       setPalette({
         background: toRgb(ctx, style.backgroundColor),
         bubble: toRgb(ctx, style.color),
+        glow: toRgb(ctx, prop("--glow")),
+        emissive: Number(prop("--bubble-emissive")),
+        rim: Number(prop("--bubble-rim")),
       });
     };
     read();
@@ -55,13 +59,15 @@ export function FizzBackground() {
   const [ready, setReady] = useState(false);
 
   return (
+    // Light: fizz backdrop, clear bubbles. Dark: the abyss, a lime glow deep
+    // within, and luminescent bubbles. `color` is the bubble color.
     <div
       ref={ref}
       aria-hidden="true"
-      className="bg-fizz text-white dark:bg-background dark:text-fizz fixed inset-0 -z-10"
+      className="bg-fizz fixed inset-0 -z-10 text-white [--bubble-emissive:0.12] [--bubble-rim:0.5] [--glow:var(--color-fizz)] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)]"
     >
       <div
-        className="absolute inset-0 transition-opacity duration-1000 ease-out"
+        className="absolute inset-0 transition-opacity delay-1000 duration-[2500ms] ease-out"
         style={{ opacity: ready ? 1 : 0 }}
       >
         {palette && (
