@@ -31,7 +31,9 @@ export class SpawnError extends Schema.TaggedError<SpawnError>()("SpawnError", {
 
 const command = (target: Target, script: string, secrets: ReadonlyArray<string>) => {
   const stdin = Stream.encodeText(Stream.make(secrets.map((s) => `${s}\n`).join("")));
-  const options = { stdin, stdout: "pipe", stderr: "pipe" } as const;
+  // On interruption (a gather timeout) the process gets SIGTERM, then SIGKILL
+  // after this, so cleanup itself cannot hang.
+  const options = { stdin, stdout: "pipe", stderr: "pipe", forceKillAfter: "5 seconds" } as const;
   return target.local
     ? ChildProcess.make(process.env.SHELL ?? "/bin/sh", ["-lc", script], options)
     : ChildProcess.make("tailscale", ["ssh", target.name, script], options);
