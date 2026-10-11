@@ -6,13 +6,21 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/
 
 ## Usage
 
-Write a `fleet.config.jsonc` in a repo you keep on every Machine (`$schema` points at the published `fleet.schema.json` for editor validation):
+Install fleetfizz as a vp Global on the Machine you will ship from, and write the config at `~/.config/fleetfizz/fleet.config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
+
+```sh
+vp install -g fleetfizz
+mkdir -p ~/.config/fleetfizz
+```
 
 ```jsonc
 {
-  "$schema": "./node_modules/fleetfizz/fleet.schema.json",
+  "$schema": "./fleet.schema.json",
+  // The Fleet: every Machine a Ship touches, by its tailnet name. The Machine
+  // you ship from must be listed.
   "machines": {
     "connors-mac-studio": { "clones": "/Volumes/StudioStack SSD/fleetfizz/clones" },
+    "connors-macbook-pro": {},
   },
   "repos": [
     {
@@ -31,16 +39,18 @@ Write a `fleet.config.jsonc` in a repo you keep on every Machine (`$schema` poin
 }
 ```
 
-Then, from that directory:
+Then:
 
 ```sh
-npx fleetfizz ship --dry-run   # gather every Machine and print its plan; change nothing
-npx fleetfizz ship             # apply the plan everywhere, in parallel
+fleetfizz ship --dry-run   # gather every Machine and print its plan; change nothing
+fleetfizz ship             # apply the plan everywhere, in parallel
 ```
 
-Flags: `--only <machine>` (repeatable), `--rebuild <repo>` or `--rebuild all`, `--bump` and `--enforce` to answer above-range questions in advance, `--config <path>`.
+Every Ship copies this config (and `fleet.schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks before overwriting it; `--overwrite-config` answers yes in advance, and without a terminal the Ship stops instead.
 
-The Starting Machine needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. Each Machine needs `vp` on its login-shell PATH.
+Flags: `--only <machine>` (repeatable), `--rebuild <repo>` or `--rebuild all`, `--bump` and `--enforce` to answer above-range questions in advance, `--overwrite-config`, `--config <path>`.
+
+The Starting Machine needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
 
 ## Development
 

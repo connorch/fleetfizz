@@ -299,8 +299,9 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     yield* ledger.line("fleet", "INFO", `no gh token (${lent.reason}); private repos will fail`);
   }
 
-  // Apply, in parallel. No Machine changed before this point.
-  const machineNames = targetsList.map((m) => m.name);
+  // Apply, in parallel. No Machine changed before this point. Install
+  // Commands see the whole Fleet, not just this Ship's targets.
+  const machineNames = [...fleet];
   const stdin = applyStdin(lent.token, stamped, schema);
   yield* Effect.forEach(
     planned,
