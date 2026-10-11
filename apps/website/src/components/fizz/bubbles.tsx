@@ -17,7 +17,9 @@ export interface Palette {
 
 const COUNT = 50;
 const CAMERA_Z = 10;
-const NEAR_SHARE = 0.12; // bubbles right in front of the camera
+const NEAR_SHARE = 0.08; // bubbles right in front of the camera
+// The giant: one bubble that passes right against the lens, now and then.
+const GIANT_GAP: readonly [number, number] = [30, 90]; // seconds between sightings
 const FOG_Z = -14; // far bubbles fade out around here
 
 interface Bubble {
@@ -33,24 +35,37 @@ interface Bubble {
   // invisible however far the bubble is from the camera.
   halfW: number;
   halfH: number;
+  // The giant only: seconds left off-screen before its next pass.
+  wait: number;
 }
 
 const rand = (lo: number, hi: number) => lo + Math.random() * (hi - lo);
 
+// The giant comes within half a unit of the camera. Its radius is capped so
+// the closest surface stays just past the near plane: it fills the screen
+// many times over and only its rim is on screen.
+const giantSize = () => {
+  const z = rand(9, 9.5);
+  return { z, radius: Math.min(rand(0.6, 1.2), (CAMERA_Z - z) * 0.75) };
+};
+
 const seed = (width: number, height: number): Bubble[] =>
   Array.from({ length: COUNT }, (_, i) => {
+    const giant = i === COUNT - 1;
     const near = i < COUNT * NEAR_SHARE;
-    // A near bubble can come within half a unit of the camera. Its radius is
-    // capped so the closest surface stays just past the near plane: the bubble
-    // fills the screen many times over and only its rim is on screen.
-    const z = near ? rand(6.5, 9.5) : rand(FOG_Z, 5);
+    // A near bubble at z 8.8 is 1.2 from the camera: at radius 0.7 it fills
+    // the screen. Most are smaller.
+    const { z, radius } = giant
+      ? giantSize()
+      : near
+        ? { z: rand(6.5, 8.8), radius: rand(0.25, 0.7) }
+        : { z: rand(FOG_Z, 5), radius: rand(0.25, 0.75) };
     const dist = CAMERA_Z - z;
-    const radius = near ? Math.min(rand(0.3, 1.2), dist * 0.75) : rand(0.25, 0.75);
     const halfW = (width / 2) * (dist / CAMERA_Z) * 1.15 + radius;
     const halfH = (height / 2) * (dist / CAMERA_Z) * 1.15 + radius;
     return {
       x: rand(-halfW, halfW),
-      y: rand(-halfH, halfH),
+      y: giant ? -halfH : rand(-halfH, halfH),
       z,
       radius,
       rise: rand(0.05, 0.11),
@@ -59,6 +74,8 @@ const seed = (width: number, height: number): Bubble[] =>
       freq: rand(0.1, 0.3),
       halfW,
       halfH,
+      // The first sighting comes sooner than the gap between later ones.
+      wait: giant ? rand(10, 40) : 0,
     };
   });
 
@@ -112,7 +129,8 @@ const useBubbleShader = (palette: Palette) => {
 
 function BubbleField({ palette }: { palette: Palette }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const { width, height } = useThree((s) => s.viewport);
+  const viewport = useThree((s) => s.viewport);
+  const { width, height } = viewport;
   const bubbles = useMemo(() => seed(width, height), [width, height]);
   const elapsed = useRef(0);
   const { uniforms, onBeforeCompile } = useBubbleShader(palette);
@@ -125,10 +143,29 @@ function BubbleField({ palette }: { palette: Palette }) {
     const t = elapsed.current;
     uniforms.uTime.value = t;
     bubbles.forEach((b, i) => {
+      // Waiting off-screen: the giant between sightings.
+      if (b.wait > 0) {
+        b.wait -= step;
+        dummy.position.set(0, -1000, b.z);
+        dummy.scale.setScalar(0.001);
+        dummy.updateMatrix();
+        m.setMatrixAt(i, dummy.matrix);
+        return;
+      }
       b.y += b.rise * step;
       if (b.y > b.halfH) {
         b.y = -b.halfH;
         b.x = rand(-b.halfW, b.halfW);
+        if (i === COUNT - 1) {
+          // Re-rolled for the next pass, after a long gap.
+          const next = giantSize();
+          b.z = next.z;
+          b.radius = next.radius;
+          b.halfH = (viewport.height / 2) * ((CAMERA_Z - b.z) / CAMERA_Z) * 1.15 + b.radius;
+          b.halfW = (viewport.width / 2) * ((CAMERA_Z - b.z) / CAMERA_Z) * 1.15 + b.radius;
+          b.y = -b.halfH;
+          b.wait = rand(...GIANT_GAP);
+        }
       }
       const x = b.x + Math.sin(t * b.freq + b.phase) * b.sway;
       // A slow squash and stretch on top of the surface wobble.
