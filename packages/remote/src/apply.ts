@@ -38,11 +38,13 @@ export const vpStepId = (step: VpStep): string =>
 // The config copy, one step on every Machine (ADR 0008).
 export const CONFIG_STEP = "config";
 
-// vp's installer, then its env file (or its bin directory) so `vp` resolves
-// for the rest of the script.
+// vp's installer, then its env file so `vp` resolves for the rest of the
+// script. The env file is under XDG config; a VP_HOME or legacy ~/.vite-plus
+// layout keeps its bin directory there instead, so those go on PATH as well.
 const VP_INSTALL = [
   "curl -fsSL https://vite.plus | bash",
-  `{ . "\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env" 2>/dev/null || export PATH="\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"; }`,
+  `{ . "\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env" 2>/dev/null || true; }`,
+  `export PATH="\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"`,
   "hash -r 2>/dev/null || true",
 ].join(" && ");
 

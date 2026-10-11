@@ -98,18 +98,20 @@ const packagesToResolve = (config: FleetConfig): string[] => {
 const rebuildOf = (flags: ShipFlags): Rebuild =>
   flags.rebuild.length === 0 ? "none" : flags.rebuild.includes("all") ? "all" : flags.rebuild;
 
-// A Machine whose config was shipped after the local one: a Ship from
-// elsewhere missed this Machine, so copying the local config would roll it
-// back (ADR 0008). A remote config that does not parse is reported and then
-// overwritten; it cannot be newer.
+// A Machine whose config was shipped after the one being shipped: a Ship from
+// elsewhere missed this Machine, so copying this config would roll it back
+// (ADR 0008). The Starting Machine's own file is the input unless --config
+// named another, in which case it is checked like any other. A config that
+// does not parse is reported and then overwritten; it cannot be newer.
 const staleConfigs = Effect.fn("staleConfigs")(function* (
   local: FleetConfig,
+  inputIsLocalFile: boolean,
   gathered: ReadonlyArray<Gathered>,
   ledger: Ledger,
 ) {
   const stale: string[] = [];
   for (const { machine, local: isLocal, state } of gathered) {
-    if (isLocal || state.config === undefined) continue;
+    if ((isLocal && inputIsLocalFile) || state.config === undefined) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
     if (parsed._tag === "Failure") {
       yield* ledger.line(machine.name, "INFO", "its config does not parse; it will be overwritten");
@@ -210,7 +212,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
   // A newer config elsewhere stops the Ship unless the person overrides.
-  const stale = yield* staleConfigs(config, gathered, ledger);
+  const stale = yield* staleConfigs(config, flags.config === undefined, gathered, ledger);
   if (stale.length > 0) {
     const what = `newer config on ${stale.join(", ")}`;
     if (flags.dryRun) {
