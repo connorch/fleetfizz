@@ -15,7 +15,7 @@ export interface Palette {
   readonly rim: number;
 }
 
-const COUNT = 80;
+const COUNT = 50;
 const CAMERA_Z = 10;
 const NEAR_SHARE = 0.08; // bubbles right in front of the camera
 const FOG_Z = -14; // far bubbles fade out around here
