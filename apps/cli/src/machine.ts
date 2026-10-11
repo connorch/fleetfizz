@@ -112,6 +112,12 @@ const runLabels = (p: MachinePlan): Readonly<Record<string, string>> =>
     ...p.repos.map((r) => [stepId(r.name, "install"), `${r.name} install`]),
   ]);
 
+export interface Applied {
+  readonly outcome: Outcome;
+  // Step ids whose ff-done said ok, whatever happened after them.
+  readonly done: ReadonlyArray<string>;
+}
+
 // Apply on one Machine. A step counts as done only when its ff-done says so,
 // and its output is shown only when it fails. The Machine's outcome is ok
 // only when every step passed, the script reached its end, and the plan
@@ -161,16 +167,17 @@ export const apply = Effect.fn("apply")(function* (
       }),
     ledger,
   );
-  if (run.kind !== "ran") return run.kind as Outcome;
+  const applied = (outcome: Outcome): Applied => ({ outcome, done });
+  if (run.kind !== "ran") return applied(run.kind);
   if (current !== undefined) {
     yield* ledger.fail(target.name, [`${current.id} did not finish`, ...current.output]);
-    return "failed" as Outcome;
+    return applied("failed");
   }
   if (!done.includes(END_STEP)) {
     yield* ledger.fail(target.name, ["apply did not finish", ...head]);
-    return "failed" as Outcome;
+    return applied("failed");
   }
-  if (failed.length > 0 || p.failures.length > 0) return "failed" as Outcome;
+  if (failed.length > 0 || p.failures.length > 0) return applied("failed");
   const installed = p.repos.filter((r) => done.includes(stepId(r.name, "install")));
   const upToDate = p.repos.length - installed.length;
   const parts = [
@@ -179,5 +186,5 @@ export const apply = Effect.fn("apply")(function* (
     ...(upToDate > 0 ? [`${upToDate} repo${upToDate === 1 ? "" : "s"} up to date`] : []),
   ];
   yield* ledger.line(target.name, "OK", parts.length === 0 ? "up to date" : parts.join(" · "));
-  return "ok" as Outcome;
+  return applied("ok");
 });

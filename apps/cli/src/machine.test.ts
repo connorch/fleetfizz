@@ -48,7 +48,7 @@ const local = { name: "studio", local: true };
 const run = (plan: MachinePlan, script: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const { lines, ledger } = fakeLedger();
-    const outcome = yield* apply(local, plan, script.join("\n"), [""], ledger);
+    const { outcome } = yield* apply(local, plan, script.join("\n"), [""], ledger);
     return { outcome, lines };
   }).pipe(Effect.provide(NodeServices.layer));
 

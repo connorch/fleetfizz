@@ -32,6 +32,7 @@ import {
 import {
   applyScript,
   applyStdin,
+  CONFIG_STEP,
   gatherScript,
   readLentToken,
   readTailnet,
@@ -287,17 +288,20 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
 
   // Stamp the config here, then every Machine gets this exact text (ADR 0008).
   const shippedAt = DateTime.formatIso(yield* DateTime.now);
+  // The copy each Machine receives says this Ship reached it. The local file
+  // is written again after Apply with only the Machines whose config step
+  // completed, so a failed delivery does not claim a copy that never landed.
   // The file being stamped is the Starting Machine's own config unless
   // --config named another, so that Machine counts as reached even when
   // --only left it out of this Ship.
-  const stamped = stampText(yield* fs.readFileString(path), {
-    shippedAt,
-    shippedFrom: tailnet.self.name,
-    reached: [
-      ...planned.map((g) => g.machine.name),
-      ...(flags.config === undefined ? [tailnet.self.name] : []),
-    ],
-  });
+  const original = yield* fs.readFileString(path);
+  const stampWith = (reached: ReadonlyArray<string>) =>
+    stampText(original, {
+      shippedAt,
+      shippedFrom: tailnet.self.name,
+      reached: [...reached, ...(flags.config === undefined ? [tailnet.self.name] : [])],
+    });
+  const stamped = stampWith(planned.map((g) => g.machine.name));
   yield* fs.writeFileString(path, stamped);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
 
@@ -314,7 +318,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   // Commands see the whole Fleet, not just this Ship's targets.
   const machineNames = [...fleet];
   const stdin = applyStdin(lent.token, stamped, schema);
-  yield* Effect.forEach(
+  const delivered: string[] = yield* Effect.forEach(
     planned,
     Effect.fn("applyOne")(function* ({ machine, local, plan: p }) {
       const script = applyScript({
@@ -322,11 +326,13 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         cloneRoot: cloneRootOf(machine),
         env: { machine: machine.name, platform: machine.platform, machines: machineNames },
       });
-      const result = yield* apply({ name: machine.name, local }, p, script, stdin, ledger);
-      yield* record(machine.name, result);
+      const applied = yield* apply({ name: machine.name, local }, p, script, stdin, ledger);
+      yield* record(machine.name, applied.outcome);
+      return applied.done.includes(CONFIG_STEP) ? machine.name : undefined;
     }),
     { concurrency: "unbounded" },
-  );
+  ).pipe(Effect.map((list) => list.filter((name) => name !== undefined)));
+  yield* fs.writeFileString(path, stampWith(delivered));
 
   yield* finish("ok");
 });
