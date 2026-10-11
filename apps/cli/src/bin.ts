@@ -30,9 +30,15 @@ const shipCommand = Command.make("ship", {
     Flag.withDefault(false),
     Flag.withDescription("Answer every above-range question by downgrading into the range."),
   ),
+  overwriteConfig: Flag.Boolean("overwrite-config").pipe(
+    Flag.withDefault(false),
+    Flag.withDescription(
+      "Ship even when another Machine holds a newer config, overwriting it with this one.",
+    ),
+  ),
   config: Flag.String("config").pipe(
     Flag.optional,
-    Flag.withDescription("Config file. Default: search upward from cwd for fleet.config.jsonc."),
+    Flag.withDescription("Config file. Default: $XDG_CONFIG_HOME/fleetfizz/fleet.config.jsonc."),
   ),
 }).pipe(
   Command.withDescription("Ship the config to every reachable Machine."),
@@ -43,7 +49,9 @@ const shipCommand = Command.make("ship", {
       rebuild: flags.rebuild,
       bump: flags.bump,
       enforce: flags.enforce,
+      overwriteConfig: flags.overwriteConfig,
       config: flags.config._tag === "Some" ? flags.config.value : undefined,
+      version: packageJson.version,
     }).pipe(
       // Problems the person can fix print as one message, not a trace.
       Effect.catch((e) =>

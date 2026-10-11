@@ -66,8 +66,18 @@ export const MachineSettings = Schema.Struct({
 // The whole fleet.config.jsonc, exactly as a user writes it.
 export const FleetConfig = Schema.Struct({
   $schema: Schema.optionalKey(Schema.String),
-  // Keyed by Machine name; every name must exist on the tailnet.
-  machines: Schema.optionalKey(Schema.Record(Schema.NonEmptyString, MachineSettings)),
+  // Written by every Ship, never by hand: when and from which Machine this
+  // copy was last shipped. A Ship refuses to overwrite a newer copy (ADR 0008).
+  shippedAt: Schema.optionalKey(Schema.String),
+  shippedFrom: Schema.optionalKey(Schema.NonEmptyString),
+  // The Fleet: keyed by Machine name, every name must exist on the tailnet,
+  // and the Starting Machine must be one of them.
+  machines: Schema.Record(Schema.NonEmptyString, MachineSettings).check(
+    Schema.makeFilter((machines) => Object.keys(machines).length > 0, {
+      title: "Fleet",
+      description: "at least one Machine",
+    }),
+  ),
   repos: Schema.optionalKey(Schema.Array(TrackedRepo)),
   vp: Schema.optionalKey(VpSection),
 });
@@ -78,3 +88,6 @@ export const repoName = (repo: Pick<TrackedRepo, "origin" | "name">): string =>
   repo.name ?? repo.origin.replace("/", "-");
 
 export const DEFAULT_CLONE_ROOT = "~/.local/share/fleetfizz/clones";
+
+// The npm package name of this tool, which a Ship pins implicitly (ADR 0008).
+export const SELF_PACKAGE = "fleetfizz";

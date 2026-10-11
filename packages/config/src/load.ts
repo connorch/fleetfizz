@@ -1,13 +1,20 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as jsonc from "jsonc-parser";
 
-import { FleetConfig, repoName } from "./schema.ts";
+import { FleetConfig, repoName, SELF_PACKAGE } from "./schema.ts";
 
 export const CONFIG_FILE = "fleet.config.jsonc";
+export const SCHEMA_FILE = "fleet.schema.json";
+
+// The config directory on every Machine: $XDG_CONFIG_HOME/fleetfizz, which
+// defaults to ~/.config/fleetfizz (ADR 0008). `env` is the process environment.
+export const configDir = (env: Readonly<Record<string, string | undefined>>): string =>
+  `${env.XDG_CONFIG_HOME ?? `${env.HOME ?? "~"}/.config`}/fleetfizz`;
+export const configPath = (env: Readonly<Record<string, string | undefined>>): string =>
+  `${configDir(env)}/${CONFIG_FILE}`;
 
 // Every problem with the config, reported together, so one run shows them all.
 export class ConfigError extends Schema.TaggedError<ConfigError>()("ConfigError", {
@@ -20,26 +27,12 @@ export class ConfigError extends Schema.TaggedError<ConfigError>()("ConfigError"
 }
 
 export class ConfigNotFound extends Schema.TaggedError<ConfigNotFound>()("ConfigNotFound", {
-  start: Schema.String,
+  path: Schema.String,
 }) {
   override get message() {
-    return `no ${CONFIG_FILE} found in ${this.start} or any parent directory`;
+    return `no config at ${this.path}; write one there (the README has an example) or pass --config`;
   }
 }
-
-// Searches upward from `start` for fleet.config.jsonc.
-export const findConfig = Effect.fn("findConfig")(function* (start: string) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  let dir = path.resolve(start);
-  for (;;) {
-    const candidate = path.join(dir, CONFIG_FILE);
-    if (yield* fs.exists(candidate)) return candidate;
-    const parent = path.dirname(dir);
-    if (parent === dir) return yield* new ConfigNotFound({ start });
-    dir = parent;
-  }
-});
 
 const lineOf = (text: string, offset: number): number => text.slice(0, offset).split("\n").length;
 
@@ -51,6 +44,9 @@ const semanticProblems = (config: FleetConfig): string[] => {
     const name = repoName(repo);
     if (seen.has(name)) problems.push(`repos: duplicate name "${name}"`);
     seen.add(name);
+  }
+  if (config.vp?.globals?.[SELF_PACKAGE] !== undefined) {
+    problems.push(`vp.globals: ${SELF_PACKAGE} is pinned by the running version; remove it`);
   }
   return problems;
 };
@@ -80,8 +76,11 @@ export const parseConfig = Effect.fn("parseConfig")(function* (path: string, tex
 
 const formatIssue = SchemaIssue.makeFormatterDefault();
 
+// Loads the config at `path`. A missing file is ConfigNotFound; any other
+// read error is reported as it is.
 export const loadConfig = Effect.fn("loadConfig")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
+  if (!(yield* fs.exists(path))) return yield* new ConfigNotFound({ path });
   const text = yield* fs.readFileString(path);
   return yield* parseConfig(path, text);
 });

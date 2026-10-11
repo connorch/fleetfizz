@@ -4,7 +4,11 @@ import { expandHome, plan, type PlanInput } from "./plan.ts";
 import { emptyState, type MachineState } from "./state.ts";
 
 const config: PlanInput["config"] = {
-  machines: { "connors-mac-studio": { clones: "/Volumes/StudioStack SSD/fleetfizz/clones" } },
+  machines: {
+    "connors-mac-studio": { clones: "/Volumes/StudioStack SSD/fleetfizz/clones" },
+    "connors-macbook-pro": {},
+    bluefin: {},
+  },
   repos: [
     { origin: "connorch/skills", ref: "main", install: "pnpm install" },
     {
@@ -48,6 +52,7 @@ const input = (over: Partial<PlanInput>): PlanInput => ({
   config,
   machine: { name: "connors-macbook-pro", platform: "darwin" },
   state: macbook,
+  self: "0.2.0",
   versions,
   rebuild: "none",
   answers: {},
@@ -65,10 +70,49 @@ describe("plan", () => {
         packages: [
           { name: "vercel", from: "58.0.0", version: "59.30.0" },
           { name: "inngest-cli", version: "1.45.1" },
+          { name: "fleetfizz", version: "0.2.0" },
         ],
       },
     ]);
     expect(result.questions).toEqual([]);
+    expect(result.failures).toEqual([]);
+  });
+
+  it("pins fleetfizz to the running version, and refuses to downgrade a newer one", () => {
+    const withSelf = (version: string): MachineState => ({
+      ...macbook,
+      globals: [...macbook.globals, { name: "fleetfizz", version, platform: { node: "24.18.1" } }],
+    });
+    const globalsOf = (state: MachineState) =>
+      plan(input({ state })).vp.flatMap((s) => (s.kind === "globals" ? s.packages : []));
+    expect(globalsOf(withSelf("0.1.0"))).toContainEqual({
+      name: "fleetfizz",
+      from: "0.1.0",
+      version: "0.2.0",
+    });
+    expect(globalsOf(withSelf("0.2.0")).some((g) => g.name === "fleetfizz")).toBe(false);
+    const newer = plan(input({ state: withSelf("0.3.0") }));
+    expect(newer.vp.flatMap((s) => (s.kind === "globals" ? s.packages : []))).not.toContainEqual(
+      expect.objectContaining({ name: "fleetfizz" }),
+    );
+    expect(newer.failures[0]?.reason).toContain("upgrade here first");
+  });
+
+  it("bootstraps vp on a bare Machine, then plans the whole vp section", () => {
+    const bare: MachineState = { ...emptyState, complete: true, home: "/Users/connor" };
+    const result = plan(input({ state: bare }));
+    expect(result.vp[0]).toEqual({ kind: "bootstrap" });
+    expect(result.vp[1]).toEqual({ kind: "vp", from: null, version: "1.1.0" });
+    expect(result.vp[2]).toEqual({ kind: "node", from: null, version: "24.18.1" });
+    expect(result.vp[3]).toEqual({
+      kind: "globals",
+      packages: [
+        { name: "vercel", version: "59.30.0" },
+        { name: "inngest-cli", version: "1.45.1" },
+        { name: "skills", version: "1.7.0" },
+        { name: "fleetfizz", version: "0.2.0" },
+      ],
+    });
     expect(result.failures).toEqual([]);
   });
 
@@ -108,6 +152,7 @@ describe("plan", () => {
         { name: "vercel", from: "60.1.0", version: "59.30.0" },
         { name: "inngest-cli", version: "1.45.1" },
         { name: "skills", version: "1.7.0" },
+        { name: "fleetfizz", version: "0.2.0" },
       ],
     });
   });

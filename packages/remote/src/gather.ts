@@ -1,4 +1,6 @@
 // The read-only Gather script: one ssh per Machine, printing ff-state Facts.
+import { CONFIG_FILE } from "@fleetfizz/config";
+
 import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 
 export interface GatherRepo {
@@ -13,6 +15,8 @@ export interface GatherInput {
 
 export const STATE_DIR = "~/.local/state/fleetfizz";
 export const RECORDS_DIR = `${STATE_DIR}/records`;
+// The config directory on a Machine, as a shell expression (ADR 0008).
+export const CONFIG_DIR_SH = '"${XDG_CONFIG_HOME:-$HOME/.config}/fleetfizz"';
 
 export const gatherScript = (input: GatherInput): string => {
   const lines = [
@@ -58,6 +62,11 @@ export const gatherScript = (input: GatherInput): string => {
       `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"record\\",\\"name\\":\\"$(ff_json ${name})\\",\\"record\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
     );
   }
+  // The Machine's config, base64 on one line (`base64 -w0` is linux only).
+  lines.push(
+    `ff_c=${CONFIG_DIR_SH}/${quote(CONFIG_FILE)}`,
+    `if [ -f "$ff_c" ]; then ff_state "{\\"fact\\":\\"config\\",\\"present\\":true,\\"base64\\":\\"$(base64 < "$ff_c" | tr -d '\\n')\\"}"; else ff_state '{"fact":"config","present":false}'; fi`,
+  );
   lines.push(`ff_state '{"fact":"end"}'`);
   return lines.join("\n");
 };

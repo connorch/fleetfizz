@@ -14,7 +14,7 @@ export type Decision =
   | { readonly kind: "skip" }
   | { readonly kind: "downgrade" };
 
-const hasTty = (): boolean => Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
+export const hasTty = (): boolean => Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
 
 // The newest installed version among the Machines asking, which is what a bump adopts.
 const newest = (group: ReadonlyArray<Question>): string =>

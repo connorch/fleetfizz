@@ -50,6 +50,12 @@ export const Fact = Schema.Union([
     name: Schema.String,
     record: InstallRecordSchema,
   }),
+  // The Machine's copy of the config, base64 so one line carries it (ADR 0008).
+  Schema.Struct({
+    fact: Schema.Literal("config"),
+    present: Schema.Boolean,
+    base64: Schema.optionalKey(Schema.String),
+  }),
   // fingerprint is null when the Output path does not exist.
   Schema.Struct({
     fact: Schema.Literal("output"),
@@ -78,6 +84,8 @@ export interface MachineState {
   readonly records: Readonly<Record<string, InstallRecord>>;
   // Keyed by repo name, then Output path.
   readonly outputs: Readonly<Record<string, Readonly<Record<string, string | null>>>>;
+  // The text of the Machine's config, or undefined when it has none.
+  readonly config?: string;
 }
 
 export const emptyState: MachineState = {
@@ -87,6 +95,9 @@ export const emptyState: MachineState = {
   records: {},
   outputs: {},
 };
+
+const decodeBase64 = (base64: string): string =>
+  new TextDecoder().decode(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)));
 
 export const assembleState = (facts: ReadonlyArray<Fact>): MachineState => {
   let state: MachineState = emptyState;
@@ -127,6 +138,11 @@ export const assembleState = (facts: ReadonlyArray<Fact>): MachineState => {
       }
       case "record":
         state = { ...state, records: { ...state.records, [fact.name]: fact.record } };
+        break;
+      case "config":
+        if (fact.present && fact.base64 !== undefined) {
+          state = { ...state, config: decodeBase64(fact.base64) };
+        }
         break;
       case "output":
         state = {

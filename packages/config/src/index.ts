@@ -3,11 +3,13 @@ export { bumpConfig, bumpedRange, BumpError, bumpText, rangePath } from "./bump.
 export { fleetConfigJsonSchema } from "./jsonSchema.ts";
 export {
   CONFIG_FILE,
+  configDir,
   ConfigError,
   ConfigNotFound,
-  findConfig,
+  configPath,
   loadConfig,
   parseConfig,
+  SCHEMA_FILE,
 } from "./load.ts";
 export {
   DEFAULT_CLONE_ROOT,
@@ -17,6 +19,8 @@ export {
   Platform,
   Range,
   repoName,
+  SELF_PACKAGE,
   TrackedRepo,
   VpSection,
 } from "./schema.ts";
+export { isNewer, stampText, type Stamp } from "./stamp.ts";

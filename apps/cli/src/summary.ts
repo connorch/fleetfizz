@@ -5,6 +5,8 @@ const SEP = " · ";
 
 const vpPart = (step: VpStep): string => {
   switch (step.kind) {
+    case "bootstrap":
+      return "install vp";
     case "vp":
       return `vp ${step.from ?? "none"} -> ${step.version}`;
     case "node":
@@ -26,11 +28,13 @@ const repoPart = (repo: RepoStep): string | undefined => {
 };
 
 export const summarize = (plan: MachinePlan): string => {
+  // Every Ship copies the config (ADR 0008), so every plan starts with it.
   const parts = [
+    "config",
     ...plan.vp.map(vpPart),
     ...plan.repos.map(repoPart).filter((p) => p !== undefined),
   ];
   const upToDate = plan.repos.filter((r) => !r.decision.run).length;
   if (upToDate > 0) parts.push(`${upToDate} repo${upToDate === 1 ? "" : "s"} up to date`);
-  return parts.length === 0 ? "up to date" : parts.join(SEP);
+  return parts.join(SEP);
 };

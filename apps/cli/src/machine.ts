@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 
 import { assembleState, type Fact, type MachinePlan, type MachineState } from "@fleetfizz/core";
 import {
+  CONFIG_STEP,
   END_STEP,
   parseLine,
   runScript,
@@ -90,8 +91,11 @@ export const gather = Effect.fn("gather")(function* (
 // What each step's RUN line says. A fetch has no line of its own.
 const runLabels = (p: MachinePlan): Readonly<Record<string, string>> =>
   Object.fromEntries([
+    [CONFIG_STEP, "config"],
     ...p.vp.map((step) => {
       switch (step.kind) {
+        case "bootstrap":
+          return [vpStepId(step), "install vp"];
         case "vp":
           return [vpStepId(step), `vp upgrade ${step.version}`];
         case "node":

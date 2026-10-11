@@ -6,6 +6,13 @@
     "$schema": {
       "type": "string"
     },
+    "shippedAt": {
+      "type": "string"
+    },
+    "shippedFrom": {
+      "type": "string",
+      "minLength": 1
+    },
     "machines": {
       "type": "object",
       "propertyNames": {
@@ -149,6 +156,7 @@
       "additionalProperties": false
     }
   },
+  "required": ["machines"],
   "additionalProperties": false,
   "$defs": {}
 }

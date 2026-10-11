@@ -3,9 +3,10 @@
 // fleetfizz shows it only when the step fails.
 import * as Schema from "effect/Schema";
 
+import { CONFIG_FILE, SCHEMA_FILE } from "@fleetfizz/config";
 import type { MachinePlan, RepoStep, VpStep } from "@fleetfizz/core";
 
-import { RECORDS_DIR } from "./gather.ts";
+import { CONFIG_DIR_SH, RECORDS_DIR } from "./gather.ts";
 import { doneLine, stepLine } from "./protocol.ts";
 import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 
@@ -34,12 +35,19 @@ export const vpStepId = (step: VpStep): string =>
     : step.kind === "globals"
       ? "vp:globals"
       : `vp:${step.kind}`;
+// The config copy, one step on every Machine (ADR 0008).
+export const CONFIG_STEP = "config";
+
+// vp's installer, then its env file so `vp` resolves for the rest of the script.
+const VP_INSTALL = `curl -fsSL https://vite.plus | bash && . "$HOME/.config/vite-plus/env"`;
 
 // One vp step: the command in a subshell, then its marker.
 const vpStep = (step: VpStep): string[] => {
   const id = vpStepId(step);
   const command = (() => {
     switch (step.kind) {
+      case "bootstrap":
+        return VP_INSTALL;
       case "vp":
         return `command vp upgrade ${quote(step.version)}`;
       case "node":
@@ -52,9 +60,24 @@ const vpStep = (step: VpStep): string[] => {
   })();
   return [
     stepLine(id),
-    `( ${command} )`,
+    // The bootstrap runs in this shell so its PATH change reaches later steps.
+    step.kind === "bootstrap" ? command : `( ${command} )`,
     `ff_code=$?`,
     `if [ "$ff_code" -ne 0 ]; then ${doneLine(id, false, "$ff_code")}; else ${doneLine(id, true)}; fi`,
+  ];
+};
+
+// Writes the Starting Machine's config and the schema beside it, from stdin
+// lines 2 and 3, atomically.
+const configStep = (): string[] => {
+  const dir = CONFIG_DIR_SH;
+  const write = (variable: string, file: string) =>
+    `printf '%s' "$${variable}" | base64 -d > ${dir}/${quote(`${file}.tmp`)} && mv -f ${dir}/${quote(`${file}.tmp`)} ${dir}/${quote(file)}`;
+  return [
+    stepLine(CONFIG_STEP),
+    `( set -e; mkdir -p ${dir}; ${write("ff_config", CONFIG_FILE)}; ${write("ff_schema", SCHEMA_FILE)} )`,
+    `ff_code=$?`,
+    `if [ "$ff_code" -ne 0 ]; then ${doneLine(CONFIG_STEP, false, "$ff_code")}; else ${doneLine(CONFIG_STEP, true)}; fi`,
   ];
 };
 // Marks the end of the script, so a script that stopped between steps is detected.
@@ -134,19 +157,38 @@ const repoSteps = (repo: RepoStep, input: ApplyInput): string[] => {
   ];
 };
 
+// The stdin lines the apply script reads, in order: the Lent Token, the
+// config text, and the schema text (the last two base64, so each is one line).
+export const applyStdin = (token: string | undefined, config: string, schema: string): string[] => [
+  token ?? "",
+  encodeBase64(config),
+  encodeBase64(schema),
+];
+
+const encodeBase64 = (text: string): string => {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+};
+
 export const applyScript = (input: ApplyInput): string => {
   const lines = [
     prelude,
     fingerprintFn,
     // Prints $1 verbatim (a JSON literal the Starting Machine prepared).
     `ff_lit() { printf '%s' "$1"; }`,
-    // Line 1 of stdin: the Lent Token, empty when none. Only ff_git sees it.
+    // stdin: line 1 the Lent Token (empty when none; only ff_git sees it),
+    // line 2 the config and line 3 the schema, both base64 (ADR 0008).
     `IFS= read -r ff_token || ff_token=""`,
+    `IFS= read -r ff_config || ff_config=""`,
+    `IFS= read -r ff_schema || ff_schema=""`,
     `ff_git() { if [ -n "$ff_token" ]; then FF_TOKEN="$ff_token" git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$FF_TOKEN"; }; f' "$@"; else git "$@"; fi; }`,
     `ff_root=${quotePath(input.cloneRoot)}`,
     ...(input.cloneRoot.startsWith("~") ? [`mkdir -p "$ff_root"`] : []),
   ];
-  // The vp section first: Install Commands need pnpm and Node.
+  // The config first, then the vp section: Install Commands need pnpm and Node.
+  lines.push(...configStep());
   for (const step of input.plan.vp) lines.push(...vpStep(step));
   for (const repo of input.plan.repos) lines.push(...repoSteps(repo, input));
   lines.push(doneLine(END_STEP, true));

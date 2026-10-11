@@ -10,8 +10,13 @@ describe("FleetConfig", () => {
   it("accepts a full config", () => {
     expect(
       ok({
-        $schema: "./node_modules/fleetfizz/fleet.schema.json",
-        machines: { "connors-mac-studio": { clones: "/Volumes/StudioStack SSD/fleetfizz/clones" } },
+        $schema: "./fleet.schema.json",
+        shippedAt: "2026-10-10T20:00:00.000Z",
+        shippedFrom: "connors-mac-studio",
+        machines: {
+          "connors-mac-studio": { clones: "/Volumes/StudioStack SSD/fleetfizz/clones" },
+          "connors-macbook-pro": {},
+        },
         repos: [
           { origin: "connorch/skills", ref: "main", install: "pnpm install" },
           {
@@ -28,19 +33,24 @@ describe("FleetConfig", () => {
     ).toBe(true);
   });
 
-  it("accepts an empty config", () => {
-    expect(ok({})).toBe(true);
+  it("requires at least one Machine", () => {
+    expect(ok({ machines: { "connors-mac-studio": {} } })).toBe(true);
+    expect(ok({ machines: {} })).toBe(false);
+    expect(ok({})).toBe(false);
   });
 
   it("rejects an origin that is not owner/repo", () => {
-    expect(ok({ repos: [{ origin: "https://github.com/x/y", ref: "main", install: "x" }] })).toBe(
-      false,
-    );
+    expect(
+      ok({
+        machines: { a: {} },
+        repos: [{ origin: "https://github.com/x/y", ref: "main", install: "x" }],
+      }),
+    ).toBe(false);
   });
 
   it("rejects an empty platforms list and an unknown platform", () => {
-    expect(ok({ vp: { platforms: [] } })).toBe(false);
-    expect(ok({ vp: { platforms: ["windows"] } })).toBe(false);
+    expect(ok({ machines: { a: {} }, vp: { platforms: [] } })).toBe(false);
+    expect(ok({ machines: { a: {} }, vp: { platforms: ["windows"] } })).toBe(false);
   });
 
   it("validates Ranges", () => {

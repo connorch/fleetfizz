@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 
 import type { MachinePlan, RepoStep } from "@fleetfizz/core";
 
-import { applyScript, END_STEP } from "./apply.ts";
-import { doneLine } from "./protocol.ts";
+import { applyScript, CONFIG_STEP, END_STEP } from "./apply.ts";
+import { doneLine, stepLine } from "./protocol.ts";
 
 const repo = (over: Partial<RepoStep>): RepoStep => ({
   name: "skills",
@@ -37,14 +37,24 @@ const script = (plan: MachinePlan) =>
   });
 
 describe("applyScript", () => {
-  it("runs the vp section before the repos and ends with the end marker", () => {
+  it("reads three stdin lines, then config, vp, repos, and the end marker in order", () => {
     const text = script(
       planOf({
-        vp: [{ kind: "vp", from: "1.0.0", version: "1.1.0" }],
+        vp: [{ kind: "bootstrap" }, { kind: "vp", from: null, version: "1.1.0" }],
         repos: [repo({})],
       }),
     );
-    expect(text.indexOf("vp upgrade '1.1.0'")).toBeLessThan(text.indexOf("git clone"));
+    const at = (needle: string) => {
+      const index = text.indexOf(needle);
+      expect(index, needle).toBeGreaterThanOrEqual(0);
+      return index;
+    };
+    expect(at("read -r ff_token")).toBeLessThan(at("read -r ff_config"));
+    expect(at("read -r ff_config")).toBeLessThan(at("read -r ff_schema"));
+    expect(at("read -r ff_schema")).toBeLessThan(at(stepLine(CONFIG_STEP)));
+    expect(at(stepLine(CONFIG_STEP))).toBeLessThan(at("https://vite.plus"));
+    expect(at("https://vite.plus")).toBeLessThan(at("vp upgrade '1.1.0'"));
+    expect(at("vp upgrade '1.1.0'")).toBeLessThan(at("git clone"));
     expect(text.trimEnd().split("\n").at(-1)).toBe(doneLine(END_STEP, true));
   });
 

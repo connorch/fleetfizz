@@ -1,15 +1,23 @@
 // `fleetfizz ship`: one Ship. Load the config, read the Fleet, Gather every
-// reachable Machine, Plan, ask Questions, Apply, and print the ledger.
+// reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
+// and print the ledger.
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Path from "effect/Path";
+import * as FileSystem from "effect/FileSystem";
 import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
+import { Prompt } from "effect/cli";
 
 import {
   bumpConfig,
+  configPath,
   DEFAULT_CLONE_ROOT,
-  findConfig,
+  fleetConfigJsonSchema,
+  isNewer,
   loadConfig,
+  parseConfig,
   repoName,
+  stampText,
   type FleetConfig,
 } from "@fleetfizz/config";
 import {
@@ -23,6 +31,7 @@ import {
 } from "@fleetfizz/core";
 import {
   applyScript,
+  applyStdin,
   gatherScript,
   readLentToken,
   readTailnet,
@@ -31,9 +40,9 @@ import {
   type Tailnet,
 } from "@fleetfizz/remote";
 
-import { makeLedger } from "./ledger.ts";
+import { makeLedger, type Ledger } from "./ledger.ts";
 import { apply, gather, type Outcome } from "./machine.ts";
-import { askQuestions } from "./questions.ts";
+import { askQuestions, hasTty } from "./questions.ts";
 import { summarize } from "./summary.ts";
 
 export interface ShipFlags {
@@ -42,7 +51,10 @@ export interface ShipFlags {
   readonly rebuild: ReadonlyArray<string>;
   readonly bump: boolean;
   readonly enforce: boolean;
+  readonly overwriteConfig: boolean;
   readonly config: string | undefined;
+  // The running fleetfizz version, pinned on every Machine (ADR 0008).
+  readonly version: string;
 }
 
 // A problem the person shipping must fix. Printed without a stack trace.
@@ -65,7 +77,7 @@ interface Planned extends Gathered {
 const unknownMachines = (config: FleetConfig, tailnet: Tailnet, only: ReadonlyArray<string>) => {
   const known = new Set(tailnet.fleet.map((m) => m.name));
   const referenced = [
-    ...Object.keys(config.machines ?? {}),
+    ...Object.keys(config.machines),
     ...(config.repos ?? []).flatMap((r) => r.machines ?? []),
     ...(config.vp?.machines ?? []),
     ...only,
@@ -86,10 +98,39 @@ const packagesToResolve = (config: FleetConfig): string[] => {
 const rebuildOf = (flags: ShipFlags): Rebuild =>
   flags.rebuild.length === 0 ? "none" : flags.rebuild.includes("all") ? "all" : flags.rebuild;
 
+// A Machine whose config was shipped after the local one: a Ship from
+// elsewhere missed this Machine, so copying the local config would roll it
+// back (ADR 0008). A remote config that does not parse is reported and then
+// overwritten; it cannot be newer.
+const staleConfigs = Effect.fn("staleConfigs")(function* (
+  local: FleetConfig,
+  gathered: ReadonlyArray<Gathered>,
+  ledger: Ledger,
+) {
+  const stale: string[] = [];
+  for (const { machine, local: isLocal, state } of gathered) {
+    if (isLocal || state.config === undefined) continue;
+    const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
+    if (parsed._tag === "Failure") {
+      yield* ledger.line(machine.name, "INFO", "its config does not parse; it will be overwritten");
+      continue;
+    }
+    const remote = parsed.success;
+    if (isNewer(remote.shippedAt, local.shippedAt)) {
+      stale.push(
+        `${machine.name} (shipped ${remote.shippedAt} from ${remote.shippedFrom ?? "unknown"})`,
+      );
+    }
+  }
+  return stale;
+});
+
+const schemaJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown, { space: 2 }));
+
 export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
-  const path = yield* Path.Path;
-  const configPath = flags.config ?? (yield* findConfig(path.resolve(".")));
-  const config = yield* loadConfig(configPath);
+  const fs = yield* FileSystem.FileSystem;
+  const path = flags.config ?? configPath(process.env);
+  const config = yield* loadConfig(path);
   const tailnet = yield* readTailnet();
 
   const unknown = unknownMachines(config, tailnet, flags.only);
@@ -100,9 +141,15 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       ),
     );
   }
-
+  // The Fleet is what the config lists; the Starting Machine must be in it.
+  const fleet = new Set(Object.keys(config.machines));
+  if (!fleet.has(tailnet.self.name)) {
+    return yield* Effect.fail(
+      new ShipError(`this Machine (${tailnet.self.name}) is not in machines in ${path}`),
+    );
+  }
   const targetsList = tailnet.fleet.filter(
-    (m) => flags.only.length === 0 || flags.only.includes(m.name),
+    (m) => fleet.has(m.name) && (flags.only.length === 0 || flags.only.includes(m.name)),
   );
   const ledger = yield* makeLedger(
     Math.max("fleet".length, ...targetsList.map((m) => m.name.length)),
@@ -130,7 +177,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   });
 
   const cloneRootOf = (machine: Machine) =>
-    config.machines?.[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
+    config.machines[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
   const gatherRepos = (config.repos ?? []).map((r) => ({
     name: repoName(r),
     outputs: r.outputs ?? [],
@@ -162,6 +209,27 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
+  // A newer config elsewhere stops the Ship unless the person overrides.
+  const stale = yield* staleConfigs(config, gathered, ledger);
+  if (stale.length > 0) {
+    const what = `newer config on ${stale.join(", ")}`;
+    if (flags.dryRun) {
+      yield* ledger.line("fleet", "INFO", `${what}; a Ship would ask before overwriting it`);
+    } else if (flags.overwriteConfig) {
+      yield* ledger.line("fleet", "INFO", `${what}; overwriting it (--overwrite-config)`);
+    } else if (!hasTty()) {
+      return yield* Effect.fail(
+        new ShipError(`${what}; copy it here first, or pass --overwrite-config`),
+      );
+    } else {
+      yield* ledger.line("fleet", "ASK", what);
+      const overwrite = yield* Prompt.run(
+        Prompt.Confirm({ message: "Overwrite it with this Machine's config?" }),
+      );
+      if (!overwrite) return yield* Effect.fail(new ShipError("aborted: the config here is older"));
+    }
+  }
+
   const versions = yield* resolveVersions(packagesToResolve(config));
 
   const planAll = (cfg: FleetConfig, answers: Readonly<Record<string, Answer>>): Planned[] =>
@@ -171,26 +239,27 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         config: cfg,
         machine: { name: g.machine.name, platform: g.machine.platform },
         state: g.state,
+        self: flags.version,
         versions,
         rebuild: rebuildOf(flags),
         answers,
       }),
     }));
-  let planned = planAll(config, {});
+  let cfg = config;
+  let planned = planAll(cfg, {});
 
   // Questions: every Machine's, before anything changes. A bump edits the
   // config, so the plan is made again from the new Ranges.
   const questions = planned.flatMap((g) => g.plan.questions);
   if (questions.length > 0 && !flags.dryRun) {
     const decided = yield* askQuestions(questions, flags, ledger);
-    let cfg = config;
     for (const [pkg, decision] of Object.entries(decided)) {
       if (decision.kind === "bump") {
-        const range = yield* bumpConfig(configPath, pkg, decision.installed);
-        yield* ledger.line("fleet", "INFO", `bumped ${pkg} to ${range} in ${configPath}`);
+        const range = yield* bumpConfig(path, pkg, decision.installed);
+        yield* ledger.line("fleet", "INFO", `bumped ${pkg} to ${range} in ${path}`);
       }
     }
-    if (Object.values(decided).some((d) => d.kind === "bump")) cfg = yield* loadConfig(configPath);
+    if (Object.values(decided).some((d) => d.kind === "bump")) cfg = yield* loadConfig(path);
     const answers = Object.fromEntries(
       Object.entries(decided).flatMap(([pkg, d]) =>
         d.kind === "bump" ? [] : [[pkg, d.kind] as const],
@@ -212,6 +281,15 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
 
   if (flags.dryRun) return yield* finish("planned");
 
+  // Stamp the config here, then every Machine gets this exact text (ADR 0008).
+  const shippedAt = DateTime.formatIso(yield* DateTime.now);
+  const stamped = stampText(yield* fs.readFileString(path), {
+    shippedAt,
+    shippedFrom: tailnet.self.name,
+  });
+  yield* fs.writeFileString(path, stamped);
+  const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
+
   // The Lent Token, when any repo ships. Without one, private repos fail at
   // fetch and public repos still ship.
   const lent = planned.some((g) => g.plan.repos.length > 0)
@@ -222,26 +300,17 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   }
 
   // Apply, in parallel. No Machine changed before this point.
-  const machineNames = tailnet.fleet.map((m) => m.name);
+  const machineNames = targetsList.map((m) => m.name);
+  const stdin = applyStdin(lent.token, stamped, schema);
   yield* Effect.forEach(
     planned,
     Effect.fn("applyOne")(function* ({ machine, local, plan: p }) {
-      if (p.repos.length === 0 && p.vp.length === 0) {
-        if (p.failures.length === 0) yield* ledger.line(machine.name, "OK", "up to date");
-        return;
-      }
       const script = applyScript({
         plan: p,
         cloneRoot: cloneRootOf(machine),
         env: { machine: machine.name, platform: machine.platform, machines: machineNames },
       });
-      const result = yield* apply(
-        { name: machine.name, local },
-        p,
-        script,
-        [lent.token ?? ""],
-        ledger,
-      );
+      const result = yield* apply({ name: machine.name, local }, p, script, stdin, ledger);
       yield* record(machine.name, result);
     }),
     { concurrency: "unbounded" },

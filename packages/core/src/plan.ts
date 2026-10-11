@@ -1,6 +1,14 @@
 // Plan: pure. Config plus gathered state gives one Machine's Steps, the
 // Questions it raises, and the failures already known before Apply.
-import { DEFAULT_CLONE_ROOT, isPin, repoName, type FleetConfig } from "@fleetfizz/config";
+import * as semver from "semver";
+
+import {
+  DEFAULT_CLONE_ROOT,
+  isPin,
+  repoName,
+  SELF_PACKAGE,
+  type FleetConfig,
+} from "@fleetfizz/config";
 
 import { decideRange } from "./range.ts";
 import { decideInstall, type InstallDecision } from "./record.ts";
@@ -20,6 +28,8 @@ export interface PlanInput {
   readonly config: FleetConfig;
   readonly machine: MachineIdentity;
   readonly state: MachineState;
+  // The running fleetfizz version, which every Machine is pinned to (ADR 0008).
+  readonly self: string;
   // Published versions per package, resolved once on the Starting Machine.
   readonly versions: Readonly<Record<string, ReadonlyArray<string>>>;
   readonly rebuild: Rebuild;
@@ -27,6 +37,8 @@ export interface PlanInput {
 }
 
 export type VpStep =
+  // vp's installer on a Machine without vp; always the first step.
+  | { readonly kind: "bootstrap" }
   | { readonly kind: "vp"; readonly from: string | null; readonly version: string }
   | { readonly kind: "node"; readonly from: string | null; readonly version: string }
   // A Global installed on a different Node than the default, reinstalled as is.
@@ -95,17 +107,18 @@ interface Section {
   readonly failures: Failure[];
 }
 
+// The vp section, plus two things every Machine in the Fleet gets whether or
+// not the section targets it: vp itself (bootstrapped when missing) and this
+// fleetfizz version as a Global.
 const planVp = (input: PlanInput): Section => {
   const out: Section = { steps: [], questions: [], skipped: [], failures: [] };
-  const vp = input.config.vp;
-  if (vp === undefined || !targets(vp, input.machine)) return out;
   const { state, machine } = input;
+  const vp = input.config.vp;
+  const targeted = vp !== undefined && targets(vp, machine);
 
-  if (state.vp === undefined || state.vp.version === null) {
-    out.failures.push({ what: "vp", reason: "vp is not installed (not on PATH in a login shell)" });
-    return out;
-  }
-  const installed = state.vp.version;
+  const missing = state.vp === undefined || state.vp.version === null;
+  if (missing) out.steps.push({ kind: "bootstrap" });
+  const installed = missing ? undefined : (state.vp?.version ?? undefined);
 
   // Decides one Range; returns the version to install, or undefined.
   const decide = (
@@ -147,29 +160,35 @@ const planVp = (input: PlanInput): Section => {
     }
   };
 
-  const vpTarget = decide(VP_PACKAGE, vp.version, installed, "vp");
-  if (vpTarget !== undefined) {
-    if (isHomebrew(state.vp.path)) {
-      out.failures.push({
-        what: "vp",
-        reason: `vp ${installed} was installed with Homebrew; run brew upgrade vite-plus to get ${vpTarget}`,
-      });
-    } else {
-      out.steps.push({ kind: "vp", from: installed, version: vpTarget });
+  const nodeNow = missing ? undefined : (state.node ?? undefined);
+  let nodeTarget: string | undefined;
+  if (targeted) {
+    const vpTarget = decide(VP_PACKAGE, vp.version, installed, "vp");
+    if (vpTarget !== undefined) {
+      if (isHomebrew(state.vp?.path)) {
+        out.failures.push({
+          what: "vp",
+          reason: `vp ${installed} was installed with Homebrew; run brew upgrade vite-plus to get ${vpTarget}`,
+        });
+      } else {
+        out.steps.push({ kind: "vp", from: installed ?? null, version: vpTarget });
+      }
     }
+    nodeTarget = decide(NODE_PACKAGE, vp.node, nodeNow, "node");
+    if (nodeTarget !== undefined)
+      out.steps.push({ kind: "node", from: nodeNow ?? null, version: nodeTarget });
   }
-
-  const nodeNow = state.node ?? undefined;
-  const nodeTarget = decide(NODE_PACKAGE, vp.node, nodeNow, "node");
-  if (nodeTarget !== undefined)
-    out.steps.push({ kind: "node", from: nodeNow ?? null, version: nodeTarget });
   const nodeDefault = nodeTarget ?? nodeNow;
 
-  const byName = new Map(state.globals.map((g) => [g.name, g]));
+  const byName = new Map((missing ? [] : state.globals).map((g) => [g.name, g]));
   const installs: Array<{ name: string; from?: string; version: string }> = [];
-  for (const [name, range] of Object.entries(vp.globals ?? {})) {
+  const wanted = Object.entries(targeted ? (vp.globals ?? {}) : {});
+  for (const [name, range] of [...wanted, [SELF_PACKAGE, input.self] as const]) {
     const current = byName.get(name);
-    const version = decide(name, range, current?.version);
+    const version =
+      name === SELF_PACKAGE
+        ? decideSelf(current?.version, input.self, out)
+        : decide(name, range, current?.version);
     if (version !== undefined) {
       installs.push(
         current === undefined ? { name, version } : { name, from: current.version, version },
@@ -185,6 +204,23 @@ const planVp = (input: PlanInput): Section => {
   }
   if (installs.length > 0) out.steps.push({ kind: "globals", packages: installs });
   return out;
+};
+
+// fleetfizz is pinned to the running version. A Machine running a newer one
+// is not downgraded: someone shipped from there, so this Machine is behind.
+const decideSelf = (
+  installed: string | undefined,
+  self: string,
+  out: Section,
+): string | undefined => {
+  if (installed === undefined || semver.lt(installed, self)) return self;
+  if (semver.gt(installed, self)) {
+    out.failures.push({
+      what: SELF_PACKAGE,
+      reason: `runs ${SELF_PACKAGE} ${installed}, newer than this ${self}; upgrade here first`,
+    });
+  }
+  return undefined;
 };
 
 const planRepos = (input: PlanInput): { repos: RepoStep[]; failures: Failure[] } => {
