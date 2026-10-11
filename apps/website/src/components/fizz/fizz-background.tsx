@@ -64,12 +64,13 @@ export function FizzBackground() {
     <div
       ref={ref}
       aria-hidden="true"
-      className="bg-fizz fixed inset-0 -z-10 text-white [--bubble-emissive:0.12] [--bubble-rim:0.5] [--glow:var(--color-fizz)] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)]"
+      className="bg-fizz fixed inset-0 -z-10 text-white [--bubble-emissive:0.12] [--bubble-rim:0.5] [--glow:var(--color-fizz)] [--scene-opacity:1] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)] dark:[--scene-opacity:0.55]"
     >
-      {/* Slightly out of focus. Oversized so the blur has no soft edge. */}
+      {/* Slightly out of focus. Oversized so the blur has no soft edge. The
+          scene stays dimmed in dark mode so the text reads over it. */}
       <div
         className="absolute -inset-6 blur-[5px] transition-opacity delay-1000 duration-[5000ms] [transition-timing-function:cubic-bezier(0.7,0,0.9,0.5)]"
-        style={{ opacity: ready ? 1 : 0 }}
+        style={{ opacity: ready ? "var(--scene-opacity)" : 0 }}
       >
         {palette && (
           <Suspense fallback={null}>
