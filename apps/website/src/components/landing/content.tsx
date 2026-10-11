@@ -1,7 +1,8 @@
 import { Button } from "@fleetfizz/ui/components/button";
+import { CopyIcon } from "@fleetfizz/ui/components/copy-icon";
 import { cn } from "@fleetfizz/ui/lib/utils";
+import { useIconHover } from "@fleetfizz/ui/hooks/use-icon-hover";
 import { Link } from "@tanstack/react-router";
-import { CopyIcon } from "lucide-react";
 
 // Copy shared by every landing mock. Layout is the variant's job.
 
@@ -19,6 +20,7 @@ export const NEEDS = [
 ] as const;
 
 export function Install({ className }: { className?: string }) {
+  const { ref, triggerProps } = useIconHover();
   return (
     <div
       className={cn(
@@ -29,8 +31,8 @@ export function Install({ className }: { className?: string }) {
       <span>
         <span className="text-fizz-foreground dark:text-fizz">$</span> vp install -g fleetfizz
       </span>
-      <Button variant="ghost" size="icon-xs" aria-label="Copy">
-        <CopyIcon />
+      <Button variant="ghost" size="icon-xs" aria-label="Copy" {...triggerProps}>
+        <CopyIcon ref={ref} size={12} />
       </Button>
     </div>
   );

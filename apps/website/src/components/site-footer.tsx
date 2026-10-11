@@ -1,4 +1,4 @@
-import { GITHUB_URL } from "./site-nav";
+import { GITHUB_URL } from "./nav-buttons";
 import { Wordmark } from "./wordmark";
 
 export function SiteFooter() {

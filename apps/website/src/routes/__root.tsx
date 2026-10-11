@@ -1,5 +1,5 @@
 import globalsCss from "@fleetfizz/ui/globals.css?url";
-import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
+import { HeadContent, Outlet, Scripts, createRootRoute, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { SiteFooter } from "../components/site-footer";
 import { SiteNav } from "../components/site-nav";
@@ -47,9 +47,10 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 function RootLayout() {
+  const bare = useMatches({ select: (matches) => matches.some((m) => m.staticData.bare) });
   return (
     <>
-      <SiteNav />
+      {!bare && <SiteNav />}
       <div className="flex-1">
         <Outlet />
       </div>

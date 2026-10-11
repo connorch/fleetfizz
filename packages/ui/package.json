@@ -18,6 +18,7 @@
     "class-variance-authority": "catalog:",
     "cn": "catalog:",
     "lucide-react": "catalog:",
+    "motion": "catalog:",
     "shadcn": "catalog:",
     "tw-animate-css": "catalog:"
   },

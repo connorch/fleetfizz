@@ -1,10 +1,8 @@
-import { Button } from "@fleetfizz/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { version } from "fleetfizz/package.json";
+import { DocsLink, GithubLink } from "./nav-buttons";
 import { ThemeToggle } from "./theme-toggle";
 import { Wordmark } from "./wordmark";
-
-export const GITHUB_URL = "https://github.com/connorch/fleetfizz";
 
 export function SiteNav() {
   return (
@@ -14,12 +12,8 @@ export function SiteNav() {
           <Wordmark />
         </Link>
         <nav className="flex items-center gap-1 text-sm">
-          <Button variant="ghost" size="sm" render={<Link to="/" />} nativeButton={false}>
-            Docs
-          </Button>
-          <Button variant="ghost" size="sm" render={<a href={GITHUB_URL} />} nativeButton={false}>
-            GitHub
-          </Button>
+          <DocsLink />
+          <GithubLink />
           <span className="text-muted-foreground px-2 font-mono text-xs">v{version}</span>
           <ThemeToggle />
         </nav>
