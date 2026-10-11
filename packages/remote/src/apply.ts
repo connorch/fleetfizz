@@ -145,6 +145,8 @@ const repoSteps = (repo: RepoStep, input: ApplyInput): string[] => {
     `if [ "$ff_code" -ne 0 ]; then ${doneLine(fetch, false, "$ff_code")}; else`,
     `${doneLine(fetch, true)}`,
     `ff_after=$(git -C "$ff_d" rev-parse HEAD)`,
+    // The commit the fetch reached, so the Ledger can show `before -> after`.
+    `ff_state "{\\"fact\\":\\"repo\\",\\"name\\":\\"$(ff_json ${quote(repo.name)})\\",\\"present\\":true,\\"head\\":\\"$(ff_json "$ff_after")\\"}"`,
     // The planner decided from the pre-fetch HEAD; a fetch that moved HEAD reinstalls too.
     `if [ ${repo.decision.run ? "true" : "false"} = true ] || [ "$ff_after" != "$ff_before" ]; then`,
     `  ${stepLine(install)}`,

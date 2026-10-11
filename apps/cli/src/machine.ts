@@ -1,23 +1,18 @@
 // Running one generated script on one Machine and folding its marker lines
-// into ledger lines. Gather and Apply differ only in what they fold.
+// into Ledger events. Gather and Apply differ only in what they fold.
 import * as Effect from "effect/Effect";
 
 import { assembleState, type Fact, type MachinePlan, type MachineState } from "@fleetfizz/core";
 import {
-  CONFIG_STEP,
   END_STEP,
   parseLine,
   runScript,
   SSH_UNREACHABLE,
-  stepId,
-  vpStepId,
   type Line,
   type Target,
 } from "@fleetfizz/remote";
 
-import type { Ledger } from "./ledger.ts";
-
-export type Outcome = "ok" | "skipped" | "failed";
+import type { Ledger, Outcome } from "./ledger.ts";
 
 type Run =
   | { readonly kind: "ran"; readonly exitCode: number }
@@ -46,9 +41,8 @@ const runOn = Effect.fn("runOn")(function* (
     ),
   );
   if (!target.local && run.kind === "ran" && run.exitCode === SSH_UNREACHABLE) {
-    yield* ledger.line(
+    yield* ledger.skip(
       target.name,
-      "SKIP",
       `ssh: ${first?.replace(/^tailscale: /, "") ?? "connection failed"}`,
     );
     return { kind: "skipped" } as const;
@@ -104,30 +98,6 @@ export const gather = Effect.fn("gather")(function* (
   return { kind: "gathered", state } as GatherResult;
 });
 
-// What each step's RUN line says. A fetch has no line of its own.
-const runLabels = (p: MachinePlan): Readonly<Record<string, string>> =>
-  Object.fromEntries([
-    [CONFIG_STEP, "config"],
-    ...p.vp.map((step) => {
-      switch (step.kind) {
-        case "bootstrap":
-          return [vpStepId(step), "install vp"];
-        case "vp":
-          return [vpStepId(step), `vp upgrade ${step.version}`];
-        case "node":
-          return [vpStepId(step), `node default ${step.version}`];
-        case "reinstall":
-          return [vpStepId(step), `${step.name} reinstall`];
-        case "globals":
-          return [
-            vpStepId(step),
-            `install ${step.packages.map((g) => `${g.name}@${g.version}`).join(" ")}`,
-          ];
-      }
-    }),
-    ...p.repos.map((r) => [stepId(r.name, "install"), `${r.name} install`]),
-  ]);
-
 export interface Applied {
   readonly outcome: Outcome;
   // Step ids whose ff-done said ok, whatever happened after them.
@@ -135,9 +105,9 @@ export interface Applied {
 }
 
 // Apply on one Machine. A step counts as done only when its ff-done says so,
-// and its output is shown only when it fails. The Machine's outcome is ok
+// and its output is kept only when it fails. The Machine's outcome is ok
 // only when every step passed, the script reached its end, and the plan
-// itself had no failures (those were reported with the plan).
+// itself had no failures (those are already on the Ledger).
 export const apply = Effect.fn("apply")(function* (
   target: Target,
   p: MachinePlan,
@@ -145,11 +115,11 @@ export const apply = Effect.fn("apply")(function* (
   secrets: ReadonlyArray<string>,
   ledger: Ledger,
 ) {
-  const labels = runLabels(p);
   let current: { id: string; output: string[] } | undefined;
   const done: string[] = [];
   const failed: string[] = [];
   const head: string[] = [];
+  yield* ledger.start(target.name);
   const run = yield* runOn(
     target,
     script,
@@ -157,50 +127,53 @@ export const apply = Effect.fn("apply")(function* (
     (line) =>
       Effect.gen(function* () {
         switch (line.kind) {
-          case "step": {
+          case "step":
             current = { id: line.id, output: [] };
-            const label = labels[line.id];
-            if (label !== undefined) yield* ledger.line(target.name, "RUN", label);
+            yield* ledger.stepStarted(target.name, line.id);
             break;
-          }
           case "done": {
-            const output = current?.id === line.done.id ? current.output : [];
+            const { id, ok, code } = line.done;
+            const output = current?.id === id ? current.output : [];
             current = undefined;
-            if (line.done.ok) done.push(line.done.id);
-            else {
-              failed.push(line.done.id);
-              const code = line.done.code === undefined ? "" : ` (exit ${line.done.code})`;
-              yield* ledger.fail(target.name, [`${line.done.id} failed${code}`, ...output]);
-            }
+            if (ok) done.push(id);
+            else failed.push(id);
+            if (id === END_STEP) break;
+            yield* ledger.stepDone(
+              target.name,
+              id,
+              ok ? { ok } : { ok, detail: code === undefined ? "failed" : `exit ${code}`, output },
+            );
             break;
           }
           case "text":
             if (line.text.trim() !== "") (current?.output ?? head).push(line.text.trimEnd());
             break;
           case "state":
+            // A fetch reports the commit it reached.
+            if (line.fact.fact === "repo" && line.fact.head !== undefined) {
+              yield* ledger.fetched(target.name, line.fact.name, line.fact.head);
+            }
             break;
         }
       }),
     ledger,
   );
-  const applied = (outcome: Outcome): Applied => ({ outcome, done });
-  if (run.kind !== "ran") return applied(run.kind);
+  const finish = Effect.fn("finish")(function* (outcome: Outcome) {
+    yield* ledger.finish(target.name, outcome);
+    return { outcome, done } satisfies Applied;
+  });
+  if (run.kind !== "ran") return yield* finish(run.kind);
   if (current !== undefined) {
-    yield* ledger.fail(target.name, [`${current.id} did not finish`, ...current.output]);
-    return applied("failed");
+    yield* ledger.stepDone(target.name, current.id, {
+      ok: false,
+      detail: "did not finish",
+      output: current.output,
+    });
+    return yield* finish("failed");
   }
   if (!done.includes(END_STEP)) {
     yield* ledger.fail(target.name, ["apply did not finish", ...head]);
-    return applied("failed");
+    return yield* finish("failed");
   }
-  if (failed.length > 0 || p.failures.length > 0) return applied("failed");
-  const installed = p.repos.filter((r) => done.includes(stepId(r.name, "install")));
-  const upToDate = p.repos.length - installed.length;
-  const parts = [
-    ...(p.vp.length > 0 ? ["vp"] : []),
-    ...installed.map((r) => `${r.name} installed`),
-    ...(upToDate > 0 ? [`${upToDate} repo${upToDate === 1 ? "" : "s"} up to date`] : []),
-  ];
-  yield* ledger.line(target.name, "OK", parts.length === 0 ? "up to date" : parts.join(" · "));
-  return applied("ok");
+  return yield* finish(failed.length > 0 || p.failures.length > 0 ? "failed" : "ok");
 });

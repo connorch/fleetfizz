@@ -44,7 +44,10 @@ Then:
 ```sh
 fizz ship --dry-run   # gather every Machine and print its plan; change nothing
 fizz ship             # apply the plan everywhere, in parallel
+fizz report           # print the full Ledger of the last Ship from this Machine
 ```
+
+The Ledger lists each Machine and, under it, what changes there. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 
 Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks before overwriting it; `--overwrite-config` answers yes in advance, and without a terminal the Ship stops instead.
 

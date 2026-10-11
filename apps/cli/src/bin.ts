@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/cli";
 
 import packageJson from "../package.json" with { type: "json" };
+import { report } from "./report.ts";
 import { ship } from "./ship.ts";
 
 const shipCommand = Command.make("ship", {
@@ -64,10 +65,15 @@ const shipCommand = Command.make("ship", {
   ),
 );
 
+const reportCommand = Command.make("report", {}).pipe(
+  Command.withDescription("Print the full Ledger of the last Ship from this Machine."),
+  Command.withHandler(() => report()),
+);
+
 // The package is fleetfizz; the command is fizz.
 const fizz = Command.make("fizz").pipe(
   Command.withDescription("Keep every Machine on your tailnet in line with one config."),
-  Command.withSubcommands([shipCommand]),
+  Command.withSubcommands([shipCommand, reportCommand]),
 );
 
 Command.run(fizz, { version: packageJson.version }).pipe(
