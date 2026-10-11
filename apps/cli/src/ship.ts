@@ -1,4 +1,4 @@
-// `fleetfizz ship`: one Ship. Load the config, read the Fleet, Gather every
+// `fizz ship`: one Ship. Load the config, read the Fleet, Gather every
 // reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
 // and print the ledger.
 import * as DateTime from "effect/DateTime";

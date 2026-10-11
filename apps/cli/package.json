@@ -9,7 +9,7 @@
     "directory": "apps/cli"
   },
   "bin": {
-    "fleetfizz": "./dist/fleetfizz.mjs"
+    "fizz": "./dist/fleetfizz.mjs"
   },
   "files": [
     "dist",

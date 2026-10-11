@@ -64,12 +64,13 @@ const shipCommand = Command.make("ship", {
   ),
 );
 
-const fleetfizz = Command.make("fleetfizz").pipe(
+// The package is fleetfizz; the command is fizz.
+const fizz = Command.make("fizz").pipe(
   Command.withDescription("Keep every Machine on your tailnet in line with one config."),
   Command.withSubcommands([shipCommand]),
 );
 
-Command.run(fleetfizz, { version: packageJson.version }).pipe(
+Command.run(fizz, { version: packageJson.version }).pipe(
   Effect.provide(NodeServices.layer),
   NodeRuntime.runMain,
 );
