@@ -68,7 +68,7 @@ export function FizzBackground() {
     >
       {/* Slightly out of focus. Oversized so the blur has no soft edge. */}
       <div
-        className="absolute -inset-6 blur-[5px] transition-opacity delay-1000 duration-[5000ms] ease-out"
+        className="absolute -inset-6 blur-[5px] transition-opacity delay-1000 duration-[5000ms] [transition-timing-function:cubic-bezier(0.7,0,0.9,0.5)]"
         style={{ opacity: ready ? 1 : 0 }}
       >
         {palette && (
