@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.2.0
+
+### Minor Changes
+
+- [`ce9cffe`](https://github.com/connorch/fleetfizz/commit/ce9cffe71d75953f72f9f4286910826078975222) Thanks [@connorch](https://github.com/connorch)! - The config moves to `~/.config/fleetfizz/fleet.config.jsonc` and `machines` is the Fleet. Every Ship stamps the config, copies it and the JSON Schema to every Machine, and installs its own fleetfizz version there; a Machine without vp is bootstrapped. A newer config on another Machine stops the Ship unless confirmed or `--overwrite-config`. The upward search from the working directory is gone; `--config` stays.
+
 ## 0.1.0
 
 ### Minor Changes
