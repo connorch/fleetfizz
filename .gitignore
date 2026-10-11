@@ -7,3 +7,7 @@ packages/*/dist
 .vite-plus
 .vitest-*
 .context
+apps/*/.output
+.nitro
+.tanstack
+.vercel

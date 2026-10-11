@@ -142,6 +142,8 @@ _Avoid_: credential forwarding, shared token
 
 ## Flagged ambiguities
 
+- "fleetfizz" is the product (and its npm package); `fizz` is its command. "fleetfizz ship" is wrong: it is `fizz ship`.
+
 - "Ship" used to mean installing one repo's skills; it now covers every **Tracked Repo** and the **vp section**.
 - "Managed Clone" used to mean only the skills repo's clone on a remote Machine; it now means any **Tracked Repo**'s clone on any **Machine**, the **Starting Machine** included.
 - "working copy" is the developer's own checkout, where the config is read from. It is never a **Managed Clone**, and a **Ship** never installs from it.

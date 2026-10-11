@@ -7,10 +7,16 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/dist/**", "**/.{git,cache,output,temp}/**"],
   },
   fmt: {
-    ignorePatterns: ["dist", "node_modules", "pnpm-lock.yaml", "CHANGELOG.md"],
+    ignorePatterns: [
+      "dist",
+      "node_modules",
+      "pnpm-lock.yaml",
+      "CHANGELOG.md",
+      "**/routeTree.gen.ts",
+    ],
     sortPackageJson: {},
   },
   lint: {
-    ignorePatterns: ["dist", "node_modules", "pnpm-lock.yaml"],
+    ignorePatterns: ["dist", "node_modules", "pnpm-lock.yaml", "**/routeTree.gen.ts"],
   },
 });
