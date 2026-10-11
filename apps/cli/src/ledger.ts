@@ -56,7 +56,15 @@ export type Item = typeof Item.Type;
 
 const MachineEntry = Schema.Struct({
   name: Schema.String,
-  status: Schema.Literals(["gathering", "planned", "running", "ok", "skipped", "failed"]),
+  status: Schema.Literals([
+    "gathering",
+    "gathered",
+    "planned",
+    "running",
+    "ok",
+    "skipped",
+    "failed",
+  ]),
   // Why the Machine was skipped or failed as a whole (ssh, Gather, Apply).
   detail: Schema.optionalKey(Schema.String),
   output: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -86,6 +94,7 @@ export type StepResult =
 export interface Ledger {
   // Prints above the Machines now, and goes in the saved report.
   readonly note: (kind: Note["kind"], text: string) => Effect.Effect<void>;
+  readonly gathered: (name: string) => Effect.Effect<void>;
   readonly skip: (name: string, reason: string) => Effect.Effect<void>;
   // The Machine failed as a whole: the first line is why, the rest is output.
   readonly fail: (name: string, lines: ReadonlyArray<string>) => Effect.Effect<void>;
@@ -203,18 +212,20 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
   return [...items.values()];
 };
 
-// A Machine's outcome, counting failures the plan already knew about.
-export const outcomeOf = (m: MachineEntry): Outcome | undefined =>
+// A Machine's outcome, counting failures the plan already knew about. A
+// planned Machine is a dry run's ok; in a stopped Ship it never ran, and a
+// Machine stopped before its plan has no outcome either.
+export const outcomeOf = (m: MachineEntry, dryRun: boolean): Outcome | undefined =>
   m.status === "skipped"
     ? "skipped"
     : m.status === "failed" || m.items.some((i) => i.status === "failed")
       ? "failed"
-      : m.status === "ok" || m.status === "planned"
+      : m.status === "ok" || (m.status === "planned" && dryRun)
         ? "ok"
         : undefined;
 
 export const tally = (state: LedgerState) => {
-  const outcomes = state.machines.map(outcomeOf);
+  const outcomes = state.machines.map((m) => outcomeOf(m, state.dryRun));
   const n = (o: Outcome) => outcomes.filter((x) => x === o).length;
   return { ok: n("ok"), skipped: n("skipped"), failed: n("failed") };
 };
@@ -267,6 +278,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
       yield* update((state) => ({ ...state, notes: [...state.notes, { kind, text }] }));
       yield* Console.log(noteText({ kind, text }, styled()));
     }),
+    gathered: (name) => machine(name, (m) => ({ ...m, status: "gathered" })),
     skip: (name, reason) => machine(name, (m) => ({ ...m, status: "skipped", detail: reason })),
     fail: (name, [reason = "failed", ...output]) =>
       machine(name, (m, now) => ({
@@ -318,7 +330,10 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
       machine(name, (m) => ({
         ...m,
         items: m.items.map((i) =>
-          i.kind === "repo" && i.name === repo ? { ...i, to: head.slice(0, 7) } : i,
+          i.kind === "repo" && i.name === repo
+            ? // The fetch already moved the checkout, even if the install never runs.
+              { ...i, to: head.slice(0, 7), changes: i.changes || head.slice(0, 7) !== i.from }
+            : i,
         ),
       })),
     finish: (name, outcome) =>
@@ -327,16 +342,14 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         status: m.status === "failed" ? "failed" : outcome,
         ended: m.ended ?? now,
       })),
-    // Anything still going when the Ship ends was stopped (Ctrl-C or an
-    // error); a dry run legitimately ends with its Machines planned.
+    // Gather or Apply still going when the Ship ends was stopped (Ctrl-C or
+    // an error). Machines waiting between them keep their state.
     end: Effect.gen(function* () {
       yield* update((state, now) => ({
         ...state,
         ended: now,
         machines: state.machines.map((m) =>
-          m.status === "running" ||
-          m.status === "gathering" ||
-          (m.status === "planned" && !state.dryRun)
+          m.status === "running" || m.status === "gathering"
             ? {
                 ...m,
                 status: "failed",
@@ -461,7 +474,8 @@ export const rows = (state: LedgerState, options: RenderOptions): Row[] => {
     const time = { text: elapsed(m.started, m.ended, now), style: "dim" as const };
     switch (m.status) {
       case "gathering":
-        head.push({ text: "      " }, { text: "gathering", style: "dim" });
+      case "gathered":
+        head.push({ text: "      " }, { text: m.status, style: "dim" });
         break;
       case "planned":
         // A dry run ends here, so a plan that already failed says so.

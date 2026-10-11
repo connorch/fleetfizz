@@ -221,6 +221,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       const script = gatherScript({ cloneRoot: cloneRootOf(machine), repos: gatherRepos });
       const result = yield* gather({ name: machine.name, local }, script, ledger);
       if (result.kind !== "gathered") return undefined;
+      yield* ledger.gathered(machine.name);
       return { machine, local, state: result.state };
     }),
     { concurrency: "unbounded" },
@@ -279,7 +280,9 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   if (questions.length > 0 && !flags.dryRun) {
     const decided = yield* askQuestions(questions, flags, ledger, live.ask);
     for (const [pkg, decision] of Object.entries(decided)) {
-      if (decision.kind === "bump") yield* bumpConfig(path, pkg, decision.installed);
+      if (decision.kind !== "bump") continue;
+      changing = true;
+      yield* bumpConfig(path, pkg, decision.installed);
     }
     if (Object.values(decided).some((d) => d.kind === "bump")) cfg = yield* loadConfig(path);
     const answers = Object.fromEntries(
