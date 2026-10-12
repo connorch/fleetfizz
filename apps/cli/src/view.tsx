@@ -173,8 +173,10 @@ const shipSummary = (state: LedgerState): ReadonlyArray<Part> => {
   const outcomes = state.machines.map((m) => {
     const outcome = outcomeOf(m, state.dryRun);
     if (outcome !== "ok") return outcome;
-    if (countsOf(m).changes === 0) return "up to date";
-    return state.dryRun ? "to change" : "updated";
+    const { changes, skipped } = countsOf(m);
+    if (changes > 0) return state.dryRun ? "to change" : "updated";
+    // Nothing changed; one that skipped an item says so, as its own line does.
+    return skipped > 0 ? "skipped" : "up to date";
   });
   const counted = (outcome: (typeof outcomes)[number], tone: Tone): Part[] => {
     const n = outcomes.filter((o) => o === outcome).length;

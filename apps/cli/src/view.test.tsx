@@ -91,4 +91,9 @@ describe("the Ship's summary", () => {
       "1 to change, 1 up to date",
     );
   });
+
+  it("does not count a Machine that skipped an item as up to date", () => {
+    const skipping = { ...planned("macbook", false), items: [item("vercel", "skipped")] };
+    expect(summary([planned("studio", false), skipping])).toBe("1 up to date, 1 skipped");
+  });
 });
