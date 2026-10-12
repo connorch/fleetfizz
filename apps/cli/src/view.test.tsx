@@ -67,4 +67,21 @@ describe("the live Ledger", () => {
   it("draws nothing when there is no room", () => {
     expect(live(2)).toEqual([""]);
   });
+
+  it("keeps the end of a failed Machine's output when it is cut", () => {
+    const failed: LedgerState = {
+      ...state,
+      machines: [
+        {
+          name: "studio",
+          status: "failed",
+          items: [{ ...item("t3code", "failed"), output: ["first", "second", "third", "last"] }],
+        },
+      ],
+    };
+    const lines = live(6, failed);
+    expect(lines.length).toBeLessThanOrEqual(6);
+    expect(lines.join("\n")).toContain("│ last");
+    expect(lines.join("\n")).not.toContain("│ first");
+  });
 });

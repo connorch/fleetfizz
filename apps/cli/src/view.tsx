@@ -325,7 +325,8 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   // Too tall for the window: Machines that are not running or failing show
   // only their own line. If that is still too tall, every Machine keeps its
   // own line (its summary says how far it got) and the open ones share the
-  // rows left in config order, each cut with "…". Past that, the frame is cut.
+  // rows left in config order, each cut with "…" (a failed one from the top).
+  // Past that, the frame is cut.
   const fits = count(blocks) <= room;
   let spare = room - count(blocks.map((b) => ({ ...b, body: [] })));
   let cuts = 0;
@@ -342,7 +343,13 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
           …
         </Line>
       );
-      fitted.push({ ...b, body: [...b.body.slice(0, spare - 1), ellipsis] });
+      // A failed Machine keeps its last lines: the end of its output says
+      // what went wrong.
+      const body =
+        b.m.status === "failed"
+          ? [ellipsis, ...b.body.slice(b.body.length - (spare - 1))]
+          : [...b.body.slice(0, spare - 1), ellipsis];
+      fitted.push({ ...b, body });
       spare = 0;
       cuts += 1;
     } else fitted.push({ ...b, body: [] });
