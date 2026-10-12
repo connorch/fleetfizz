@@ -298,10 +298,11 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   };
 
   // Each Machine is its line plus the lines under it. `after` counts the lines
-  // below its last failure output: the items that came after the failure.
+  // below its last failure (an item and its output, or else the Machine's own
+  // output): the items that came after it.
   const blocks = state.machines.map((m) => {
     const items = shownItems(m);
-    const last = items.findLastIndex((i) => i.output !== undefined);
+    const last = items.findLastIndex((i) => i.status === "failed");
     return {
       m,
       head: <MachineLine key={m.name} m={m} w={w} dryRun={dryRun} now={now} />,
@@ -332,7 +333,7 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   // only their own line. If that is still too tall, every Machine keeps its
   // own line (its summary says how far it got) and the open ones share the
   // rows left in config order, each cut with "…" (a failed one keeps the lines
-  // ending at its last failure output). Past that, the frame is cut.
+  // ending at its last failure). Past that, the frame is cut.
   const fits = count(blocks) <= room;
   let spare = room - count(blocks.map((b) => ({ ...b, body: [] })));
   let cuts = 0;
@@ -352,7 +353,7 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
       let body: ReactNode[];
       if (b.m.status === "failed") {
         // A failed Machine keeps the lines leading up to the end of its last
-        // failure output, which says what went wrong.
+        // failure, which say what went wrong.
         const end = b.body.length - b.after;
         const below = b.after > 0 && spare > 1 ? [ellipsis("below")] : [];
         const keep = spare - below.length;

@@ -106,4 +106,26 @@ describe("the live Ledger", () => {
     expect(lines.join("\n")).not.toContain("skills");
     expect(lines.filter((l) => l.trim() === "…")).toHaveLength(2);
   });
+
+  it("keeps a failed item with no output over the items after it", () => {
+    const failed: LedgerState = {
+      ...state,
+      machines: [
+        {
+          name: "studio",
+          status: "failed",
+          items: [
+            item("a", "ok"),
+            item("b", "ok"),
+            { ...item("vp", "failed"), detail: "stopped" },
+            item("t3code", "ok"),
+            item("skills", "ok"),
+          ],
+        },
+      ],
+    };
+    const lines = live(7, failed).join("\n");
+    expect(lines).toContain("✗ failed");
+    expect(lines).not.toContain("skills");
+  });
 });

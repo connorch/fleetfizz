@@ -186,15 +186,18 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   let changing = false;
   const finish = Effect.fn("finish")(function* () {
     const state = yield* ledger.end;
-    if (changing) {
-      yield* saveReport(state).pipe(
+    const saved =
+      changing &&
+      (yield* saveReport(state).pipe(
+        Effect.as(true),
         Effect.catch((e) =>
-          Console.error(`could not save the report for fizz report: ${e.message}`),
+          Console.error(`could not save the report for fizz report: ${e.message}`).pipe(
+            Effect.as(false),
+          ),
         ),
-      );
-    }
-    // A terminal gets the changes and points at the full report; a saved log
-    // cannot be expanded later, so it gets every item.
+      ));
+    // A terminal gets the changes and points at the full report, once it is
+    // saved; a saved log cannot be expanded later, so it gets every item.
     yield* Console.log(
       ledgerText(
         state,
@@ -202,7 +205,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
           ? {
               full: false,
               now: state.ended ?? 0,
-              ...(flags.dryRun ? {} : { hint: "full report: fizz report" }),
+              ...(saved ? { hint: "full report: fizz report" } : {}),
             }
           : { full: true, now: state.ended ?? 0 },
         color,
