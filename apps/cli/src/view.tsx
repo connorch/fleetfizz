@@ -78,36 +78,102 @@ const value = (i: Item): string =>
       ? `+ ${i.to}`
       : i.from === i.to
         ? i.to
-        : `${i.from} -> ${i.to}`;
+        : `${i.from} → ${i.to}`;
 
-// What happened to an item, or what will.
-const noteOf = (i: Item): { text: string; tone: Tone } => {
+interface Part {
+  readonly text: string;
+  readonly tone?: Tone;
+}
+
+// An item's status, first on its line, and the detail at its end. Outcomes
+// are past tense, work in progress ends in -ing, and `queued` (a Ship) or
+// `planned` (a dry run) has not started. An unchanged item has no status.
+const statusOf = (i: Item, dryRun: boolean): Part & { readonly detail?: string | undefined } => {
   switch (i.status) {
     case "running":
-      return { text: i.doing ?? "running", tone: "run" };
+      return { text: `▸ ${i.doing ?? "running"}`, tone: "run" };
     case "failed":
-      return { text: "FAIL", tone: "fail" };
+      return { text: "✗ failed", tone: "fail", detail: i.detail };
     case "skipped":
-      return { text: "SKIP", tone: "skip" };
+      return { text: "– skipped", tone: "skip", detail: i.detail };
     case "ok":
-      if (i.kind === "config") return { text: "copied", tone: "dim" };
+      if (i.kind === "config") return { text: "✓ copied", tone: "dim" };
       if (i.kind === "repo") {
         return i.from !== undefined && i.from === i.to
-          ? { text: `rebuilt${i.reason === undefined ? "" : `: ${i.reason}`}`, tone: "ok" }
-          : { text: "installed", tone: "ok" };
+          ? { text: "✓ rebuilt", tone: "ok", detail: i.reason }
+          : { text: "✓ installed", tone: "ok" };
       }
-      return { text: i.reason ?? "done", tone: "ok" };
+      return { text: "✓ done", tone: "ok", detail: i.reason };
     case "idle":
-      if (i.changes) return { text: i.reason ?? "", tone: "dim" };
-      return { text: i.kind === "repo" ? "up to date" : "", tone: "dim" };
+      if (i.changes)
+        return { text: dryRun ? "· planned" : "· queued", tone: "dim", detail: i.reason };
+      return { text: "", detail: i.kind === "repo" ? "up to date" : undefined };
   }
+};
+
+// A Machine's summary, at the end of its line: how far its items got, in
+// their colors. A Machine that was skipped or failed as a whole says so,
+// then why.
+const summaryOf = (m: MachineEntry, dryRun: boolean): ReadonlyArray<Part> => {
+  if (m.status === "checking" || m.status === "waiting") return [{ text: m.status, tone: "dim" }];
+  if (m.status === "skipped") {
+    return [{ text: "– skipped", tone: "skip" }, { text: `  ${m.detail ?? ""}` }];
+  }
+  if (m.status === "failed" && m.detail !== undefined) {
+    return [{ text: "✗ failed", tone: "fail" }, { text: `  ${m.detail}` }];
+  }
+  // A skipped item does not change; a failed one did, or was meant to.
+  const changes = m.items.filter((i) => i.changes && i.status !== "skipped");
+  const done = changes.filter((i) => i.status === "ok").length;
+  const failed = m.items.filter((i) => i.status === "failed").length;
+  const skipped = m.items.filter((i) => i.status === "skipped").length;
+  if (changes.length === 0 && skipped === 0) return [{ text: "up to date", tone: "ok" }];
+  const finished = m.status === "ok" || m.status === "failed";
+  const parts: Part[] = [];
+  if (dryRun && m.status === "planned") {
+    if (changes.length > failed)
+      parts.push({ text: `${changes.length - failed} to change`, tone: "dim" });
+  } else if (changes.length > 0 && (!finished || done > 0)) {
+    // Green once every change is done; a finished Machine that got nothing
+    // done says only what failed.
+    const tone = done === changes.length ? "ok" : "dim";
+    parts.push({ text: `${done} of ${changes.length} done`, tone });
+  }
+  if (failed > 0) parts.push({ text: `${failed} failed`, tone: "fail" });
+  if (skipped > 0) parts.push({ text: `${skipped} skipped`, tone: "skip" });
+  return parts.flatMap((part, n) => (n === 0 ? [part] : [{ text: ", ", tone: "dim" }, part]));
 };
 
 const elapsed = (started: number | undefined, ended: number | undefined, now: number) =>
   started === undefined ? "" : duration((ended ?? now) - started);
 
-// A live frame keeps this much output under a FAIL while the Ship runs; every
-// other rendering has all of it.
+const Parts = (props: { parts: ReadonlyArray<Part> }) => (
+  <Line>
+    {props.parts.map((part, n) => (
+      <T key={n} tone={part.tone}>
+        {part.text}
+      </T>
+    ))}
+  </Line>
+);
+
+// The columns every line shares. An item line is its status, its name
+// (indented under the Machine's), its version or commit, its time, and its
+// detail; a Machine line is its name across the first three, then its time
+// and its summary.
+interface Widths {
+  readonly status: number;
+  readonly item: number;
+  readonly value: number;
+  readonly time: number;
+}
+const GAP = 2;
+const INDENT = 2;
+// Where an item's name starts: output under an item lines up with it.
+const nameAt = (w: Widths) => w.status + GAP + INDENT;
+
+// A live frame keeps this much output under a failure while the Ship runs;
+// every other rendering has all of it.
 const LIVE_OUTPUT = 12;
 // `key` names whose output it is, so keys stay unique in one list.
 const outputLines = (
@@ -127,85 +193,54 @@ const outputLines = (
       : []),
     ...output.slice(hidden).map((line, n) => (
       <Line key={`${key}/${n}`} indent={indent}>
+        <T tone="fail">│ </T>
         {line}
       </Line>
     )),
   ];
 };
 
-interface Widths {
-  readonly name: number;
-  readonly item: number;
-  readonly value: number;
-  readonly note: number;
-  readonly time: number;
-}
-
-// The Machine's tag (OK, FAIL, ...) and what follows it: why, or how long.
-const headOf = (
-  m: MachineEntry,
-  now: number,
-): { tag: string; tone?: Tone; rest: string; restTone?: Tone } => {
-  const time = elapsed(m.started, m.ended, now);
-  const upToDate = !m.items.some((i) => i.changes);
-  switch (m.status) {
-    case "checking":
-    case "waiting":
-      return { tag: "", rest: m.status, restTone: "dim" };
-    case "planned":
-      // A dry run ends here, so a plan that already failed says so.
-      return m.items.some((i) => i.status === "failed")
-        ? { tag: "FAIL", tone: "fail", rest: "" }
-        : { tag: "", rest: upToDate ? "up to date" : "", restTone: "dim" };
-    case "running":
-      return { tag: "RUN", tone: "run", rest: time, restTone: "dim" };
-    case "ok":
-      return { tag: "OK", tone: "ok", rest: upToDate ? "up to date" : time, restTone: "dim" };
-    case "skipped":
-      return { tag: "SKIP", tone: "skip", rest: m.detail ?? "" };
-    case "failed":
-      return m.detail === undefined
-        ? { tag: "FAIL", tone: "fail", rest: time, restTone: "dim" }
-        : { tag: "FAIL", tone: "fail", rest: m.detail };
-  }
-};
-
-const MachineHead = (props: { m: MachineEntry; w: Widths; now: number }) => {
-  const head = headOf(props.m, props.now);
+const MachineLine = (props: { m: MachineEntry; w: Widths; dryRun: boolean; now: number }) => {
+  const { m, w } = props;
+  const summary = summaryOf(m, props.dryRun);
+  // How long only matters when something ran.
+  const upToDate = summary[0]?.text === "up to date";
   return (
-    <Box columnGap={2}>
-      <Cell width={props.w.name} tone="bold">
-        {props.m.name}
+    <Box columnGap={GAP}>
+      <Cell width={nameAt(w) + w.item + GAP + w.value} tone="bold">
+        {m.name}
       </Cell>
-      <Cell width={4} tone={head.tone}>
-        {head.tag}
-      </Cell>
-      <Line tone={head.restTone}>{head.rest}</Line>
+      {w.time > 0 && (
+        <Cell width={w.time} right tone="dim">
+          {upToDate ? "" : elapsed(m.started, m.ended, props.now)}
+        </Cell>
+      )}
+      <Parts parts={summary} />
     </Box>
   );
 };
 
-const ItemLine = (props: { i: Item; w: Widths; now: number }) => {
-  const { i, w, now } = props;
-  const note = noteOf(i);
-  const idle = i.status === "idle" && !i.changes ? "dim" : undefined;
+const ItemLine = (props: { i: Item; w: Widths; dryRun: boolean; now: number }) => {
+  const { i, w } = props;
+  const status = statusOf(i, props.dryRun);
+  const quiet = i.status === "idle" ? "dim" : undefined;
   return (
-    <Box paddingLeft={4} columnGap={2}>
-      <Cell width={w.item} tone={idle}>
-        {i.name}
+    <Box columnGap={GAP}>
+      <Cell width={w.status} tone={status.tone}>
+        {status.text}
       </Cell>
-      <Cell width={w.value} tone={idle}>
+      <Cell width={INDENT + w.item} tone={quiet}>
+        {`${" ".repeat(INDENT)}${i.name}`}
+      </Cell>
+      <Cell width={w.value} tone={quiet}>
         {value(i)}
-      </Cell>
-      <Cell width={w.note} tone={note.tone}>
-        {note.text}
       </Cell>
       {w.time > 0 && (
         <Cell width={w.time} right tone="dim">
-          {elapsed(i.started, i.ended, now)}
+          {elapsed(i.started, i.ended, props.now)}
         </Cell>
       )}
-      {i.detail !== undefined && <Line>{i.detail}</Line>}
+      {status.detail !== undefined && <Line tone={quiet}>{status.detail}</Line>}
     </Box>
   );
 };
@@ -222,32 +257,42 @@ export interface ViewOptions {
 
 export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   const { state, full, now, height } = props;
+  const { dryRun } = state;
   const { live } = useContext(ModeContext);
   const running = live && state.ended === undefined;
   const shownItems = (m: MachineEntry) =>
     m.items.filter((i) => full || i.changes || i.status === "failed" || i.status === "skipped");
   const visible = state.machines.flatMap(shownItems);
   const width = (texts: ReadonlyArray<string>) => Math.max(0, ...texts.map((t) => t.length));
+  const item = width(visible.map((i) => i.name));
+  const status = width(visible.map((i) => statusOf(i, dryRun).text));
   const w: Widths = {
-    name: width(state.machines.map((m) => m.name)),
-    item: width(visible.map((i) => i.name)),
-    value: width(visible.map(value)),
-    note: width(visible.map((i) => noteOf(i).text)),
-    time: width(visible.map((i) => elapsed(i.started, i.ended, now))),
+    status,
+    item,
+    // Wide enough for every value, and for the longest Machine name, which
+    // spans the status, name, and value columns.
+    value: Math.max(
+      width(visible.map(value)),
+      width(state.machines.map((m) => m.name)) - (status + GAP + INDENT + item + GAP),
+    ),
+    time: width([
+      ...visible.map((i) => elapsed(i.started, i.ended, now)),
+      ...state.machines.map((m) => elapsed(m.started, m.ended, now)),
+    ]),
   };
 
   // Each Machine is its line plus the lines under it.
   const blocks = state.machines.map((m) => ({
     m,
-    head: <MachineHead key={m.name} m={m} w={w} now={now} />,
+    head: <MachineLine key={m.name} m={m} w={w} dryRun={dryRun} now={now} />,
     body: [
+      ...(m.output === undefined ? [] : outputLines(m.name, m.output, nameAt(w), running)),
       ...shownItems(m).flatMap((i) => [
-        <ItemLine key={`${m.name}/${i.kind}:${i.name}`} i={i} w={w} now={now} />,
+        <ItemLine key={`${m.name}/${i.kind}:${i.name}`} i={i} w={w} dryRun={dryRun} now={now} />,
         ...(i.output === undefined
           ? []
-          : outputLines(`${m.name}/${i.kind}:${i.name}`, i.output, 6, running)),
+          : outputLines(`${m.name}/${i.kind}:${i.name}`, i.output, nameAt(w), running)),
       ]),
-      ...(m.output === undefined ? [] : outputLines(m.name, m.output, 4, running)),
     ],
   }));
 
@@ -258,7 +303,9 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   // Room for Machines: the frame also has a blank line above them, and a
   // blank line and the legend below.
   const room = height === undefined ? Infinity : height - (legend === undefined ? 1 : 3);
-  const count = (bs: typeof blocks) => bs.reduce((n, b) => n + 1 + b.body.length, 0);
+  // A blank line separates Machines.
+  const count = (bs: typeof blocks) =>
+    bs.reduce((n, b) => n + 1 + b.body.length, Math.max(0, bs.length - 1));
   // Too tall for the window: Machines that are not running or failing show
   // only their own line, and past that the frame is cut.
   const fitted =
@@ -267,7 +314,11 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
       : blocks.map((b) =>
           b.m.status === "running" || b.m.status === "failed" ? b : { ...b, body: [] },
         );
-  const lines = fitted.flatMap((b) => [b.head, ...b.body]);
+  const lines = fitted.flatMap((b, n) => [
+    ...(n === 0 ? [] : [<Text key={`${b.m.name}/gap`}> </Text>]),
+    b.head,
+    ...b.body,
+  ]);
   const shown = lines.length <= room ? lines : lines.slice(0, Math.max(0, room - 1));
   const hidden = count(blocks) - shown.length;
 
@@ -278,12 +329,20 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
       {shown.length < lines.length && <Line tone="dim">…</Line>}
       {state.ended !== undefined && (
         <Box marginTop={1}>
-          <T tone={t.failed === 0 ? "ok" : undefined}>
-            {state.dryRun ? "planned" : "ok"} {t.ok}
-          </T>
-          <Text>{`  skipped ${t.skipped}  `}</Text>
-          <T tone={t.failed > 0 ? "fail" : undefined}>failed {t.failed}</T>
-          {!state.dryRun && <T tone="dim">{`  in ${duration(state.ended - state.started)}`}</T>}
+          <Parts
+            parts={[
+              { text: `${dryRun ? "planned" : "ok"} ${t.ok}`, ...(t.ok > 0 ? { tone: "ok" } : {}) },
+              { text: "  " },
+              { text: `skipped ${t.skipped}`, ...(t.skipped > 0 ? { tone: "skip" } : {}) },
+              { text: "  " },
+              { text: `failed ${t.failed}`, ...(t.failed > 0 ? { tone: "fail" } : {}) },
+              ...(dryRun
+                ? []
+                : [
+                    { text: `  in ${duration(state.ended - state.started)}`, tone: "dim" as const },
+                  ]),
+            ]}
+          />
         </Box>
       )}
       {state.ended !== undefined && props.hint !== undefined && (
@@ -308,7 +367,7 @@ export const NoteLine = (props: { note: Note }) => {
       <T tone="ask">?</T> {text}
     </Text>
   ) : kind === "answer" ? (
-    <T tone="dim">{`  -> ${text}`}</T>
+    <T tone="dim">{`  → ${text}`}</T>
   ) : (
     <Text>{text}</Text>
   );

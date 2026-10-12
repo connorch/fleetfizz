@@ -2,14 +2,16 @@
 
 The Ledger was one append-only line per event (`elapsed  machine  TAG  message`). Apply runs every Machine in parallel, so on a three-Machine Fleet the RUN and OK lines of different Machines mixed together, every PLAN line joined all of a Machine's Steps with `·`, and the run ended with one count. Nobody could see at a glance what changed on each Machine and how each one ended.
 
-The Ledger is now one line per Machine in config order. Under each Machine there is one line per item that changes: vp, Node, a Global, or a Tracked Repo. Each item shows `from -> to` (`+ to` when new), what is happening to it, and its time:
+The Ledger is now one line per Machine in config order, with a blank line between Machines. Under each Machine there is one line per item that changes: vp, Node, a Global, or a Tracked Repo. Each item line starts with its status (`✓ done`, `▸ installing`, `· queued`, `✗ failed`, `– skipped`), then shows `from → to` (`+ to` when new), its time, and why. All lines share one set of columns. The Machine line has no status of its own: it ends with a summary of its items in their colors (`1 of 4 done`, then `4 of 4 done` in green, `1 failed, 1 skipped` in red and yellow, `up to date` in green), or, when the Machine was skipped or failed as a whole, that status and the reason:
 
 ```
-connors-mac-studio   OK    up to date
-connors-macbook-pro  OK    5m 07s
-    vp                 1.0.0 -> 1.1.0      done          16.6s
-    connorch-t3code    3f1a2b0 -> 9e02bb1  installed   4m 50s
-homelab              SKIP  offline
+connors-mac-studio                                up to date
+
+connors-macbook-pro                       5m 07s  2 of 2 done
+✓ done          vp               1.0.0 → 1.1.0     16.6s
+✓ installed     connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
+
+homelab                                           – skipped  offline
 
 ok 2  skipped 1  failed 0  in 5m 12s
 full report: fizz report
@@ -24,6 +26,7 @@ A Tracked Repo's new commit is known only after Apply fetches it, so the Apply s
 - **Append-only, grouped by phase (rejected).** PLAN, ASK, APPLY, and DONE headers, with the Apply lines still from all Machines. It labels the phases, but the Apply lines still mix and every Step is printed several times.
 - **Append-only, one block per Machine when it ends (rejected).** No mixing, but there is no output while a long install runs, and the blocks print in finish order.
 - **Per-line phase prefixes (rejected).** They add a column to every line and do nothing to stop the mixing.
+- **A status for the Machine line too (OK, RUN, FAIL, SKIP) (replaced).** It sat after the name, while the items' status was elsewhere, and the columns did not line up. The summary says the same, from the items. Statuses were in capitals for outcomes and lowercase for progress; now they are all lowercase.
 - **A fleet matrix, one column per Machine (rejected).** It shows drift across the Fleet well, but it is too wide past about four Machines.
 - **Finished Machines into scrollback, a live region for running ones (rejected).** It never grows taller than the terminal, but Machines end up in finish order and `f` could expand only the running ones. The list stays live until the Ship ends instead, kept shorter than the window: Ink cannot redraw a frame taller than the terminal in place (it clears the screen, scrollback included, on every update).
 - **The alternate screen (rejected).** The result would disappear when the Ship exits.

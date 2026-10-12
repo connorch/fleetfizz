@@ -61,7 +61,7 @@ One unit of change on one Machine (fetch a Tracked Repo, run its Install Command
 _Avoid_: task, action, job
 
 **Ledger**:
-The output of a Ship: one line per Machine and, under it, one line per item that changes (vp, Node, a Global, a Tracked Repo), with its result and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
+The output of a Ship: one line per Machine with a summary of its items and, under it, one line per item that changes (vp, Node, a Global, a Tracked Repo), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
 _Avoid_: log
 
 ### Tracked Repos

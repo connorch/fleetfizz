@@ -44,7 +44,7 @@ describe("the live Ledger", () => {
   it("fits the window, keeping the running Machine's lines", () => {
     const lines = live(12);
     expect(lines.length).toBeLessThanOrEqual(12);
-    expect(lines.filter((l) => l.startsWith("    pkg-"))).toHaveLength(4);
+    expect(lines.filter((l) => l.startsWith("▸ running"))).toHaveLength(4);
     expect(lines.at(-1)).toContain("12 lines hidden to fit the window");
   });
 

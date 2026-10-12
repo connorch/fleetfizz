@@ -1,11 +1,13 @@
-// The Ledger: what a Ship shows. One line per Machine in config order and,
-// under it, one line per item that changes (vp, Node, a Global, a Tracked
-// Repo). The full Ledger lists every item, changed or not, and the config copy.
+// The Ledger: what a Ship shows. One line per Machine in config order with a
+// summary of its items and, under it, one line per item that changes (vp,
+// Node, a Global, a Tracked Repo), its status first. The full Ledger lists
+// every item, changed or not, and the config copy.
 //
-//   connors-mac-studio   OK    up to date
-//   connors-macbook-pro  OK    5m 07s
-//       vp               1.0.0 -> 1.1.0      done          16.6s
-//       connorch-t3code  3f1a2b0 -> 9e02bb1  installed   4m 50s
+//   connors-mac-studio                                up to date
+//
+//   connors-macbook-pro                       5m 07s  2 of 2 done
+//   ✓ done          vp               1.0.0 → 1.1.0     16.6s
+//   ✓ installed     connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
 //
 //   ok 2  skipped 0  failed 0  in 5m 12s
 //
