@@ -1,4 +1,4 @@
-// What Gather learns about one Machine. The remote script prints one
+// What the Check learns about one Machine. The remote script prints one
 // `ff-state <json>` line per Fact; `assembleState` folds them into a
 // MachineState for the planner.
 import * as Schema from "effect/Schema";
@@ -23,7 +23,7 @@ export const InstallRecordSchema = Schema.Struct({
 
 export const Fact = Schema.Union([
   Schema.Struct({ fact: Schema.Literal("home"), path: Schema.String }),
-  // Printed last, so a Gather cut off midway is detected.
+  // Printed last, so a Check cut off midway is detected.
   Schema.Struct({ fact: Schema.Literal("end") }),
   // version is null when `vp` is not on PATH.
   Schema.Struct({
@@ -73,7 +73,7 @@ export interface RepoState {
 }
 
 export interface MachineState {
-  // True only when the Gather script ran to its end.
+  // True only when the Check script ran to its end.
   readonly complete: boolean;
   readonly home?: string;
   readonly vp?: { readonly version: string | null; readonly path?: string };

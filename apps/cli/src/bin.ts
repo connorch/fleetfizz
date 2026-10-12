@@ -11,7 +11,7 @@ import { ship } from "./ship.ts";
 const shipCommand = Command.make("ship", {
   dryRun: Flag.Boolean("dry-run").pipe(
     Flag.withDefault(false),
-    Flag.withDescription("Gather and plan only. Print every Machine's plan and change nothing."),
+    Flag.withDescription("Check and plan only. Print every Machine's plan and change nothing."),
   ),
   only: Flag.String("only").pipe(
     Flag.atLeast(0),

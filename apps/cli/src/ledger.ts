@@ -56,16 +56,8 @@ export type Item = typeof Item.Type;
 
 const MachineEntry = Schema.Struct({
   name: Schema.String,
-  status: Schema.Literals([
-    "gathering",
-    "gathered",
-    "planned",
-    "running",
-    "ok",
-    "skipped",
-    "failed",
-  ]),
-  // Why the Machine was skipped or failed as a whole (ssh, Gather, Apply).
+  status: Schema.Literals(["checking", "waiting", "planned", "running", "ok", "skipped", "failed"]),
+  // Why the Machine was skipped or failed as a whole (ssh, Check, Apply).
   detail: Schema.optionalKey(Schema.String),
   output: Schema.optionalKey(Schema.Array(Schema.String)),
   items: Schema.Array(Item),
@@ -94,7 +86,7 @@ export type StepResult =
 export interface Ledger {
   // Prints above the Machines now, and goes in the saved report.
   readonly note: (kind: Note["kind"], text: string) => Effect.Effect<void>;
-  readonly gathered: (name: string) => Effect.Effect<void>;
+  readonly checked: (name: string) => Effect.Effect<void>;
   readonly skip: (name: string, reason: string) => Effect.Effect<void>;
   // The Machine failed as a whole: the first line is why, the rest is output.
   readonly fail: (name: string, lines: ReadonlyArray<string>) => Effect.Effect<void>;
@@ -128,7 +120,7 @@ const FETCH = ":fetch";
 const doingOf = (id: string) =>
   id === CONFIG_STEP ? "copying" : id.endsWith(FETCH) ? "fetching" : "installing";
 
-// Every item on one Machine: what it has now (from Gather), with the plan's
+// Every item on one Machine: what it has now (from the Check), with the plan's
 // changes, skips, and failures laid over it.
 export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
   // Keyed by kind too: a Tracked Repo may share a name with a Global.
@@ -144,11 +136,11 @@ export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
   });
   const set = (name: string, change: (item: Item) => Item, kind: Item["kind"] = "version") =>
     items.set(key(kind, name), change(items.get(key(kind, name)) ?? base(name, undefined, kind)));
-  // `from` null means nothing is installed now; undefined keeps the gathered one.
+  // `from` null means nothing is installed now; undefined keeps the checked one.
   const plans =
     (id: string, to: string, from?: string | null, reason?: string) =>
-    ({ from: gathered, ...item }: Item): Item => {
-      const now = from === undefined ? gathered : (from ?? undefined);
+    ({ from: checked, ...item }: Item): Item => {
+      const now = from === undefined ? checked : (from ?? undefined);
       return {
         ...item,
         ...(now === undefined ? {} : { from: now }),
@@ -242,7 +234,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
       from: input.from,
       dryRun: input.dryRun,
       notes: [],
-      machines: input.machines.map((name) => ({ name, status: "gathering", items: [] })),
+      machines: input.machines.map((name) => ({ name, status: "checking", items: [] })),
       started,
     },
     now: started,
@@ -278,7 +270,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
       yield* update((state) => ({ ...state, notes: [...state.notes, { kind, text }] }));
       yield* Console.log(noteText({ kind, text }, styled()));
     }),
-    gathered: (name) => machine(name, (m) => ({ ...m, status: "gathered" })),
+    checked: (name) => machine(name, (m) => ({ ...m, status: "waiting" })),
     skip: (name, reason) => machine(name, (m) => ({ ...m, status: "skipped", detail: reason })),
     fail: (name, [reason = "failed", ...output]) =>
       machine(name, (m, now) => ({
@@ -342,14 +334,14 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         status: m.status === "failed" ? "failed" : outcome,
         ended: m.ended ?? now,
       })),
-    // Gather or Apply still going when the Ship ends was stopped (Ctrl-C or
+    // A Check or Apply still going when the Ship ends was stopped (Ctrl-C or
     // an error). Machines waiting between them keep their state.
     end: Effect.gen(function* () {
       yield* update((state, now) => ({
         ...state,
         ended: now,
         machines: state.machines.map((m) =>
-          m.status === "running" || m.status === "gathering"
+          m.status === "running" || m.status === "checking"
             ? {
                 ...m,
                 status: "failed",
@@ -473,8 +465,8 @@ export const rows = (state: LedgerState, options: RenderOptions): Row[] => {
     const head: Segment[] = [{ text: pad(m.name, nameW), style: "bold" }, { text: "  " }];
     const time = { text: elapsed(m.started, m.ended, now), style: "dim" as const };
     switch (m.status) {
-      case "gathering":
-      case "gathered":
+      case "checking":
+      case "waiting":
         head.push({ text: "      " }, { text: m.status, style: "dim" });
         break;
       case "planned":

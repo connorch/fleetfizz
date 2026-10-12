@@ -1,4 +1,4 @@
-// `fizz ship`: one Ship. Load the config, read the Fleet, Gather every
+// `fizz ship`: one Ship. Load the config, read the Fleet, Check every
 // reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
 // and show it all on the Ledger: live in a terminal, printed once otherwise.
 import * as Console from "effect/Console";
@@ -63,7 +63,7 @@ export class ShipError extends Error {
   override readonly name = "ShipError";
 }
 
-// A Machine that was gathered, and (after planning) what to do on it.
+// A Machine that was checked, and (after planning) what to do on it.
 interface Gathered {
   readonly machine: Machine;
   readonly local: boolean;
@@ -205,7 +205,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     outputs: r.outputs ?? [],
   }));
 
-  // Gather, in parallel. Every Machine is gathered before any Question is asked.
+  // Check, in parallel. Every Machine is checked before any Question is asked.
   const gathered: Gathered[] = yield* Effect.forEach(
     targetsList,
     Effect.fn("gatherOne")(function* (machine) {
@@ -221,7 +221,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       const script = gatherScript({ cloneRoot: cloneRootOf(machine), repos: gatherRepos });
       const result = yield* gather({ name: machine.name, local }, script, ledger);
       if (result.kind !== "gathered") return undefined;
-      yield* ledger.gathered(machine.name);
+      yield* ledger.checked(machine.name);
       return { machine, local, state: result.state };
     }),
     { concurrency: "unbounded" },

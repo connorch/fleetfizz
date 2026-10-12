@@ -91,7 +91,7 @@ const configStep = (): string[] => {
 export const END_STEP = "end";
 
 // Writes the record for `repo` from inside the Managed Clone ($ff_d) after a
-// successful install. Fingerprints are taken now, so the next Gather compares
+// successful install. Fingerprints are taken now, so the next Check compares
 // against what this install produced.
 const writeRecord = (repo: RepoStep): string[] => {
   const lines = [
