@@ -4,6 +4,7 @@ export {
   applyStdin,
   CONFIG_STEP,
   END_STEP,
+  isFetchStep,
   stepId,
   vpStepId,
   type ApplyInput,

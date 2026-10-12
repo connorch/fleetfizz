@@ -20,7 +20,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import type { MachinePlan, MachineState } from "@fleetfizz/core";
-import { CONFIG_STEP, stepId, vpStepId } from "@fleetfizz/remote";
+import { CONFIG_STEP, isFetchStep, stepId, vpStepId } from "@fleetfizz/remote";
 
 export const Note = Schema.Struct({
   kind: Schema.Literals(["ask", "answer", "info"]),
@@ -115,9 +115,8 @@ export interface LedgerStore {
 
 const short = (sha: string | undefined) => (sha === undefined ? undefined : sha.slice(0, 7));
 
-const FETCH = ":fetch";
 const doingOf = (id: string) =>
-  id === CONFIG_STEP ? "copying" : id.endsWith(FETCH) ? "fetching" : "installing";
+  id === CONFIG_STEP ? "copying" : isFetchStep(id) ? "fetching" : "installing";
 
 // Every item on one Machine: what it has now (from the Check), with the plan's
 // changes, skips, and failures laid over it.
@@ -293,7 +292,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
               ...item,
               // Every Ship copies the config and fetches every repo; neither is a
               // change on its own.
-              changes: item.changes || !(id === CONFIG_STEP || id.endsWith(FETCH)),
+              changes: item.changes || !(id === CONFIG_STEP || isFetchStep(id)),
               status: "running",
               doing: doingOf(id),
               started: item.started ?? now,
@@ -314,8 +313,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         }
         const { doing: _, ...rest } = item;
         // A fetch is the first half of an install, which runs on.
-        if (id.endsWith(FETCH))
-          return item.changes ? item : { ...rest, status: "idle", ended: now };
+        if (isFetchStep(id)) return item.changes ? item : { ...rest, status: "idle", ended: now };
         return { ...rest, status: "ok", ended: now };
       }),
     fetched: (name, repo, head) =>
