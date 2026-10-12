@@ -297,20 +297,26 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
     ]),
   };
 
-  // Each Machine is its line plus the lines under it.
-  const blocks = state.machines.map((m) => ({
-    m,
-    head: <MachineLine key={m.name} m={m} w={w} dryRun={dryRun} now={now} />,
-    body: [
-      ...(m.output === undefined ? [] : outputLines(m.name, m.output, nameAt(w), running)),
-      ...shownItems(m).flatMap((i) => [
-        <ItemLine key={`${m.name}/${i.kind}:${i.name}`} i={i} w={w} dryRun={dryRun} now={now} />,
-        ...(i.output === undefined
-          ? []
-          : outputLines(`${m.name}/${i.kind}:${i.name}`, i.output, nameAt(w), running)),
-      ]),
-    ],
-  }));
+  // Each Machine is its line plus the lines under it. `after` counts the lines
+  // below its last failure output: the items that came after the failure.
+  const blocks = state.machines.map((m) => {
+    const items = shownItems(m);
+    const last = items.findLastIndex((i) => i.output !== undefined);
+    return {
+      m,
+      head: <MachineLine key={m.name} m={m} w={w} dryRun={dryRun} now={now} />,
+      body: [
+        ...(m.output === undefined ? [] : outputLines(m.name, m.output, nameAt(w), running)),
+        ...items.flatMap((i) => [
+          <ItemLine key={`${m.name}/${i.kind}:${i.name}`} i={i} w={w} dryRun={dryRun} now={now} />,
+          ...(i.output === undefined
+            ? []
+            : outputLines(`${m.name}/${i.kind}:${i.name}`, i.output, nameAt(w), running)),
+        ]),
+      ],
+      after: last !== -1 ? items.length - 1 - last : m.output === undefined ? 0 : items.length,
+    };
+  });
 
   const legend =
     state.ended === undefined
@@ -325,8 +331,8 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   // Too tall for the window: Machines that are not running or failing show
   // only their own line. If that is still too tall, every Machine keeps its
   // own line (its summary says how far it got) and the open ones share the
-  // rows left in config order, each cut with "…" (a failed one from the top).
-  // Past that, the frame is cut.
+  // rows left in config order, each cut with "…" (a failed one keeps the lines
+  // ending at its last failure output). Past that, the frame is cut.
   const fits = count(blocks) <= room;
   let spare = room - count(blocks.map((b) => ({ ...b, body: [] })));
   let cuts = 0;
@@ -338,20 +344,30 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
       fitted.push(b);
       spare -= b.body.length;
     } else if (open && spare > 0) {
-      const ellipsis = (
-        <Line key={`${b.m.name}/cut`} indent={nameAt(w)} tone="dim">
+      const ellipsis = (at: string) => (
+        <Line key={`${b.m.name}/cut-${at}`} indent={nameAt(w)} tone="dim">
           …
         </Line>
       );
-      // A failed Machine keeps its last lines: the end of its output says
-      // what went wrong.
-      const body =
-        b.m.status === "failed"
-          ? [ellipsis, ...b.body.slice(b.body.length - (spare - 1))]
-          : [...b.body.slice(0, spare - 1), ellipsis];
+      let body: ReactNode[];
+      if (b.m.status === "failed") {
+        // A failed Machine keeps the lines leading up to the end of its last
+        // failure output, which says what went wrong.
+        const end = b.body.length - b.after;
+        const below = b.after > 0 && spare > 1 ? [ellipsis("below")] : [];
+        const keep = spare - below.length;
+        const kept =
+          end <= keep
+            ? b.body.slice(0, end)
+            : [ellipsis("above"), ...b.body.slice(end - (keep - 1), end)];
+        body = [...kept, ...below];
+        cuts += (end <= keep ? 0 : 1) + below.length;
+      } else {
+        body = [...b.body.slice(0, spare - 1), ellipsis("below")];
+        cuts += 1;
+      }
       fitted.push({ ...b, body });
       spare = 0;
-      cuts += 1;
     } else fitted.push({ ...b, body: [] });
   }
   const lines = fitted.flatMap((b, n) => [

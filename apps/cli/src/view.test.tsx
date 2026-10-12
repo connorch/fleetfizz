@@ -84,4 +84,26 @@ describe("the live Ledger", () => {
     expect(lines.join("\n")).toContain("│ last");
     expect(lines.join("\n")).not.toContain("│ first");
   });
+
+  it("keeps a failure's output over the items after it", () => {
+    const failed: LedgerState = {
+      ...state,
+      machines: [
+        {
+          name: "studio",
+          status: "failed",
+          items: [
+            { ...item("vp", "failed"), output: ["first", "second", "third", "last"] },
+            item("t3code", "ok"),
+            item("skills", "ok"),
+          ],
+        },
+      ],
+    };
+    const lines = live(7, failed);
+    expect(lines.length).toBeLessThanOrEqual(7);
+    expect(lines.join("\n")).toContain("│ last");
+    expect(lines.join("\n")).not.toContain("skills");
+    expect(lines.filter((l) => l.trim() === "…")).toHaveLength(2);
+  });
 });
