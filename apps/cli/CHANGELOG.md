@@ -1,5 +1,15 @@
 # fleetfizz
 
+## 0.5.1
+
+### Patch Changes
+
+- [#15](https://github.com/connorch/fleetfizz/pull/15) [`330d1f2`](https://github.com/connorch/fleetfizz/commit/330d1f2cf177b6388a8fea7ac2b98879834baa90) Thanks [@connorch](https://github.com/connorch)! - The Ledger says `checking` while a Machine is read and `waiting` once it is read, instead of `gathering` and `gathered`.
+
+- [#15](https://github.com/connorch/fleetfizz/pull/15) [`330d1f2`](https://github.com/connorch/fleetfizz/commit/330d1f2cf177b6388a8fea7ac2b98879834baa90) Thanks [@connorch](https://github.com/connorch)! - The live Ledger always fits the window, and when a Ship ends its result prints once as ordinary output, so the shell prompt no longer lands on the summary line. The Ledger is drawn by one Ink component everywhere: live, piped, and in `fizz report`.
+
+- [#15](https://github.com/connorch/fleetfizz/pull/15) [`330d1f2`](https://github.com/connorch/fleetfizz/commit/330d1f2cf177b6388a8fea7ac2b98879834baa90) Thanks [@connorch](https://github.com/connorch)! - The Ledger starts each item line with its status (`✓ done`, `▸ installing`, `· queued`, `✗ failed`, `– skipped`), all lowercase, in one set of columns. A Machine line ends with a colored summary of its items (`1 of 4 done`, `4 of 4 done`, `1 failed, 1 skipped`, `up to date`) instead of its own status, and a blank line separates Machines.
+
 ## 0.5.0
 
 ### Minor Changes
