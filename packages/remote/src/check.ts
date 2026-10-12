@@ -3,14 +3,14 @@ import { CONFIG_FILE } from "@fleetfizz/config";
 
 import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 
-export interface GatherRepo {
+export interface CheckRepo {
   readonly name: string;
   readonly outputs: ReadonlyArray<string>;
 }
 
-export interface GatherInput {
+export interface CheckInput {
   readonly cloneRoot: string;
-  readonly repos: ReadonlyArray<GatherRepo>;
+  readonly repos: ReadonlyArray<CheckRepo>;
 }
 
 export const STATE_DIR = "~/.local/state/fleetfizz";
@@ -18,7 +18,7 @@ export const RECORDS_DIR = `${STATE_DIR}/records`;
 // The config directory on a Machine, as a shell expression (ADR 0008).
 export const CONFIG_DIR_SH = '"${XDG_CONFIG_HOME:-$HOME/.config}/fleetfizz"';
 
-export const gatherScript = (input: GatherInput): string => {
+export const checkScript = (input: CheckInput): string => {
   const lines = [
     prelude,
     fingerprintFn,

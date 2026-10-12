@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { CONFIG_FILE, SCHEMA_FILE } from "@fleetfizz/config";
 import type { MachinePlan, RepoStep, VpStep } from "@fleetfizz/core";
 
-import { CONFIG_DIR_SH, RECORDS_DIR } from "./gather.ts";
+import { CONFIG_DIR_SH, RECORDS_DIR } from "./check.ts";
 import { doneLine, stepLine } from "./protocol.ts";
 import { fingerprintFn, prelude, quote, quotePath, vpEnv } from "./shell.ts";
 

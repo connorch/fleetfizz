@@ -7,7 +7,7 @@ export interface InstallRecord {
   readonly path: string;
   readonly install: string;
   readonly files: Readonly<Record<string, string>>;
-  // Output path -> fingerprint, as gathered after the install.
+  // Output path -> fingerprint, as fingerprinted after the install.
   readonly outputs: Readonly<Record<string, string>>;
 }
 

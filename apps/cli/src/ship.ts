@@ -33,7 +33,7 @@ import {
   applyScript,
   applyStdin,
   CONFIG_STEP,
-  gatherScript,
+  checkScript,
   readLentToken,
   readTailnet,
   resolveVersions,
@@ -43,7 +43,7 @@ import {
 
 import { makeLedger, tally, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
-import { apply, gather } from "./machine.ts";
+import { apply, check } from "./machine.ts";
 import { askQuestions } from "./questions.ts";
 import { saveReport } from "./report.tsx";
 import { colorful, ledgerText, noteText } from "./view.tsx";
@@ -66,12 +66,12 @@ export class ShipError extends Error {
 }
 
 // A Machine that was checked, and (after planning) what to do on it.
-interface Gathered {
+interface Checked {
   readonly machine: Machine;
   readonly local: boolean;
   readonly state: MachineState;
 }
-interface Planned extends Gathered {
+interface Planned extends Checked {
   readonly plan: MachinePlan;
 }
 
@@ -107,11 +107,11 @@ const rebuildOf = (flags: ShipFlags): Rebuild =>
 const staleConfigs = Effect.fn("staleConfigs")(function* (
   config: FleetConfig,
   own: string | undefined,
-  gathered: ReadonlyArray<Gathered>,
+  checked: ReadonlyArray<Checked>,
   ledger: Ledger,
 ) {
   const copies: Copy[] = [];
-  for (const { machine, state } of gathered) {
+  for (const { machine, state } of checked) {
     if (state.config === undefined) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
     if (parsed._tag === "Failure") {
@@ -213,15 +213,15 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
 
   const cloneRootOf = (machine: Machine) =>
     config.machines[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
-  const gatherRepos = (config.repos ?? []).map((r) => ({
+  const checkRepos = (config.repos ?? []).map((r) => ({
     name: repoName(r),
     outputs: r.outputs ?? [],
   }));
 
   // Check, in parallel. Every Machine is checked before any Question is asked.
-  const gathered: Gathered[] = yield* Effect.forEach(
+  const checked: Checked[] = yield* Effect.forEach(
     targetsList,
-    Effect.fn("gatherOne")(function* (machine) {
+    Effect.fn("checkOne")(function* (machine) {
       const local = machine.name === tailnet.self.name;
       if (!machine.online) {
         yield* ledger.skip(machine.name, "offline");
@@ -231,9 +231,9 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         yield* ledger.skip(machine.name, "no Tailscale SSH server");
         return undefined;
       }
-      const script = gatherScript({ cloneRoot: cloneRootOf(machine), repos: gatherRepos });
-      const result = yield* gather({ name: machine.name, local }, script, ledger);
-      if (result.kind !== "gathered") return undefined;
+      const script = checkScript({ cloneRoot: cloneRootOf(machine), repos: checkRepos });
+      const result = yield* check({ name: machine.name, local }, script, ledger);
+      if (result.kind !== "checked") return undefined;
       yield* ledger.checked(machine.name);
       return { machine, local, state: result.state };
     }),
@@ -241,7 +241,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
   // A newer config elsewhere stops the Ship unless the person overrides.
-  const stale = yield* staleConfigs(config, own, gathered, ledger);
+  const stale = yield* staleConfigs(config, own, checked, ledger);
   if (stale.length > 0) {
     const what = `newer config on ${stale.join(", ")}`;
     if (flags.dryRun) {
@@ -266,7 +266,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   const versions = yield* resolveVersions(packagesToResolve(config));
 
   const planAll = (cfg: FleetConfig, answers: Readonly<Record<string, Answer>>): Planned[] =>
-    gathered.map((g) => ({
+    checked.map((g) => ({
       ...g,
       plan: plan({
         config: cfg,
