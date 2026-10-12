@@ -111,9 +111,32 @@ const statusOf = (i: Item, dryRun: boolean): Part & { readonly detail?: string |
   }
 };
 
+// A Machine's items, counted. A skipped item does not change; a failed one
+// did, or was meant to.
+const countsOf = (m: MachineEntry) => {
+  const changes = m.items.filter((i) => i.changes && i.status !== "skipped");
+  return {
+    changes: changes.length,
+    done: changes.filter((i) => i.status === "ok").length,
+    failed: m.items.filter((i) => i.status === "failed").length,
+    skipped: m.items.filter((i) => i.status === "skipped").length,
+  };
+};
+
+// Nothing left to run: Apply ended, or a dry run never runs it. A Machine
+// with nothing to change still copies the config and fetches its repos.
+const settled = (m: MachineEntry, dryRun: boolean) =>
+  dryRun || m.status === "ok" || m.status === "failed";
+
+// Nothing to change, and nothing left to run: its time does not matter.
+const upToDate = (m: MachineEntry, dryRun: boolean) => {
+  const c = countsOf(m);
+  return c.changes === 0 && c.skipped === 0 && settled(m, dryRun);
+};
+
 // A Machine's summary, at the end of its line: how far its items got, in
-// their colors. A Machine that was skipped or failed as a whole says so,
-// then why.
+// their colors, green only once it is settled. A Machine that was skipped or
+// failed as a whole says so, then why.
 const summaryOf = (m: MachineEntry, dryRun: boolean): ReadonlyArray<Part> => {
   if (m.status === "checking" || m.status === "waiting") return [{ text: m.status, tone: "dim" }];
   if (m.status === "skipped") {
@@ -122,22 +145,18 @@ const summaryOf = (m: MachineEntry, dryRun: boolean): ReadonlyArray<Part> => {
   if (m.status === "failed" && m.detail !== undefined) {
     return [{ text: "✗ failed", tone: "fail" }, { text: `  ${m.detail}` }];
   }
-  // A skipped item does not change; a failed one did, or was meant to.
-  const changes = m.items.filter((i) => i.changes && i.status !== "skipped");
-  const done = changes.filter((i) => i.status === "ok").length;
-  const failed = m.items.filter((i) => i.status === "failed").length;
-  const skipped = m.items.filter((i) => i.status === "skipped").length;
-  if (changes.length === 0 && skipped === 0) return [{ text: "up to date", tone: "ok" }];
+  const { changes, done, failed, skipped } = countsOf(m);
+  if (changes === 0 && skipped === 0) {
+    return [{ text: "up to date", tone: settled(m, dryRun) ? "ok" : "dim" }];
+  }
   const finished = m.status === "ok" || m.status === "failed";
   const parts: Part[] = [];
   if (dryRun && m.status === "planned") {
-    if (changes.length > failed)
-      parts.push({ text: `${changes.length - failed} to change`, tone: "dim" });
-  } else if (changes.length > 0 && (!finished || done > 0)) {
+    if (changes > failed) parts.push({ text: `${changes - failed} to change`, tone: "dim" });
+  } else if (changes > 0 && (!finished || done > 0)) {
     // Green once every change is done; a finished Machine that got nothing
     // done says only what failed.
-    const tone = done === changes.length ? "ok" : "dim";
-    parts.push({ text: `${done} of ${changes.length} done`, tone });
+    parts.push({ text: `${done} of ${changes} done`, tone: done === changes ? "ok" : "dim" });
   }
   if (failed > 0) parts.push({ text: `${failed} failed`, tone: "fail" });
   if (skipped > 0) parts.push({ text: `${skipped} skipped`, tone: "skip" });
@@ -202,9 +221,6 @@ const outputLines = (
 
 const MachineLine = (props: { m: MachineEntry; w: Widths; dryRun: boolean; now: number }) => {
   const { m, w } = props;
-  const summary = summaryOf(m, props.dryRun);
-  // How long only matters when something ran.
-  const upToDate = summary[0]?.text === "up to date";
   return (
     <Box columnGap={GAP}>
       <Cell width={nameAt(w) + w.item + GAP + w.value} tone="bold">
@@ -212,10 +228,10 @@ const MachineLine = (props: { m: MachineEntry; w: Widths; dryRun: boolean; now: 
       </Cell>
       {w.time > 0 && (
         <Cell width={w.time} right tone="dim">
-          {upToDate ? "" : elapsed(m.started, m.ended, props.now)}
+          {upToDate(m, props.dryRun) ? "" : elapsed(m.started, m.ended, props.now)}
         </Cell>
       )}
-      <Parts parts={summary} />
+      <Parts parts={summaryOf(m, props.dryRun)} />
     </Box>
   );
 };
@@ -307,20 +323,40 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   const count = (bs: typeof blocks) =>
     bs.reduce((n, b) => n + 1 + b.body.length, Math.max(0, bs.length - 1));
   // Too tall for the window: Machines that are not running or failing show
-  // only their own line, and past that the frame is cut.
-  const fitted =
-    count(blocks) <= room
-      ? blocks
-      : blocks.map((b) =>
-          b.m.status === "running" || b.m.status === "failed" ? b : { ...b, body: [] },
-        );
+  // only their own line. If that is still too tall, every Machine keeps its
+  // own line (its summary says how far it got) and the open ones share the
+  // rows left in config order, each cut with "…". Past that, the frame is cut.
+  const fits = count(blocks) <= room;
+  let spare = room - count(blocks.map((b) => ({ ...b, body: [] })));
+  let cuts = 0;
+  const fitted: typeof blocks = [];
+  for (const b of blocks) {
+    const open = b.m.status === "running" || b.m.status === "failed";
+    if (fits) fitted.push(b);
+    else if (open && b.body.length <= spare) {
+      fitted.push(b);
+      spare -= b.body.length;
+    } else if (open && spare > 0) {
+      const ellipsis = (
+        <Line key={`${b.m.name}/cut`} indent={nameAt(w)} tone="dim">
+          …
+        </Line>
+      );
+      fitted.push({ ...b, body: [...b.body.slice(0, spare - 1), ellipsis] });
+      spare = 0;
+      cuts += 1;
+    } else fitted.push({ ...b, body: [] });
+  }
   const lines = fitted.flatMap((b, n) => [
     ...(n === 0 ? [] : [<Text key={`${b.m.name}/gap`}> </Text>]),
     b.head,
     ...b.body,
   ]);
   const shown = lines.length <= room ? lines : lines.slice(0, Math.max(0, room - 1));
-  const hidden = count(blocks) - shown.length;
+  const hidden = count(blocks) - (shown.length - cuts);
+  // No room even for one Machine (a short window with a Question open): the
+  // Question alone is drawn.
+  if (room < 1) return null;
 
   const t = tally(state);
   return (

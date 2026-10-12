@@ -5,6 +5,7 @@ import * as Console from "effect/Console";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { STATE_DIR } from "@fleetfizz/remote";
@@ -31,7 +32,15 @@ export const report = Effect.fn("report")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = reportPath();
   if (!(yield* fs.exists(path))) return yield* Console.log("no Ship from this Machine yet");
-  const state = yield* decode(yield* fs.readFileString(path));
+  // A report saved by another fleetfizz version may not decode; the next
+  // Ship replaces it.
+  const decoded = yield* decode(yield* fs.readFileString(path)).pipe(Effect.option);
+  if (Option.isNone(decoded)) {
+    return yield* Console.log(
+      `the last report (${path}) is from another version of fleetfizz; the next Ship replaces it`,
+    );
+  }
+  const state = decoded.value;
   const when = DateTime.formatLocal(DateTime.makeUnsafe(state.started), {
     dateStyle: "medium",
     timeStyle: "short",

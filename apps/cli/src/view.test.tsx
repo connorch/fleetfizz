@@ -32,10 +32,10 @@ const state: LedgerState = {
   started: 0,
 };
 
-const live = (height: number) =>
+const live = (height: number, shown: LedgerState = state) =>
   renderToString(
     <Styled color={false} live>
-      <LedgerView state={state} full={false} now={0} height={height} />
+      <LedgerView state={shown} full={false} now={0} height={height} />
     </Styled>,
     { columns: 80 },
   ).split("\n");
@@ -52,5 +52,19 @@ describe("the live Ledger", () => {
     const lines = live(5);
     expect(lines.length).toBeLessThanOrEqual(5);
     expect(lines).toContain("…");
+  });
+
+  it("keeps every running Machine's own line when their items do not fit", () => {
+    const busy: LedgerState = {
+      ...state,
+      machines: [machine("studio", "running", 8), machine("macbook", "running", 8)],
+    };
+    const lines = live(12, busy);
+    expect(lines.length).toBeLessThanOrEqual(12);
+    expect(lines.filter((l) => l.startsWith("studio") || l.startsWith("macbook"))).toHaveLength(2);
+  });
+
+  it("draws nothing when there is no room", () => {
+    expect(live(2)).toEqual([""]);
   });
 });
