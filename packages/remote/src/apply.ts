@@ -20,7 +20,7 @@ const jsonRecord = Schema.encodeSync(
 export interface ApplyInput {
   readonly plan: MachinePlan;
   readonly cloneRoot: string;
-  // Environment for every Install Command (brief section 13).
+  // Environment for every Install Command (see the README).
   readonly env: {
     readonly machine: string;
     readonly platform: string;

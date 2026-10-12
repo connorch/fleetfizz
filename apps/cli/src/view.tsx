@@ -33,7 +33,7 @@ const TONE: Record<Tone, TextProps> = {
 // or NO_COLOR is set (chalk alone does not check NO_COLOR).
 interface Mode {
   readonly color: boolean;
-  // A live frame: lines are cut, not wrapped, and FAIL output keeps its tail.
+  // A live frame: lines are cut, not wrapped, and failure output keeps its tail.
   readonly live: boolean;
 }
 const ModeContext = createContext<Mode>({ color: false, live: false });

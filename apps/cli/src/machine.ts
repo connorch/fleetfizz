@@ -19,7 +19,7 @@ type Run =
   | { readonly kind: "skipped" | "failed" };
 
 // Runs `script` on `target`, handing every parsed line to `onLine`. An
-// unreachable Machine is a SKIP and a script that could not start is a FAIL;
+// unreachable Machine is skipped and a script that could not start fails;
 // both are reported here, so callers only deal with a script that ran.
 const runOn = Effect.fn("runOn")(function* (
   target: Target,
@@ -170,7 +170,7 @@ export const apply = Effect.fn("apply")(function* (
     });
   }
   // ssh's exit 255 after a step started is a dropped connection on a Machine
-  // that is partly changed: a failure, not a SKIP.
+  // that is partly changed: a failure, not a skip.
   if (run.kind !== "ran")
     return yield* finish(run.kind === "skipped" && started ? "failed" : run.kind);
   if (current !== undefined) return yield* finish("failed");

@@ -41,7 +41,7 @@ import {
   type Tailnet,
 } from "@fleetfizz/remote";
 
-import { makeLedger, tally, type Ledger } from "./ledger.ts";
+import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
 import { apply, check } from "./machine.ts";
 import { askQuestions } from "./questions.ts";
@@ -206,7 +206,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         color,
       ),
     );
-    if (tally(state).failed > 0) process.exitCode = 1;
+    if (anyFailed(state)) process.exitCode = 1;
   });
   yield* Effect.addFinalizer(() => finish());
   const live = redraw ? yield* startLive(store, color) : noLive;

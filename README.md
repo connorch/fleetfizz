@@ -1,6 +1,6 @@
 # fleetfizz
 
-Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node default, global packages at semver ranges) and a managed clone of each tracked git repo, installed from its origin ref. One command, `fleetfizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
+Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node default, global packages at semver ranges) and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/adr).
 
@@ -50,6 +50,8 @@ fizz report           # print the full Ledger of the last Ship from this Machine
 The Ledger lists each Machine and, under it, what changes there. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 
 Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks before overwriting it; `--overwrite-config` answers yes in advance, and without a terminal the Ship stops instead.
+
+Each Install Command runs in a login shell inside its Managed Clone, with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
 
 Flags: `--only <machine>` (repeatable), `--rebuild <repo>` or `--rebuild all`, `--bump` and `--enforce` to answer above-range questions in advance, `--overwrite-config`, `--config <path>`.
 

@@ -3,11 +3,11 @@
 // Node, a Global, a Tracked Repo), its status first. The full Ledger lists
 // every item, changed or not, and the config copy.
 //
-//   connors-mac-studio                                up to date
+//   connors-mac-studio                                         up to date
 //
-//   connors-macbook-pro                       5m 07s  2 of 2 done
-//   ✓ done          vp               1.0.0 → 1.1.0     16.6s
-//   ✓ installed     connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
+//   connors-macbook-pro                                5m 07s  2 of 2 done
+//   ✓ done         vp               1.0.0 → 1.1.0       16.6s
+//   ✓ installed    connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
 //
 //   1 updated, 1 up to date  in 5m 12s
 //
@@ -214,11 +214,9 @@ export const outcomeOf = (m: MachineEntry, dryRun: boolean): Outcome | undefined
         ? "ok"
         : undefined;
 
-export const tally = (state: LedgerState) => {
-  const outcomes = state.machines.map((m) => outcomeOf(m, state.dryRun));
-  const n = (o: Outcome) => outcomes.filter((x) => x === o).length;
-  return { ok: n("ok"), skipped: n("skipped"), failed: n("failed") };
-};
+// Whether any Machine failed: the Ship then exits non-zero.
+export const anyFailed = (state: LedgerState): boolean =>
+  state.machines.some((m) => outcomeOf(m, state.dryRun) === "failed");
 
 // `machines` is the Ship's targets in config order; `print` shows a note.
 export const makeLedger = Effect.fn("makeLedger")(function* (input: {

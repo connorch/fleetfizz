@@ -34,7 +34,7 @@ const versions = {
   skills: ["1.5.7", "1.7.0"],
 };
 
-// The MacBook Pro as of the brief: old vp, old Globals, nothing cloned.
+// A MacBook Pro before its first Ship: old vp, old Globals, nothing cloned.
 const macbook: MachineState = {
   ...emptyState,
   complete: true,
