@@ -9,7 +9,7 @@
 //   ✓ done          vp               1.0.0 → 1.1.0     16.6s
 //   ✓ installed     connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
 //
-//   ok 2  skipped 0  failed 0  in 5m 12s
+//   1 updated, 1 up to date  in 5m 12s
 //
 // The state is plain data, a Schema so `fizz report` can save it. Ship events
 // update it through the `Ledger` interface, and view.tsx draws it, live or

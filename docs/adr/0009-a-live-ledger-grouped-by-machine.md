@@ -2,7 +2,7 @@
 
 The Ledger was one append-only line per event (`elapsed  machine  TAG  message`). Apply runs every Machine in parallel, so on a three-Machine Fleet the RUN and OK lines of different Machines mixed together, every PLAN line joined all of a Machine's Steps with `·`, and the run ended with one count. Nobody could see at a glance what changed on each Machine and how each one ended.
 
-The Ledger is now one line per Machine in config order, with a blank line between Machines. Under each Machine there is one line per item that changes: vp, Node, a Global, or a Tracked Repo. Each item line starts with its status (`✓ done`, `▸ installing`, `· queued`, `✗ failed`, `– skipped`), then shows `from → to` (`+ to` when new), its time, and why. All lines share one set of columns. The Machine line has no status of its own: it ends with a summary of its items in their colors (`1 of 4 done`, then `4 of 4 done` in green, `1 failed, 1 skipped` in red and yellow, `up to date` in green), or, when the Machine was skipped or failed as a whole, that status and the reason:
+The Ledger is now one line per Machine in config order, with a blank line between Machines. Under each Machine there is one line per item that changes: vp, Node, a Global, or a Tracked Repo. Each item line starts with its status (`✓ done`, `▸ installing`, `· queued`, `✗ failed`, `– skipped`), then shows `from → to` (`+ to` when new), its time, and why. All lines share one set of columns. The Machine line has no status of its own: it ends with a summary of its items in their colors (`1 of 4 done`, then `4 of 4 done` in green, `1 failed, 1 skipped` in red and yellow, `up to date` in green), or, when the Machine was skipped or failed as a whole, that status and the reason. The last line counts the Machines in the same words (`1 updated, 1 up to date, 1 skipped`; `to change` in a dry run):
 
 ```
 connors-mac-studio                                up to date
@@ -13,7 +13,7 @@ connors-macbook-pro                       5m 07s  2 of 2 done
 
 homelab                                           – skipped  offline
 
-ok 2  skipped 1  failed 0  in 5m 12s
+1 updated, 1 up to date, 1 skipped  in 5m 12s
 full report: fizz report
 ```
 
