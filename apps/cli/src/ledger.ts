@@ -10,13 +10,10 @@
 //   ok 2  skipped 0  failed 0  in 5m 12s
 //
 // The state is plain data, a Schema so `fizz report` can save it. Ship events
-// update it through the `Ledger` interface, and `rows` renders it. The live
-// view (live.tsx) draws the rows in a terminal and redraws them as the state
-// changes; `printRows` writes them once, styled only when stdout is a terminal
-// and NO_COLOR is unset. Notes (Questions, their answers, and other Fleet
-// lines) are not part of the rows: they print once, above them, as they happen.
+// update it through the `Ledger` interface, and view.tsx draws it, live or
+// once. Notes (Questions, their answers, and other Fleet lines) are not part
+// of that drawing: they print once, above it, as they happen.
 import * as Clock from "effect/Clock";
-import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -222,11 +219,12 @@ export const tally = (state: LedgerState) => {
   return { ok: n("ok"), skipped: n("skipped"), failed: n("failed") };
 };
 
-// `machines` is the Ship's targets in config order.
+// `machines` is the Ship's targets in config order; `print` shows a note.
 export const makeLedger = Effect.fn("makeLedger")(function* (input: {
   readonly from: string;
   readonly dryRun: boolean;
   readonly machines: ReadonlyArray<string>;
+  readonly print: (note: Note) => Effect.Effect<void>;
 }) {
   const started = yield* Clock.currentTimeMillis;
   let snapshot: Snapshot = {
@@ -268,7 +266,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
   const ledger: Ledger = {
     note: Effect.fn("ledger.note")(function* (kind, text) {
       yield* update((state) => ({ ...state, notes: [...state.notes, { kind, text }] }));
-      yield* Console.log(noteText({ kind, text }, styled()));
+      yield* input.print({ kind, text });
     }),
     checked: (name) => machine(name, (m) => ({ ...m, status: "waiting" })),
     skip: (name, reason) => machine(name, (m) => ({ ...m, status: "skipped", detail: reason })),
@@ -362,24 +360,6 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
   return { ledger, store };
 });
 
-// ---------------------------------------------------------------------------
-// Rendering
-
-export type Style = "dim" | "bold" | "ok" | "fail" | "skip" | "run" | "ask";
-export interface Segment {
-  readonly text: string;
-  readonly style?: Style;
-}
-export type Row = ReadonlyArray<Segment>;
-
-export interface RenderOptions {
-  // Every item, not only the ones that change.
-  readonly full: boolean;
-  readonly now: number;
-  // The live view: a legend under the rows, and FAIL output cut to its tail.
-  readonly live: boolean;
-}
-
 // 4.2s, 48.2s, 5m 07s, 1h 02m.
 export const duration = (ms: number): string => {
   const s = ms / 1000;
@@ -388,185 +368,3 @@ export const duration = (ms: number): string => {
   if (m < 60) return `${m}m ${String(Math.floor(s % 60)).padStart(2, "0")}s`;
   return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
 };
-
-const value = (i: Item): string =>
-  i.to === undefined
-    ? (i.from ?? "")
-    : i.from === undefined
-      ? `+ ${i.to}`
-      : i.from === i.to
-        ? i.to
-        : `${i.from} -> ${i.to}`;
-
-// The note column: what happened to the item, or what will.
-const note = (i: Item): Segment => {
-  switch (i.status) {
-    case "running":
-      return { text: i.doing ?? "running", style: "run" };
-    case "failed":
-      return { text: "FAIL", style: "fail" };
-    case "skipped":
-      return { text: "SKIP", style: "skip" };
-    case "ok":
-      if (i.kind === "config") return { text: "copied", style: "dim" };
-      if (i.kind === "repo") {
-        return i.from !== undefined && i.from === i.to
-          ? { text: `rebuilt${i.reason === undefined ? "" : `: ${i.reason}`}`, style: "ok" }
-          : { text: "installed", style: "ok" };
-      }
-      return { text: i.reason ?? "done", style: "ok" };
-    case "idle":
-      if (i.changes) return { text: i.reason ?? "", style: "dim" };
-      return { text: i.kind === "repo" ? "up to date" : "", style: "dim" };
-  }
-};
-
-const elapsed = (started: number | undefined, ended: number | undefined, now: number) =>
-  started === undefined ? "" : duration((ended ?? now) - started);
-
-// The output a live view keeps under a FAIL while the Ship runs; the last
-// frame, like every other rendering, has all of it.
-const LIVE_OUTPUT = 12;
-const outputRows = (output: ReadonlyArray<string>, indent: string, running: boolean): Row[] => {
-  const cut = running && output.length > LIVE_OUTPUT;
-  const shown = cut ? output.slice(-LIVE_OUTPUT) : output;
-  return [
-    ...(cut
-      ? [
-          [
-            {
-              text: `${indent}(${output.length - LIVE_OUTPUT} earlier lines)`,
-              style: "dim" as const,
-            },
-          ],
-        ]
-      : []),
-    ...shown.map((line) => [{ text: `${indent}${line}` }]),
-  ];
-};
-
-const pad = (text: string, width: number) => text.padEnd(width);
-
-export const rows = (state: LedgerState, options: RenderOptions): Row[] => {
-  const { full, now, live } = options;
-  const running = live && state.ended === undefined;
-  const shownItems = (m: MachineEntry) =>
-    m.items.filter((i) => full || i.changes || i.status === "failed" || i.status === "skipped");
-  const visible = state.machines.flatMap(shownItems);
-  const nameW = Math.max(0, ...state.machines.map((m) => m.name.length));
-  const itemW = Math.max(0, ...visible.map((i) => i.name.length));
-  const valueW = Math.max(0, ...visible.map((i) => value(i).length));
-  const noteW = Math.max(0, ...visible.map((i) => note(i).text.length));
-
-  const out: Row[] = [[]];
-  for (const m of state.machines) {
-    const items = shownItems(m);
-    const upToDate = !m.items.some((i) => i.changes);
-    const head: Segment[] = [{ text: pad(m.name, nameW), style: "bold" }, { text: "  " }];
-    const time = { text: elapsed(m.started, m.ended, now), style: "dim" as const };
-    switch (m.status) {
-      case "checking":
-      case "waiting":
-        head.push({ text: "      " }, { text: m.status, style: "dim" });
-        break;
-      case "planned":
-        // A dry run ends here, so a plan that already failed says so.
-        if (m.items.some((i) => i.status === "failed")) head.push({ text: "FAIL", style: "fail" });
-        else head.push({ text: "      " }, { text: upToDate ? "up to date" : "", style: "dim" });
-        break;
-      case "running":
-        head.push({ text: "RUN ", style: "run" }, { text: "  " }, time);
-        break;
-      case "ok":
-        head.push({ text: "OK  ", style: "ok" }, { text: "  " });
-        head.push(upToDate ? { text: "up to date", style: "dim" } : time);
-        break;
-      case "skipped":
-        head.push({ text: "SKIP", style: "skip" }, { text: "  " }, { text: m.detail ?? "" });
-        break;
-      case "failed":
-        head.push({ text: "FAIL", style: "fail" }, { text: "  " });
-        head.push(m.detail === undefined ? time : { text: m.detail });
-        break;
-    }
-    out.push(head);
-    for (const i of items) {
-      const n = note(i);
-      const t = elapsed(i.started, i.ended, now);
-      const idle = i.status === "idle" && !i.changes;
-      out.push([
-        { text: `    ${pad(i.name, itemW)}  `, ...(idle ? { style: "dim" as const } : {}) },
-        { text: pad(value(i), valueW), ...(idle ? { style: "dim" as const } : {}) },
-        { text: "  " },
-        { text: pad(n.text, noteW), ...(n.style === undefined ? {} : { style: n.style }) },
-        { text: t === "" ? "" : `  ${t.padStart(6)}`, style: "dim" },
-        ...(i.detail === undefined ? [] : [{ text: `  ${i.detail}` }]),
-      ]);
-      if (i.output !== undefined) out.push(...outputRows(i.output, "      ", running));
-    }
-    if (m.output !== undefined) out.push(...outputRows(m.output, "    ", running));
-  }
-
-  out.push([]);
-  if (state.ended !== undefined) {
-    const t = tally(state);
-    out.push([
-      {
-        text: `${state.dryRun ? "planned" : "ok"} ${t.ok}`,
-        ...(t.failed === 0 ? { style: "ok" as const } : {}),
-      },
-      { text: `  skipped ${t.skipped}  ` },
-      { text: `failed ${t.failed}`, ...(t.failed > 0 ? { style: "fail" as const } : {}) },
-      ...(state.dryRun
-        ? []
-        : [{ text: `  in ${duration(state.ended - state.started)}`, style: "dim" as const }]),
-    ]);
-  }
-  if (live) {
-    const legend =
-      state.ended === undefined
-        ? `f ${full ? "changes only" : "full list"}  ·  ctrl-c stop`
-        : state.dryRun
-          ? undefined
-          : "full report: fizz report";
-    if (legend !== undefined) out.push([{ text: legend, style: "dim" }]);
-  }
-  // Trailing blank rows add nothing.
-  while (out.length > 0 && out[out.length - 1]?.length === 0) out.pop();
-  return out;
-};
-
-export const noteRow = (n: Note): Row =>
-  n.kind === "ask"
-    ? [{ text: "?", style: "ask" }, { text: ` ${n.text}` }]
-    : n.kind === "answer"
-      ? [{ text: `  -> ${n.text}`, style: "dim" }]
-      : [{ text: n.text }];
-
-const ANSI: Record<Style, string> = {
-  dim: "\u001b[2m",
-  bold: "\u001b[1m",
-  ok: "\u001b[32m",
-  fail: "\u001b[1;31m",
-  skip: "\u001b[33m",
-  run: "\u001b[34m",
-  ask: "\u001b[1;35m",
-};
-
-export const styled = (): boolean =>
-  Boolean(process.stdout.isTTY) && process.env.NO_COLOR === undefined;
-
-export const rowText = (row: Row, color: boolean): string =>
-  row
-    .map((s) =>
-      color && s.style !== undefined && s.text !== ""
-        ? `${ANSI[s.style]}${s.text}\u001b[0m`
-        : s.text,
-    )
-    .join("")
-    .trimEnd();
-
-const noteText = (n: Note, color: boolean) => rowText(noteRow(n), color);
-
-export const printRows = (list: ReadonlyArray<Row>, color: boolean = styled()) =>
-  Console.log(list.map((row) => rowText(row, color)).join("\n"));

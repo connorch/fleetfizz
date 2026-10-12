@@ -42,6 +42,7 @@ const run = (plan: MachinePlan, script: ReadonlyArray<string>) =>
       from: "studio",
       dryRun: false,
       machines: ["studio"],
+      print: () => Effect.void,
     });
     yield* ledger.plan("studio", plan, emptyState);
     const { outcome } = yield* apply(local, plan, script.join("\n"), [""], ledger);

@@ -9,7 +9,10 @@ import * as Schema from "effect/Schema";
 
 import { STATE_DIR } from "@fleetfizz/remote";
 
-import { LedgerState, noteRow, printRows, rows } from "./ledger.ts";
+import { Box } from "ink";
+
+import { LedgerState } from "./ledger.ts";
+import { LedgerView, NoteLine, T, toText } from "./view.tsx";
 
 const reportPath = () => `${STATE_DIR.replace(/^~/, process.env.HOME ?? "~")}/last-ship.json`;
 
@@ -33,9 +36,15 @@ export const report = Effect.fn("report")(function* () {
     dateStyle: "medium",
     timeStyle: "short",
   });
-  yield* printRows([
-    [{ text: `last Ship ${when} from ${state.from}`, style: "dim" }],
-    ...state.notes.map(noteRow),
-    ...rows(state, { full: true, now: state.ended ?? state.started, live: false }),
-  ]);
+  yield* Console.log(
+    toText(
+      <Box flexDirection="column">
+        <T tone="dim">{`last Ship ${when} from ${state.from}`}</T>
+        {state.notes.map((note, i) => (
+          <NoteLine key={i} note={note} />
+        ))}
+        <LedgerView state={state} full now={state.ended ?? state.started} />
+      </Box>,
+    ),
+  );
 });

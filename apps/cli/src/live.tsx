@@ -1,25 +1,16 @@
-// The live Ledger in a terminal: Ink draws `rows` and redraws them as the
-// Ship's events change the state. `f` switches between the items that change
-// and every item. Questions are asked here too, as a list of choices above the
-// Machines, so Ink is the only thing reading keys. When the scope closes, the
-// last frame stays in scrollback.
+// The live Ledger in a terminal: Ink draws the LedgerView (view.tsx) and
+// redraws it as the Ship's events change the state, always shorter than the
+// window. `f` switches between the items that change and every item.
+// Questions are asked here too, as a list of choices above the Machines, so
+// Ink is the only thing reading keys. When the scope closes the live frame is
+// erased; the Ship then prints its result once, as ordinary output.
 import * as Effect from "effect/Effect";
 import * as Schedule from "effect/Schedule";
-import { Box, render, Text, useInput, useStdin } from "ink";
+import { Box, render, useInput, useStdin, useWindowSize } from "ink";
 import { useState, useSyncExternalStore } from "react";
 
-import { rows, type LedgerStore, type Style } from "./ledger.ts";
-
-// Ink colors for each Ledger style; plain output uses ANSI codes (ledger.ts).
-const STYLE: Record<Style, { color?: string; bold?: boolean; dimColor?: boolean }> = {
-  dim: { dimColor: true },
-  bold: { bold: true },
-  ok: { color: "green" },
-  fail: { color: "red", bold: true },
-  skip: { color: "yellow" },
-  run: { color: "blue" },
-  ask: { color: "magenta", bold: true },
-};
+import type { LedgerStore } from "./ledger.ts";
+import { LedgerView, Line, Styled, T } from "./view.tsx";
 
 // The Question being asked: its choices, and how to answer with one.
 interface Asking {
@@ -54,6 +45,7 @@ const LiveLedger = (props: {
   const asking = useSyncExternalStore(props.asking.subscribe, props.asking.get);
   const [full, setFull] = useState(false);
   const [cursor, setCursor] = useState(0);
+  const { rows } = useWindowSize();
   const { isRawModeSupported } = useStdin();
   useInput(
     (input, key) => {
@@ -70,27 +62,20 @@ const LiveLedger = (props: {
     },
     { isActive: isRawModeSupported },
   );
-  const style = (s: Style | undefined) => (props.color && s !== undefined ? STYLE[s] : {});
+  const choices = asking?.titles ?? [];
   return (
-    <Box flexDirection="column">
-      {asking?.titles.map((title, i) => (
-        <Text key={`ask-${i}`} wrap="truncate-end">
-          <Text {...style(i === cursor ? "ask" : "dim")}>{i === cursor ? "  › " : "    "}</Text>
-          <Text {...style(i === cursor ? undefined : "dim")}>{title}</Text>
-        </Text>
-      ))}
-      {rows(state, { full, now, live: true }).map((row, r) => (
-        <Text key={r} wrap="truncate-end">
-          {row.length === 0
-            ? " "
-            : row.map((segment, s) => (
-                <Text key={s} {...style(segment.style)}>
-                  {segment.text}
-                </Text>
-              ))}
-        </Text>
-      ))}
-    </Box>
+    <Styled color={props.color} live>
+      <Box flexDirection="column">
+        {choices.map((title, i) => (
+          <Line key={i} tone={i === cursor ? undefined : "dim"}>
+            <T tone={i === cursor ? "ask" : "dim"}>{i === cursor ? "  › " : "    "}</T>
+            {title}
+          </Line>
+        ))}
+        {/* One row stays free: a frame as tall as the window is not redrawn in place. */}
+        <LedgerView state={state} full={full} now={now} height={rows - 1 - choices.length} />
+      </Box>
+    </Styled>
   );
 };
 
@@ -105,17 +90,15 @@ export interface Live {
   readonly ask: (<A>(choices: ReadonlyArray<Choice<A>>) => Effect.Effect<A>) | undefined;
 }
 
-// Shows the Ledger until the scope closes.
+// Shows the Ledger until the scope closes, then erases it.
 export const startLive = Effect.fn("startLive")(function* (store: LedgerStore, color: boolean) {
   const asking = cell<Asking | undefined>(undefined);
-  const view = <LiveLedger store={store} asking={asking} color={color} />;
-  const instance = render(view, { exitOnCtrlC: false });
-  // Draws the latest state and waits for it to reach the terminal before
-  // unmounting: that last frame is what stays behind.
+  const instance = render(<LiveLedger store={store} asking={asking} color={color} />, {
+    exitOnCtrlC: false,
+  });
   yield* Effect.addFinalizer(() =>
     Effect.promise(async () => {
-      instance.rerender(view);
-      await instance.waitUntilRenderFlush();
+      instance.clear();
       instance.unmount();
       await instance.waitUntilExit();
     }),

@@ -5,7 +5,8 @@ import * as TestClock from "effect/testing/TestClock";
 import { emptyState, type MachinePlan, type MachineState, type RepoStep } from "@fleetfizz/core";
 import { CONFIG_STEP, stepId, vpStepId } from "@fleetfizz/remote";
 
-import { makeLedger, rows, rowText } from "./ledger.ts";
+import { makeLedger } from "./ledger.ts";
+import { ledgerText } from "./view.tsx";
 
 const repo = (name: string, head: string, decision: RepoStep["decision"]): RepoStep => ({
   name,
@@ -60,6 +61,7 @@ describe("the Ledger", () => {
         from: "studio",
         dryRun: false,
         machines: ["studio", "macbook", "homelab"],
+        print: () => Effect.void,
       });
       const t3code = { fetch: stepId("t3code", "fetch"), install: stepId("t3code", "install") };
       yield* ledger.skip("homelab", "offline");
@@ -86,10 +88,7 @@ describe("the Ledger", () => {
       yield* ledger.finish("macbook", "failed");
       const ended = yield* ledger.end;
 
-      const text = (full: boolean) =>
-        rows(ended, { full, now: store.get().now, live: false })
-          .map((row) => rowText(row, false))
-          .join("\n");
+      const text = (full: boolean) => ledgerText(ended, { full, now: store.get().now }, false);
       expect(text(false)).toBe(
         [
           "",
