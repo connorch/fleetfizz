@@ -5,13 +5,13 @@ import * as Effect from "effect/Effect";
 import { Command, Flag } from "effect/cli";
 
 import packageJson from "../package.json" with { type: "json" };
-import { report } from "./report.ts";
+import { report } from "./report.tsx";
 import { ship } from "./ship.ts";
 
 const shipCommand = Command.make("ship", {
   dryRun: Flag.Boolean("dry-run").pipe(
     Flag.withDefault(false),
-    Flag.withDescription("Gather and plan only. Print every Machine's plan and change nothing."),
+    Flag.withDescription("Check and plan only. Print every Machine's plan and change nothing."),
   ),
   only: Flag.String("only").pipe(
     Flag.atLeast(0),

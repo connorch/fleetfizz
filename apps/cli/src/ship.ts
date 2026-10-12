@@ -1,4 +1,4 @@
-// `fizz ship`: one Ship. Load the config, read the Fleet, Gather every
+// `fizz ship`: one Ship. Load the config, read the Fleet, Check every
 // reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
 // and show it all on the Ledger: live in a terminal, printed once otherwise.
 import * as Console from "effect/Console";
@@ -40,11 +40,12 @@ import {
   type Tailnet,
 } from "@fleetfizz/remote";
 
-import { makeLedger, printRows, rows, styled, tally, type Ledger } from "./ledger.ts";
+import { makeLedger, tally, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
 import { apply, gather } from "./machine.ts";
 import { askQuestions } from "./questions.ts";
-import { saveReport } from "./report.ts";
+import { saveReport } from "./report.tsx";
+import { colorful, ledgerText, noteText } from "./view.tsx";
 
 export interface ShipFlags {
   readonly dryRun: boolean;
@@ -63,7 +64,7 @@ export class ShipError extends Error {
   override readonly name = "ShipError";
 }
 
-// A Machine that was gathered, and (after planning) what to do on it.
+// A Machine that was checked, and (after planning) what to do on it.
 interface Gathered {
   readonly machine: Machine;
   readonly local: boolean;
@@ -169,34 +170,51 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     .toSorted((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
   const count = `${targetsList.length} machine${targetsList.length === 1 ? "" : "s"}`;
   yield* Console.log(`${flags.dryRun ? "dry run, " : ""}${count} from ${tailnet.self.name}`);
+  const color = colorful();
   const { ledger, store } = yield* makeLedger({
     from: tailnet.self.name,
     dryRun: flags.dryRun,
     machines: targetsList.map((m) => m.name),
+    print: (note) => Console.log(noteText(note, color)),
   });
-  const live = canRedraw() ? yield* startLive(store, styled()) : noLive;
+  const redraw = canRedraw();
 
-  // Runs however the Ship ends (done, failed, or interrupted): saves the report
-  // once anything may have changed, prints the Ledger where nothing drew it
-  // live, and exits non-zero when any Machine failed. Added after startLive,
-  // so it runs before the live view's last frame is drawn.
+  // Runs however the Ship ends (done, failed, or interrupted), after the live
+  // view is erased (finalizers run in reverse): saves the report once anything
+  // may have changed, prints the Ledger once, and exits non-zero when any
+  // Machine failed.
   let changing = false;
   const finish = Effect.fn("finish")(function* () {
     const state = yield* ledger.end;
-    if (changing) {
-      yield* saveReport(state).pipe(
+    const saved =
+      changing &&
+      (yield* saveReport(state).pipe(
+        Effect.as(true),
         Effect.catch((e) =>
-          Console.error(`could not save the report for fizz report: ${e.message}`),
+          Console.error(`could not save the report for fizz report: ${e.message}`).pipe(
+            Effect.as(false),
+          ),
         ),
-      );
-    }
-    if (live === noLive) {
-      // A saved log cannot be expanded later, so it gets every item.
-      yield* printRows(rows(state, { full: true, now: state.ended ?? 0, live: false }));
-    }
+      ));
+    // A terminal gets the changes and points at the full report, once it is
+    // saved; a saved log cannot be expanded later, so it gets every item.
+    yield* Console.log(
+      ledgerText(
+        state,
+        redraw
+          ? {
+              full: false,
+              now: state.ended ?? 0,
+              ...(saved ? { hint: "full report: fizz report" } : {}),
+            }
+          : { full: true, now: state.ended ?? 0 },
+        color,
+      ),
+    );
     if (tally(state).failed > 0) process.exitCode = 1;
   });
   yield* Effect.addFinalizer(() => finish());
+  const live = redraw ? yield* startLive(store, color) : noLive;
 
   const cloneRootOf = (machine: Machine) =>
     config.machines[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
@@ -205,7 +223,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     outputs: r.outputs ?? [],
   }));
 
-  // Gather, in parallel. Every Machine is gathered before any Question is asked.
+  // Check, in parallel. Every Machine is checked before any Question is asked.
   const gathered: Gathered[] = yield* Effect.forEach(
     targetsList,
     Effect.fn("gatherOne")(function* (machine) {
@@ -221,7 +239,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       const script = gatherScript({ cloneRoot: cloneRootOf(machine), repos: gatherRepos });
       const result = yield* gather({ name: machine.name, local }, script, ledger);
       if (result.kind !== "gathered") return undefined;
-      yield* ledger.gathered(machine.name);
+      yield* ledger.checked(machine.name);
       return { machine, local, state: result.state };
     }),
     { concurrency: "unbounded" },

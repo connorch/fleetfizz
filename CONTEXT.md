@@ -40,12 +40,12 @@ _Avoid_: filter, selector, scope
 One manual run that brings every reachable targeted Machine in line with the config: its vp section and its Tracked Repos.
 _Avoid_: deploy, sync, rollout
 
-**Gather**:
-The phase of a Ship that reads each Machine's current state without changing anything.
-_Avoid_: probe, scan, fetch
+**Check**:
+The phase of a Ship that reads each Machine's current state without changing anything. A checked Machine is waiting until every Machine is checked and every Question is answered. The code still calls it `gather`.
+_Avoid_: gather, probe, scan, fetch
 
 **Plan**:
-The phase of a Ship that turns the config and gathered state into Steps and Questions for each Machine. Also the result of that phase.
+The phase of a Ship that turns the config and checked state into Steps and Questions for each Machine. Also the result of that phase.
 _Avoid_: diff, preview
 
 **Question**:
@@ -61,7 +61,7 @@ One unit of change on one Machine (fetch a Tracked Repo, run its Install Command
 _Avoid_: task, action, job
 
 **Ledger**:
-The output of a Ship: one line per Machine and, under it, one line per item that changes (vp, Node, a Global, a Tracked Repo), with its result and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
+The output of a Ship: one line per Machine with a summary of its items and, under it, one line per item that changes (vp, Node, a Global, a Tracked Repo), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
 _Avoid_: log
 
 ### Tracked Repos
@@ -124,7 +124,7 @@ _Avoid_: credential forwarding, shared token
 
 ## Relationships
 
-- A **Ship** runs **Gather** on every reachable **Machine** in the **Fleet**, then one **Plan**, then asks every **Question**, then **Apply** on every **Machine**
+- A **Ship** runs a **Check** on every reachable **Machine** in the **Fleet**, then one **Plan**, then asks every **Question**, then **Apply** on every **Machine**
 - Every **Ship** copies the **Starting Machine**'s **Config** to every reachable **Machine**, and installs its own version of fleetfizz there, so any **Machine** can be the next **Starting Machine**
 - No **Machine** changes until every **Question** from every **Machine** is answered
 - A **Machine** has one **Clone Root**, which holds one **Managed Clone** per targeted **Tracked Repo**

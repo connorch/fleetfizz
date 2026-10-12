@@ -5,7 +5,8 @@ import * as TestClock from "effect/testing/TestClock";
 import { emptyState, type MachinePlan, type MachineState, type RepoStep } from "@fleetfizz/core";
 import { CONFIG_STEP, stepId, vpStepId } from "@fleetfizz/remote";
 
-import { makeLedger, rows, rowText } from "./ledger.ts";
+import { makeLedger } from "./ledger.ts";
+import { ledgerText } from "./view.tsx";
 
 const repo = (name: string, head: string, decision: RepoStep["decision"]): RepoStep => ({
   name,
@@ -60,6 +61,7 @@ describe("the Ledger", () => {
         from: "studio",
         dryRun: false,
         machines: ["studio", "macbook", "homelab"],
+        print: () => Effect.void,
       });
       const t3code = { fetch: stepId("t3code", "fetch"), install: stepId("t3code", "install") };
       yield* ledger.skip("homelab", "offline");
@@ -86,33 +88,32 @@ describe("the Ledger", () => {
       yield* ledger.finish("macbook", "failed");
       const ended = yield* ledger.end;
 
-      const text = (full: boolean) =>
-        rows(ended, { full, now: store.get().now, live: false })
-          .map((row) => rowText(row, false))
-          .join("\n");
+      const text = (full: boolean) => ledgerText(ended, { full, now: store.get().now }, false);
       expect(text(false)).toBe(
         [
           "",
-          "studio   OK    up to date",
-          "macbook  FAIL  1m 34s",
-          "    vp      1.0.0 -> 1.1.0      done    2.0s",
-          "    t3code  3f1a2b0 -> 9e02bb1  FAIL  1m 30s  exit 1",
-          "      ERR_PNPM_OUTDATED_LOCKFILE",
-          "homelab  SKIP  offline",
+          "studio                                         up to date",
+          "",
+          "macbook                                1m 34s  1 of 2 done, 1 failed",
+          "✓ done      vp      1.0.0 → 1.1.0        2.0s",
+          "✗ failed    t3code  3f1a2b0 → 9e02bb1  1m 30s  exit 1",
+          "            │ ERR_PNPM_OUTDATED_LOCKFILE",
+          "",
+          "homelab                                        – skipped  offline",
           "",
           "ok 1  skipped 1  failed 1  in 1m 34s",
         ].join("\n"),
       );
       expect(text(true)).toContain(
         [
-          "macbook  FAIL  1m 34s",
-          "    vp        1.0.0 -> 1.1.0      done          2.0s",
-          "    node      24.3.0",
-          "    vercel    59.25.4",
-          "    t3code    3f1a2b0 -> 9e02bb1  FAIL        1m 30s  exit 1",
-          "      ERR_PNPM_OUTDATED_LOCKFILE",
-          "    dotfiles  a41c0d2             up to date",
-          "    config                        copied        2.0s",
+          "macbook                                  1m 34s  1 of 2 done, 1 failed",
+          "✓ done      vp        1.0.0 → 1.1.0        2.0s",
+          "            node      24.3.0",
+          "            vercel    59.25.4",
+          "✗ failed    t3code    3f1a2b0 → 9e02bb1  1m 30s  exit 1",
+          "            │ ERR_PNPM_OUTDATED_LOCKFILE",
+          "            dotfiles  a41c0d2                    up to date",
+          "✓ copied    config                         2.0s",
         ].join("\n"),
       );
     }),

@@ -1,4 +1,4 @@
-// Plan: pure. Config plus gathered state gives one Machine's Steps, the
+// Plan: pure. Config plus checked state gives one Machine's Steps, the
 // Questions it raises, and the failures already known before Apply.
 import * as semver from "semver";
 

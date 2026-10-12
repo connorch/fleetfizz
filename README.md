@@ -42,7 +42,7 @@ mkdir -p ~/.config/fleetfizz
 Then:
 
 ```sh
-fizz ship --dry-run   # gather every Machine and print its plan; change nothing
+fizz ship --dry-run   # check every Machine and print its plan; change nothing
 fizz ship             # apply the plan everywhere, in parallel
 fizz report           # print the full Ledger of the last Ship from this Machine
 ```

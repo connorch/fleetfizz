@@ -1,4 +1,4 @@
-// The read-only Gather script: one ssh per Machine, printing ff-state Facts.
+// The read-only Check script: one ssh per Machine, printing ff-state Facts.
 import { CONFIG_FILE } from "@fleetfizz/config";
 
 import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";

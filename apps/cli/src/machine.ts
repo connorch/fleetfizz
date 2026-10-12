@@ -1,5 +1,5 @@
 // Running one generated script on one Machine and folding its marker lines
-// into Ledger events. Gather and Apply differ only in what they fold.
+// into Ledger events. Check and Apply differ only in what they fold.
 import * as Effect from "effect/Effect";
 
 import { assembleState, type Fact, type MachinePlan, type MachineState } from "@fleetfizz/core";
@@ -54,12 +54,12 @@ export type GatherResult =
   | { readonly kind: "gathered"; readonly state: MachineState }
   | { readonly kind: "skipped" | "failed" };
 
-// Gather reads a few files and runs vp; anything longer means something on
+// The Check reads a few files and runs vp; anything longer means something on
 // that Machine is blocking (seen: macOS holding a `git` on an external SSD
 // until tailscaled's privacy prompt is answered). The Ship must not hang.
 const GATHER_TIMEOUT = "2 minutes";
 
-// Gather on one Machine: the script's Facts become its MachineState.
+// The Check on one Machine: the script's Facts become its MachineState.
 export const gather = Effect.fn("gather")(function* (
   target: Target,
   script: string,
@@ -83,7 +83,7 @@ export const gather = Effect.fn("gather")(function* (
       orElse: () =>
         ledger
           .fail(target.name, [
-            `gather took more than ${GATHER_TIMEOUT}; something on that Machine is blocking`,
+            `checking took more than ${GATHER_TIMEOUT}; something on that Machine is blocking`,
             ...output,
           ])
           .pipe(Effect.as({ kind: "failed" } as const)),
@@ -92,7 +92,7 @@ export const gather = Effect.fn("gather")(function* (
   if (run.kind !== "ran") return { kind: run.kind } as GatherResult;
   const state = assembleState(facts);
   if (!state.complete) {
-    yield* ledger.fail(target.name, ["gather did not finish", ...output]);
+    yield* ledger.fail(target.name, ["checking did not finish", ...output]);
     return { kind: "failed" } as GatherResult;
   }
   return { kind: "gathered", state } as GatherResult;
