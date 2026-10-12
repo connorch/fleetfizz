@@ -52,7 +52,7 @@ export const askQuestions = Effect.fn("askQuestions")(function* (
           : yield* ask<Decision>([
               { title: bumpTitle, value: bump },
               {
-                title: "skip on these Machines (leave as is, report SKIP)",
+                title: "skip on these Machines (leave as is, shown as skipped)",
                 value: { kind: "skip" },
               },
               { title: "downgrade into the range", value: { kind: "downgrade" } },

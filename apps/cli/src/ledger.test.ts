@@ -101,7 +101,7 @@ describe("the Ledger", () => {
           "",
           "homelab                                        – skipped  offline",
           "",
-          "ok 1  skipped 1  failed 1  in 1m 34s",
+          "1 up to date, 1 failed, 1 skipped  in 1m 34s",
         ].join("\n"),
       );
       expect(text(true)).toContain(

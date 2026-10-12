@@ -4,18 +4,19 @@ export {
   applyStdin,
   CONFIG_STEP,
   END_STEP,
+  isFetchStep,
   stepId,
   vpStepId,
   type ApplyInput,
 } from "./apply.ts";
 export {
   CONFIG_DIR_SH,
-  gatherScript,
+  checkScript,
   RECORDS_DIR,
   STATE_DIR,
-  type GatherInput,
-  type GatherRepo,
-} from "./gather.ts";
+  type CheckInput,
+  type CheckRepo,
+} from "./check.ts";
 export { doneLine, parseLine, stepLine, type Line, type StepDone } from "./protocol.ts";
 export { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 export { parseTailnet, readTailnet, TailnetError, type Machine, type Tailnet } from "./tailnet.ts";

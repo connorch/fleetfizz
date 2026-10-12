@@ -19,7 +19,7 @@ type Run =
   | { readonly kind: "skipped" | "failed" };
 
 // Runs `script` on `target`, handing every parsed line to `onLine`. An
-// unreachable Machine is a SKIP and a script that could not start is a FAIL;
+// unreachable Machine is skipped and a script that could not start fails;
 // both are reported here, so callers only deal with a script that ran.
 const runOn = Effect.fn("runOn")(function* (
   target: Target,
@@ -50,21 +50,17 @@ const runOn = Effect.fn("runOn")(function* (
   return run;
 });
 
-export type GatherResult =
-  | { readonly kind: "gathered"; readonly state: MachineState }
+export type CheckResult =
+  | { readonly kind: "checked"; readonly state: MachineState }
   | { readonly kind: "skipped" | "failed" };
 
 // The Check reads a few files and runs vp; anything longer means something on
 // that Machine is blocking (seen: macOS holding a `git` on an external SSD
 // until tailscaled's privacy prompt is answered). The Ship must not hang.
-const GATHER_TIMEOUT = "2 minutes";
+const CHECK_TIMEOUT = "2 minutes";
 
 // The Check on one Machine: the script's Facts become its MachineState.
-export const gather = Effect.fn("gather")(function* (
-  target: Target,
-  script: string,
-  ledger: Ledger,
-) {
+export const check = Effect.fn("check")(function* (target: Target, script: string, ledger: Ledger) {
   const facts: Fact[] = [];
   const output: string[] = [];
   const run = yield* runOn(
@@ -79,23 +75,23 @@ export const gather = Effect.fn("gather")(function* (
     ledger,
   ).pipe(
     Effect.timeoutOrElse({
-      duration: GATHER_TIMEOUT,
+      duration: CHECK_TIMEOUT,
       orElse: () =>
         ledger
           .fail(target.name, [
-            `checking took more than ${GATHER_TIMEOUT}; something on that Machine is blocking`,
+            `checking took more than ${CHECK_TIMEOUT}; something on that Machine is blocking`,
             ...output,
           ])
           .pipe(Effect.as({ kind: "failed" } as const)),
     }),
   );
-  if (run.kind !== "ran") return { kind: run.kind } as GatherResult;
+  if (run.kind !== "ran") return { kind: run.kind } as CheckResult;
   const state = assembleState(facts);
   if (!state.complete) {
     yield* ledger.fail(target.name, ["checking did not finish", ...output]);
-    return { kind: "failed" } as GatherResult;
+    return { kind: "failed" } as CheckResult;
   }
-  return { kind: "gathered", state } as GatherResult;
+  return { kind: "checked", state } as CheckResult;
 });
 
 export interface Applied {
@@ -174,7 +170,7 @@ export const apply = Effect.fn("apply")(function* (
     });
   }
   // ssh's exit 255 after a step started is a dropped connection on a Machine
-  // that is partly changed: a failure, not a SKIP.
+  // that is partly changed: a failure, not a skip.
   if (run.kind !== "ran")
     return yield* finish(run.kind === "skipped" && started ? "failed" : run.kind);
   if (current !== undefined) return yield* finish("failed");

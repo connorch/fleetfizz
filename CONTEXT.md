@@ -41,7 +41,7 @@ One manual run that brings every reachable targeted Machine in line with the con
 _Avoid_: deploy, sync, rollout
 
 **Check**:
-The phase of a Ship that reads each Machine's current state without changing anything. A checked Machine is waiting until every Machine is checked and every Question is answered. The code still calls it `gather`.
+The phase of a Ship that reads each Machine's current state without changing anything. A checked Machine is waiting until every Machine is checked and every Question is answered.
 _Avoid_: gather, probe, scan, fetch
 
 **Plan**:

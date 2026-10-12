@@ -68,3 +68,32 @@ describe("the live Ledger", () => {
     expect(live(2)).toEqual([""]);
   });
 });
+
+describe("the Ship's summary", () => {
+  const planned = (name: string, changes: boolean): MachineEntry => ({
+    name,
+    status: "planned",
+    items: [{ ...item("vp", "idle"), changes }],
+  });
+  const summary = (machines: MachineEntry[]) =>
+    renderToString(
+      <Styled color={false} live={false}>
+        <LedgerView state={{ ...state, dryRun: true, machines, ended: 0 }} full={false} now={0} />
+      </Styled>,
+      { columns: 80 },
+    )
+      .split("\n")
+      .at(-1);
+
+  it("counts a dry run's Machines by what they would do", () => {
+    expect(summary([planned("studio", false), planned("macbook", false)])).toBe("2 up to date");
+    expect(summary([planned("studio", true), planned("macbook", false)])).toBe(
+      "1 to change, 1 up to date",
+    );
+  });
+
+  it("does not count a Machine that skipped an item as up to date", () => {
+    const skipping = { ...planned("macbook", false), items: [item("vercel", "skipped")] };
+    expect(summary([planned("studio", false), skipping])).toBe("1 up to date, 1 skipped");
+  });
+});

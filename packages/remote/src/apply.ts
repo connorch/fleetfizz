@@ -6,7 +6,7 @@ import * as Schema from "effect/Schema";
 import { CONFIG_FILE, SCHEMA_FILE } from "@fleetfizz/config";
 import type { MachinePlan, RepoStep, VpStep } from "@fleetfizz/core";
 
-import { CONFIG_DIR_SH, RECORDS_DIR } from "./gather.ts";
+import { CONFIG_DIR_SH, RECORDS_DIR } from "./check.ts";
 import { doneLine, stepLine } from "./protocol.ts";
 import { fingerprintFn, prelude, quote, quotePath, vpEnv } from "./shell.ts";
 
@@ -20,7 +20,7 @@ const jsonRecord = Schema.encodeSync(
 export interface ApplyInput {
   readonly plan: MachinePlan;
   readonly cloneRoot: string;
-  // Environment for every Install Command (brief section 13).
+  // Environment for every Install Command (see the README).
   readonly env: {
     readonly machine: string;
     readonly platform: string;
@@ -29,6 +29,8 @@ export interface ApplyInput {
 }
 
 export const stepId = (repo: string, step: "fetch" | "install") => `repo:${repo}:${step}`;
+// A Tracked Repo's fetch: the first half of its install, which every Ship runs.
+export const isFetchStep = (id: string): boolean => id.startsWith("repo:") && id.endsWith(":fetch");
 export const vpStepId = (step: VpStep): string =>
   step.kind === "reinstall"
     ? `vp:reinstall:${step.name}`
@@ -47,7 +49,23 @@ const VP_INSTALL = [
   "{ hash -r 2>/dev/null || true; }",
 ].join(" && ");
 
-// One vp step: the command in a subshell, then its marker.
+// Step `id`: its start marker, `run`, then exactly one done marker with the
+// exit code of `run`'s last command. `then` runs only after a success.
+const marked = (
+  id: string,
+  run: ReadonlyArray<string>,
+  then: ReadonlyArray<string> = [],
+): string[] => [
+  stepLine(id),
+  ...run,
+  `ff_code=$?`,
+  `if [ "$ff_code" -ne 0 ]; then ${doneLine(id, false, "$ff_code")}; else`,
+  doneLine(id, true),
+  ...then,
+  "fi",
+];
+
+// One vp step: the command in a subshell.
 const vpStep = (step: VpStep): string[] => {
   const id = vpStepId(step);
   const command = (() => {
@@ -64,13 +82,8 @@ const vpStep = (step: VpStep): string[] => {
         return `command vp install -g ${step.packages.map((p) => quote(`${p.name}@${p.version}`)).join(" ")}`;
     }
   })();
-  return [
-    stepLine(id),
-    // The bootstrap runs in this shell so its PATH change reaches later steps.
-    step.kind === "bootstrap" ? command : `( ${command} )`,
-    `ff_code=$?`,
-    `if [ "$ff_code" -ne 0 ]; then ${doneLine(id, false, "$ff_code")}; else ${doneLine(id, true)}; fi`,
-  ];
+  // The bootstrap runs in this shell so its PATH change reaches later steps.
+  return marked(id, [step.kind === "bootstrap" ? command : `( ${command} )`]);
 };
 
 // Writes the Starting Machine's config and the schema beside it, from stdin
@@ -80,12 +93,9 @@ const configStep = (): string[] => {
   const dir = CONFIG_DIR_SH;
   const write = (variable: string, file: string) =>
     `printf '%s' "$${variable}" | base64 -d > ${dir}/${quote(`${file}.tmp`)} && mv -f ${dir}/${quote(`${file}.tmp`)} ${dir}/${quote(file)}`;
-  return [
-    stepLine(CONFIG_STEP),
+  return marked(CONFIG_STEP, [
     `( mkdir -p ${dir} && ${write("ff_config", CONFIG_FILE)} && ${write("ff_schema", SCHEMA_FILE)} )`,
-    `ff_code=$?`,
-    `if [ "$ff_code" -ne 0 ]; then ${doneLine(CONFIG_STEP, false, "$ff_code")}; else ${doneLine(CONFIG_STEP, true)}; fi`,
-  ];
+  ]);
 };
 // Marks the end of the script, so a script that stopped between steps is detected.
 export const END_STEP = "end";
@@ -132,37 +142,41 @@ const repoSteps = (repo: RepoStep, input: ApplyInput): string[] => {
   return [
     `ff_d="$ff_root"/${quote(repo.name)}`,
     `ff_before=$(git -C "$ff_d" rev-parse HEAD 2>/dev/null || true)`,
-    stepLine(fetch),
-    "(",
-    "  set -e",
-    `  if [ ! -d "$ff_d/.git" ]; then ff_git clone --quiet ${quote(url)} "$ff_d"; fi`,
-    `  if [ "$(git -C "$ff_d" remote get-url origin)" != ${quote(url)} ]; then echo "origin is $(git -C "$ff_d" remote get-url origin), expected ${url}"; exit 1; fi`,
-    ...sync.map((l) => `  ${l}`),
-    `  git -C "$ff_d" clean --quiet -fd`,
-    ...writeFiles(repo).map((l) => `  ${l}`),
-    ")",
-    `ff_code=$?`,
-    `if [ "$ff_code" -ne 0 ]; then ${doneLine(fetch, false, "$ff_code")}; else`,
-    `${doneLine(fetch, true)}`,
-    `ff_after=$(git -C "$ff_d" rev-parse HEAD)`,
-    // The commit the fetch reached, so the Ledger can show `before -> after`.
-    `ff_state "{\\"fact\\":\\"repo\\",\\"name\\":\\"$(ff_json ${quote(repo.name)})\\",\\"present\\":true,\\"head\\":\\"$(ff_json "$ff_after")\\"}"`,
-    // The planner decided from the pre-fetch HEAD; a fetch that moved HEAD reinstalls too.
-    `if [ ${repo.decision.run ? "true" : "false"} = true ] || [ "$ff_after" != "$ff_before" ]; then`,
-    `  ${stepLine(install)}`,
-    `  (cd "$ff_d" && ${envPrefix} "\${SHELL:-/bin/sh}" -lc ${quote(repo.install)})`,
-    `  ff_code=$?`,
-    `  if [ "$ff_code" -ne 0 ]; then ${doneLine(install, false, "$ff_code")}; else`,
-    // The install counts only once its record is on disk.
-    "    (",
-    "      set -e",
-    ...writeRecord(repo).map((l) => `      ${l}`),
-    "    )",
-    `    ff_code=$?`,
-    `    if [ "$ff_code" -ne 0 ]; then echo "could not write the install record"; ${doneLine(install, false, "$ff_code")}; else ${doneLine(install, true)}; fi`,
-    "  fi",
-    "fi",
-    "fi",
+    ...marked(
+      fetch,
+      [
+        "(",
+        "  set -e",
+        `  if [ ! -d "$ff_d/.git" ]; then ff_git clone --quiet ${quote(url)} "$ff_d"; fi`,
+        `  if [ "$(git -C "$ff_d" remote get-url origin)" != ${quote(url)} ]; then echo "origin is $(git -C "$ff_d" remote get-url origin), expected ${url}"; exit 1; fi`,
+        ...sync.map((l) => `  ${l}`),
+        `  git -C "$ff_d" clean --quiet -fd`,
+        ...writeFiles(repo).map((l) => `  ${l}`),
+        ")",
+      ],
+      [
+        `ff_after=$(git -C "$ff_d" rev-parse HEAD)`,
+        // The commit the fetch reached, so the Ledger can show `before -> after`.
+        `ff_state "{\\"fact\\":\\"repo\\",\\"name\\":\\"$(ff_json ${quote(repo.name)})\\",\\"present\\":true,\\"head\\":\\"$(ff_json "$ff_after")\\"}"`,
+        // The planner decided from the pre-fetch HEAD; a fetch that moved HEAD reinstalls too.
+        `if [ ${repo.decision.run ? "true" : "false"} = true ] || [ "$ff_after" != "$ff_before" ]; then`,
+        // Not `marked`: the install counts only once its record is on disk,
+        // and the record's `set -e` subshell must stand alone (on the left
+        // of `||` the shell would ignore its `set -e`).
+        `  ${stepLine(install)}`,
+        `  (cd "$ff_d" && ${envPrefix} "\${SHELL:-/bin/sh}" -lc ${quote(repo.install)})`,
+        `  ff_code=$?`,
+        `  if [ "$ff_code" -ne 0 ]; then ${doneLine(install, false, "$ff_code")}; else`,
+        "    (",
+        "      set -e",
+        ...writeRecord(repo).map((l) => `      ${l}`),
+        "    )",
+        `    ff_code=$?`,
+        `    if [ "$ff_code" -ne 0 ]; then echo "could not write the install record"; ${doneLine(install, false, "$ff_code")}; else ${doneLine(install, true)}; fi`,
+        "  fi",
+        "fi",
+      ],
+    ),
   ];
 };
 

@@ -23,4 +23,4 @@ export {
   TrackedRepo,
   VpSection,
 } from "./schema.ts";
-export { isNewer, stampText, type Stamp } from "./stamp.ts";
+export { stampText, staleCopies, type Copy, type Stamp } from "./stamp.ts";

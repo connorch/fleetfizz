@@ -1,6 +1,6 @@
 // The last Ship's full Ledger, saved on the Starting Machine at the end of
 // every Ship (not a dry run). `fizz report` prints it: every item on every
-// Machine, with times and all FAIL output.
+// Machine, with times and all failure output.
 import * as Console from "effect/Console";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";

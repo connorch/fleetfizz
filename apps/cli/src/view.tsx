@@ -11,7 +11,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 import {
   duration,
-  tally,
+  outcomeOf,
   type Item,
   type LedgerState,
   type MachineEntry,
@@ -33,7 +33,7 @@ const TONE: Record<Tone, TextProps> = {
 // or NO_COLOR is set (chalk alone does not check NO_COLOR).
 interface Mode {
   readonly color: boolean;
-  // A live frame: lines are cut, not wrapped, and FAIL output keeps its tail.
+  // A live frame: lines are cut, not wrapped, and failure output keeps its tail.
   readonly live: boolean;
 }
 const ModeContext = createContext<Mode>({ color: false, live: false });
@@ -160,7 +160,36 @@ const summaryOf = (m: MachineEntry, dryRun: boolean): ReadonlyArray<Part> => {
   }
   if (failed > 0) parts.push({ text: `${failed} failed`, tone: "fail" });
   if (skipped > 0) parts.push({ text: `${skipped} skipped`, tone: "skip" });
-  return parts.flatMap((part, n) => (n === 0 ? [part] : [{ text: ", ", tone: "dim" }, part]));
+  return joined(parts);
+};
+
+const joined = (parts: ReadonlyArray<Part>): ReadonlyArray<Part> =>
+  parts.flatMap((part, n) => (n === 0 ? [part] : [{ text: ", ", tone: "dim" as const }, part]));
+
+// The Ship's summary, under its Machines: the Machines counted by how they
+// ended, in the words and colors of their own summaries, zero counts left
+// out. A Machine a stopped Ship never reached is not counted.
+const shipSummary = (state: LedgerState): ReadonlyArray<Part> => {
+  const outcomes = state.machines.map((m) => {
+    const outcome = outcomeOf(m, state.dryRun);
+    if (outcome !== "ok") return outcome;
+    const { changes, skipped } = countsOf(m);
+    if (changes > 0) return state.dryRun ? "to change" : "updated";
+    // Nothing changed; one that skipped an item says so, as its own line does.
+    return skipped > 0 ? "skipped" : "up to date";
+  });
+  const counted = (outcome: (typeof outcomes)[number], tone: Tone): Part[] => {
+    const n = outcomes.filter((o) => o === outcome).length;
+    return n === 0 ? [] : [{ text: `${n} ${outcome}`, tone }];
+  };
+  const parts = joined([
+    ...counted("updated", "ok"),
+    ...counted("to change", "dim"),
+    ...counted("up to date", "ok"),
+    ...counted("failed", "fail"),
+    ...counted("skipped", "skip"),
+  ]);
+  return parts.length === 0 ? [{ text: "nothing changed", tone: "dim" }] : parts;
 };
 
 const elapsed = (started: number | undefined, ended: number | undefined, now: number) =>
@@ -359,7 +388,6 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   // Question alone is drawn.
   if (room < 1) return null;
 
-  const t = tally(state);
   return (
     <Box flexDirection="column" marginTop={1}>
       {shown}
@@ -368,11 +396,7 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
         <Box marginTop={1}>
           <Parts
             parts={[
-              { text: `${dryRun ? "planned" : "ok"} ${t.ok}`, ...(t.ok > 0 ? { tone: "ok" } : {}) },
-              { text: "  " },
-              { text: `skipped ${t.skipped}`, ...(t.skipped > 0 ? { tone: "skip" } : {}) },
-              { text: "  " },
-              { text: `failed ${t.failed}`, ...(t.failed > 0 ? { tone: "fail" } : {}) },
+              ...shipSummary(state),
               ...(dryRun
                 ? []
                 : [

@@ -12,11 +12,12 @@ import {
   configPath,
   DEFAULT_CLONE_ROOT,
   fleetConfigJsonSchema,
-  isNewer,
   loadConfig,
   parseConfig,
   repoName,
   stampText,
+  staleCopies,
+  type Copy,
   type FleetConfig,
 } from "@fleetfizz/config";
 import {
@@ -32,7 +33,7 @@ import {
   applyScript,
   applyStdin,
   CONFIG_STEP,
-  gatherScript,
+  checkScript,
   readLentToken,
   readTailnet,
   resolveVersions,
@@ -40,9 +41,9 @@ import {
   type Tailnet,
 } from "@fleetfizz/remote";
 
-import { makeLedger, tally, type Ledger } from "./ledger.ts";
+import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
-import { apply, gather } from "./machine.ts";
+import { apply, check } from "./machine.ts";
 import { askQuestions } from "./questions.ts";
 import { saveReport } from "./report.tsx";
 import { colorful, ledgerText, noteText } from "./view.tsx";
@@ -65,12 +66,12 @@ export class ShipError extends Error {
 }
 
 // A Machine that was checked, and (after planning) what to do on it.
-interface Gathered {
+interface Checked {
   readonly machine: Machine;
   readonly local: boolean;
   readonly state: MachineState;
 }
-interface Planned extends Gathered {
+interface Planned extends Checked {
   readonly plan: MachinePlan;
 }
 
@@ -100,38 +101,29 @@ const packagesToResolve = (config: FleetConfig): string[] => {
 const rebuildOf = (flags: ShipFlags): Rebuild =>
   flags.rebuild.length === 0 ? "none" : flags.rebuild.includes("all") ? "all" : flags.rebuild;
 
-// A Machine that received a config more recently than this config last
-// reached it: a Ship from elsewhere missed this Machine, so copying this
-// config would roll it back (ADR 0008). The comparison is per Machine
-// (`shippedTo`), so a Ship that missed a Machine cannot outdate it. The
-// Starting Machine's own file is the input unless --config named another, in
-// which case it is checked like any other. A config that does not parse is
-// reported and then overwritten; it cannot be newer.
+// The other copies of the config that this Ship would roll back (staleCopies),
+// described for the person shipping. A copy that does not parse is reported
+// and then overwritten; it cannot be newer.
 const staleConfigs = Effect.fn("staleConfigs")(function* (
-  local: FleetConfig,
-  inputIsLocalFile: boolean,
-  gathered: ReadonlyArray<Gathered>,
+  config: FleetConfig,
+  own: string | undefined,
+  checked: ReadonlyArray<Checked>,
   ledger: Ledger,
 ) {
-  const stale: string[] = [];
-  for (const { machine, local: isLocal, state } of gathered) {
-    if ((isLocal && inputIsLocalFile) || state.config === undefined) continue;
+  const copies: Copy[] = [];
+  for (const { machine, state } of checked) {
+    if (state.config === undefined) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
     if (parsed._tag === "Failure") {
       yield* ledger.note(
         "info",
         `the config on ${machine.name} does not parse; it will be overwritten`,
       );
-      continue;
-    }
-    const remote = parsed.success;
-    if (isNewer(remote.shippedTo?.[machine.name], local.shippedTo?.[machine.name])) {
-      stale.push(
-        `${machine.name} (shipped ${remote.shippedAt} from ${remote.shippedFrom ?? "unknown"})`,
-      );
-    }
+    } else copies.push({ machine: machine.name, config: parsed.success });
   }
-  return stale;
+  return staleCopies(config, copies, own).map(
+    (c) => `${c.machine} (shipped ${c.config.shippedAt} from ${c.config.shippedFrom ?? "unknown"})`,
+  );
 });
 
 const schemaJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown, { space: 2 }));
@@ -152,6 +144,9 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   }
   // The Fleet is what the config lists; the Starting Machine must be in it.
   const fleet = new Set(Object.keys(config.machines));
+  // The Machine whose copy of the config this is: the Starting Machine's own
+  // file, unless --config named another (staleCopies).
+  const own = flags.config === undefined ? tailnet.self.name : undefined;
   if (!fleet.has(tailnet.self.name)) {
     return yield* Effect.fail(
       new ShipError(`this Machine (${tailnet.self.name}) is not in machines in ${path}`),
@@ -211,22 +206,22 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         color,
       ),
     );
-    if (tally(state).failed > 0) process.exitCode = 1;
+    if (anyFailed(state)) process.exitCode = 1;
   });
   yield* Effect.addFinalizer(() => finish());
   const live = redraw ? yield* startLive(store, color) : noLive;
 
   const cloneRootOf = (machine: Machine) =>
     config.machines[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
-  const gatherRepos = (config.repos ?? []).map((r) => ({
+  const checkRepos = (config.repos ?? []).map((r) => ({
     name: repoName(r),
     outputs: r.outputs ?? [],
   }));
 
   // Check, in parallel. Every Machine is checked before any Question is asked.
-  const gathered: Gathered[] = yield* Effect.forEach(
+  const checked: Checked[] = yield* Effect.forEach(
     targetsList,
-    Effect.fn("gatherOne")(function* (machine) {
+    Effect.fn("checkOne")(function* (machine) {
       const local = machine.name === tailnet.self.name;
       if (!machine.online) {
         yield* ledger.skip(machine.name, "offline");
@@ -236,9 +231,9 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
         yield* ledger.skip(machine.name, "no Tailscale SSH server");
         return undefined;
       }
-      const script = gatherScript({ cloneRoot: cloneRootOf(machine), repos: gatherRepos });
-      const result = yield* gather({ name: machine.name, local }, script, ledger);
-      if (result.kind !== "gathered") return undefined;
+      const script = checkScript({ cloneRoot: cloneRootOf(machine), repos: checkRepos });
+      const result = yield* check({ name: machine.name, local }, script, ledger);
+      if (result.kind !== "checked") return undefined;
       yield* ledger.checked(machine.name);
       return { machine, local, state: result.state };
     }),
@@ -246,7 +241,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
   // A newer config elsewhere stops the Ship unless the person overrides.
-  const stale = yield* staleConfigs(config, flags.config === undefined, gathered, ledger);
+  const stale = yield* staleConfigs(config, own, checked, ledger);
   if (stale.length > 0) {
     const what = `newer config on ${stale.join(", ")}`;
     if (flags.dryRun) {
@@ -271,7 +266,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   const versions = yield* resolveVersions(packagesToResolve(config));
 
   const planAll = (cfg: FleetConfig, answers: Readonly<Record<string, Answer>>): Planned[] =>
-    gathered.map((g) => ({
+    checked.map((g) => ({
       ...g,
       plan: plan({
         config: cfg,
@@ -320,17 +315,10 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   // The copy each Machine receives says this Ship reached it. The local file
   // is written again after Apply with only the Machines whose config step
   // completed, so a failed delivery does not claim a copy that never landed.
-  // The file being stamped is the Starting Machine's own config unless
-  // --config named another, so that Machine counts as reached even when
-  // --only left it out of this Ship.
   changing = true;
   const original = yield* fs.readFileString(path);
   const stampWith = (reached: ReadonlyArray<string>) =>
-    stampText(original, {
-      shippedAt,
-      shippedFrom: tailnet.self.name,
-      reached: [...reached, ...(flags.config === undefined ? [tailnet.self.name] : [])],
-    });
+    stampText(original, { shippedAt, shippedFrom: tailnet.self.name, reached, own });
   const stamped = stampWith(planned.map((g) => g.machine.name));
   yield* fs.writeFileString(path, stamped);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;

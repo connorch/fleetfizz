@@ -3,13 +3,13 @@
 // Node, a Global, a Tracked Repo), its status first. The full Ledger lists
 // every item, changed or not, and the config copy.
 //
-//   connors-mac-studio                                up to date
+//   connors-mac-studio                                         up to date
 //
-//   connors-macbook-pro                       5m 07s  2 of 2 done
-//   ✓ done          vp               1.0.0 → 1.1.0     16.6s
-//   ✓ installed     connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
+//   connors-macbook-pro                                5m 07s  2 of 2 done
+//   ✓ done         vp               1.0.0 → 1.1.0       16.6s
+//   ✓ installed    connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
 //
-//   ok 2  skipped 0  failed 0  in 5m 12s
+//   1 updated, 1 up to date  in 5m 12s
 //
 // The state is plain data, a Schema so `fizz report` can save it. Ship events
 // update it through the `Ledger` interface, and view.tsx draws it, live or
@@ -20,7 +20,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import type { MachinePlan, MachineState } from "@fleetfizz/core";
-import { CONFIG_STEP, stepId, vpStepId } from "@fleetfizz/remote";
+import { CONFIG_STEP, isFetchStep, stepId, vpStepId } from "@fleetfizz/remote";
 
 export const Note = Schema.Struct({
   kind: Schema.Literals(["ask", "answer", "info"]),
@@ -115,9 +115,8 @@ export interface LedgerStore {
 
 const short = (sha: string | undefined) => (sha === undefined ? undefined : sha.slice(0, 7));
 
-const FETCH = ":fetch";
 const doingOf = (id: string) =>
-  id === CONFIG_STEP ? "copying" : id.endsWith(FETCH) ? "fetching" : "installing";
+  id === CONFIG_STEP ? "copying" : isFetchStep(id) ? "fetching" : "installing";
 
 // Every item on one Machine: what it has now (from the Check), with the plan's
 // changes, skips, and failures laid over it.
@@ -215,11 +214,9 @@ export const outcomeOf = (m: MachineEntry, dryRun: boolean): Outcome | undefined
         ? "ok"
         : undefined;
 
-export const tally = (state: LedgerState) => {
-  const outcomes = state.machines.map((m) => outcomeOf(m, state.dryRun));
-  const n = (o: Outcome) => outcomes.filter((x) => x === o).length;
-  return { ok: n("ok"), skipped: n("skipped"), failed: n("failed") };
-};
+// Whether any Machine failed: the Ship then exits non-zero.
+export const anyFailed = (state: LedgerState): boolean =>
+  state.machines.some((m) => outcomeOf(m, state.dryRun) === "failed");
 
 // `machines` is the Ship's targets in config order; `print` shows a note.
 export const makeLedger = Effect.fn("makeLedger")(function* (input: {
@@ -293,7 +290,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
               ...item,
               // Every Ship copies the config and fetches every repo; neither is a
               // change on its own.
-              changes: item.changes || !(id === CONFIG_STEP || id.endsWith(FETCH)),
+              changes: item.changes || !(id === CONFIG_STEP || isFetchStep(id)),
               status: "running",
               doing: doingOf(id),
               started: item.started ?? now,
@@ -314,8 +311,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         }
         const { doing: _, ...rest } = item;
         // A fetch is the first half of an install, which runs on.
-        if (id.endsWith(FETCH))
-          return item.changes ? item : { ...rest, status: "idle", ended: now };
+        if (isFetchStep(id)) return item.changes ? item : { ...rest, status: "idle", ended: now };
         return { ...rest, status: "ok", ended: now };
       }),
     fetched: (name, repo, head) =>

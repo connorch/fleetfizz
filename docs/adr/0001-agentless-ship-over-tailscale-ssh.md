@@ -2,7 +2,7 @@
 
 fleetfizz runs only on the Starting Machine. It drives every other Machine with generated POSIX shell scripts over `tailscale ssh`, the way Ansible does, so a remote Machine needs only `tailscaled` with SSH enabled, `git`, `vp`, and a shell. We chose this over the design it replaces (connorch/skills `apps/ship`), which ran a copy of the tool on each remote Machine: that needs a remote install, version-skew handling, and a bootstrap step, and Questions need state from every Machine before anything changes anyway.
 
-A Ship has four phases: Gather (one ssh per Machine, read-only), Plan (pure, local), Prompt (local TTY), and Apply (one ssh per Machine). Every Machine is gathered before any Question is asked, and no Machine changes before every Question is answered. The Starting Machine is a target of its own Ship and runs the same scripts locally without ssh.
+A Ship has four phases: Check (one ssh per Machine, read-only; called Gather until 0.5.1), Plan (pure, local), Prompt (local TTY), and Apply (one ssh per Machine). Every Machine is checked before any Question is asked, and no Machine changes before every Question is answered. The Starting Machine is a target of its own Ship and runs the same scripts locally without ssh.
 
 ## Considered Options
 
