@@ -1,8 +1,10 @@
 import { Button } from "@fleetfizz/ui/components/button";
+import { CheckIcon } from "@fleetfizz/ui/components/check-icon";
 import { CopyIcon } from "@fleetfizz/ui/components/copy-icon";
+import type { IconHandle } from "@fleetfizz/ui/hooks/use-icon-hover";
 import { cn } from "@fleetfizz/ui/lib/utils";
-import { useIconHover } from "@fleetfizz/ui/hooks/use-icon-hover";
 import { Link } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 
 // Copy shared by every landing mock. Layout is the variant's job.
 
@@ -22,8 +24,29 @@ export const NEEDS = [
   ["In the background", "Nothing. No agent, no daemon, no server."],
 ] as const;
 
+const INSTALL = "vp install -g fleetfizz";
+
+// The install command with a copy button. The copy icon plays on the click,
+// not on hover, and a check takes its place for a moment once the text is on
+// the clipboard.
 export function Install({ className }: { className?: string }) {
-  const { ref, triggerProps } = useIconHover();
+  const [copied, setCopied] = useState(false);
+  const copy = useRef<IconHandle>(null);
+  const check = useRef<IconHandle>(null);
+  useEffect(() => {
+    if (!copied) return;
+    check.current?.startAnimation();
+    const timer = setTimeout(() => setCopied(false), 1800);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  const onClick = () => {
+    copy.current?.startAnimation();
+    // No check when the clipboard refuses (no permission, or no focus).
+    navigator.clipboard.writeText(INSTALL).then(
+      () => setCopied(true),
+      () => {},
+    );
+  };
   return (
     <div
       className={cn(
@@ -32,11 +55,20 @@ export function Install({ className }: { className?: string }) {
       )}
     >
       <span>
-        <span className="text-fizz-foreground dark:text-fizz">$</span> vp install -g fleetfizz
+        <span className="text-fizz-foreground dark:text-fizz">$</span> {INSTALL}
       </span>
-      <Button variant="ghost" size="icon-xs" aria-label="Copy" {...triggerProps}>
-        <CopyIcon ref={ref} size={12} />
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={copied ? "Copied" : "Copy"}
+        className={cn("cursor-pointer", copied && "text-fizz-foreground dark:text-fizz")}
+        onClick={onClick}
+      >
+        {copied ? <CheckIcon ref={check} size={12} /> : <CopyIcon ref={copy} size={12} />}
       </Button>
+      <span aria-live="polite" className="sr-only">
+        {copied ? "Copied" : ""}
+      </span>
     </div>
   );
 }
