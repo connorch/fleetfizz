@@ -17,8 +17,9 @@ export const Route = createFileRoute("/")({ component: Home, staticData: { bare:
 // down to the bottom edge, then up to the top under the links once it
 // cannot fit at all.
 //
-// Narrower: one centered column with the Ledger at full width. Then the
-// config and the three phases of a Ship.
+// Narrower: one column with the Ledger at full width, the links to the
+// right of the brand. Narrower still (below md): everything centered, the
+// links above the brand. Then the config and the three phases of a Ship.
 function Home() {
   // Two lines of the brand at its line height, less the links' row.
   const spacer = "max-h-[calc(1.64*var(--brand)-1.75rem)]";
@@ -26,12 +27,11 @@ function Home() {
     <main>
       <FizzBackground />
       <div className="grid min-h-svh gap-x-10 gap-y-8 p-6 [--brand:clamp(4rem,13vw,11rem)] sm:p-10 xl:grid-cols-[minmax(0,1fr)_auto] xl:grid-rows-[auto_1fr] xl:gap-y-0">
-        <PosterLinks className="justify-self-center xl:hidden" />
-        <PosterBrand
-          mark="beside"
-          className="justify-self-center text-center xl:justify-self-start xl:text-left"
-        />
-        <div className="flex min-w-0 flex-col items-center gap-6 text-center xl:items-start xl:self-center xl:py-10 xl:text-left">
+        <div className="flex min-w-0 flex-col items-center gap-8 md:flex-row md:items-start md:justify-between xl:contents">
+          <PosterLinks className="md:order-last md:pt-1 xl:hidden" />
+          <PosterBrand mark="beside" className="text-center md:text-left xl:justify-self-start" />
+        </div>
+        <div className="flex min-w-0 flex-col items-center gap-6 text-center md:items-start md:text-left xl:self-center xl:py-10">
           <p className="max-w-xl text-base text-foreground/70">
             <span className="block text-foreground">Every machine. One config.</span>
             One command on any Machine brings the rest in line, over Tailscale SSH, from origin.

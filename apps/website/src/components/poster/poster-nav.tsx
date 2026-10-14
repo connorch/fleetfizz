@@ -34,7 +34,7 @@ export function PosterBrand({
           <Glyph className="ml-[0.06em] inline-block size-[0.42em] -translate-y-[0.38em] align-baseline" />
         )}
         {mark === "beside" && (
-          <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.08em] align-baseline" />
+          <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.03em] align-[-0.05em]" />
         )}
       </span>
     </Link>
