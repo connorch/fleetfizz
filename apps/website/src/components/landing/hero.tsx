@@ -32,8 +32,8 @@ export function Hero() {
       </div>
       <div className="flex min-w-0 flex-col items-center gap-6 text-center md:items-start md:text-left wide:self-center wide:py-10">
         <p className="max-w-xl text-base text-foreground/70">
-          <span className="block text-foreground">Every machine. One config.</span>
-          One command on any Machine brings the rest in line, over Tailscale SSH, from origin.
+          <span className="block text-foreground">Your machines, in sync.</span>
+          One command brings all machines on your Tailnet to the same installation versions.
         </p>
         <Install />
       </div>
