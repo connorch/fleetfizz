@@ -28,7 +28,7 @@ export function PosterNav({
         <span className="text-fizz-foreground dark:text-fizz">
           fizz
           {mark === "trailing" && (
-            <Glyph className="ml-[0.04em] inline-block size-[0.5em] -translate-y-[0.5em] align-baseline" />
+            <Glyph className="ml-[0.06em] inline-block size-[0.42em] -translate-y-[0.38em] align-baseline" />
           )}
         </span>
       </Link>
