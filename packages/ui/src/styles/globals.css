@@ -8,10 +8,9 @@
 @source "../**/*.{ts,tsx}";
 
 @theme inline {
-  --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji";
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* One monospace face for everything; the website loads it (fontsource). */
+  --font-sans: "JetBrains Mono Variable", ui-monospace, Menlo, monospace;
+  --font-mono: var(--font-sans);
   --font-heading: var(--font-sans);
   --color-fizz: var(--fizz);
   --color-fizz-foreground: var(--fizz-foreground);

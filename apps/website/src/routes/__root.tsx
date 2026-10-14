@@ -1,3 +1,4 @@
+import "@fontsource-variable/jetbrains-mono";
 import globalsCss from "@fleetfizz/ui/globals.css?url";
 import { HeadContent, Outlet, Scripts, createRootRoute, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";

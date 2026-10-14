@@ -9,13 +9,12 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 
 // Every landing mock, and the homepage. Goes away once one is chosen.
 const MOCKS = [
-  { value: "/", label: "Home (D)" },
+  { value: "/", label: "Home (J)" },
   { value: "/mock/e", label: "E · band" },
   { value: "/mock/f", label: "F · fade" },
   { value: "/mock/g", label: "G · sheet" },
   { value: "/mock/h", label: "H · band + ledger" },
   { value: "/mock/i", label: "I · poster, Geist Mono" },
-  { value: "/mock/j", label: "J · terminal, JetBrains Mono" },
   { value: "/mock/k", label: "K · statement, Space Mono" },
 ] as const;
 
