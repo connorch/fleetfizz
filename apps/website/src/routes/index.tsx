@@ -9,8 +9,9 @@ export const Route = createFileRoute("/")({ component: Home, staticData: { bare:
 
 // The landing page: a poster with the terminal as the object.
 //
-// Wide (xl, where the brand and the Ledger fit side by side): two rows. The brand is the first; the tagline and the install are
-// centered in the space under it. The right column spans both rows: the links
+// Wide (from 1080px, where the brand and the Ledger fit side by side): two
+// rows. The brand is the first; the tagline and the install are centered in
+// the space under it. The right column spans both rows: the links
 // at the top, then the Ledger, centered on the tagline: a spacer under the
 // links grows to the brand's height before the Ledger's margins split what
 // is left. On a short screen the spacer is what gives, so the Ledger slides
@@ -21,27 +22,32 @@ export const Route = createFileRoute("/")({ component: Home, staticData: { bare:
 // right of the brand. Narrower still (below md): everything centered, the
 // links above the brand. Then the config and the three phases of a Ship.
 function Home() {
+  // The brand's font size. Stacked, it tracks the viewport and tops out near
+  // the size the two-column layout starts at, so the switch barely moves it.
+  // Two columns, it fills what the Ledger leaves: the viewport less padding,
+  // the column gap, and the Ledger (717px), over the brand's width in em.
+  //
   // Two lines of the brand at its line height, less the links' row.
   const spacer = "max-h-[calc(1.64*var(--brand)-1.75rem)]";
   return (
     <main>
       <FizzBackground />
-      <div className="grid min-h-svh gap-x-10 gap-y-8 p-6 [--brand:clamp(4rem,13vw,11rem)] sm:p-10 xl:grid-cols-[minmax(0,1fr)_auto] xl:grid-rows-[auto_1fr] xl:gap-y-0">
-        <div className="flex min-w-0 flex-col items-center gap-8 md:flex-row md:items-start md:justify-between xl:contents">
-          <PosterLinks className="md:order-last md:pt-1 xl:hidden" />
-          <PosterBrand mark="beside" className="text-center md:text-left xl:justify-self-start" />
+      <div className="grid min-h-svh gap-x-10 gap-y-8 p-6 [--brand:clamp(4rem,13vw,7.5rem)] sm:p-10 wide:[--brand:clamp(4rem,calc((100vw_-_717px)/3.15),11rem)] wide:grid-cols-[minmax(0,1fr)_auto] wide:grid-rows-[auto_1fr] wide:gap-y-0">
+        <div className="flex min-w-0 flex-col items-center gap-8 md:flex-row md:items-start md:justify-between wide:contents">
+          <PosterLinks className="md:order-last md:pt-1 wide:hidden" />
+          <PosterBrand mark="beside" className="text-center md:text-left wide:justify-self-start" />
         </div>
-        <div className="flex min-w-0 flex-col items-center gap-6 text-center md:items-start md:text-left xl:self-center xl:py-10">
+        <div className="flex min-w-0 flex-col items-center gap-6 text-center md:items-start md:text-left wide:self-center wide:py-10">
           <p className="max-w-xl text-base text-foreground/70">
             <span className="block text-foreground">Every machine. One config.</span>
             One command on any Machine brings the rest in line, over Tailscale SSH, from origin.
           </p>
           <Install />
         </div>
-        <div className="flex min-w-0 flex-col xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:items-end">
-          <PosterLinks className="hidden shrink-0 xl:flex" />
-          <div className={`hidden h-0 grow xl:block ${spacer}`} />
-          <Ledger className="w-full shrink-0 xl:my-auto xl:w-fit" />
+        <div className="flex min-w-0 flex-col wide:col-start-2 wide:row-span-2 wide:row-start-1 wide:items-end">
+          <PosterLinks className="hidden shrink-0 wide:flex" />
+          <div className={`hidden h-0 grow wide:block ${spacer}`} />
+          <Ledger className="w-full shrink-0 wide:my-auto wide:w-fit" />
         </div>
       </div>
       <div className="mx-auto w-full max-w-6xl px-6 pt-16">

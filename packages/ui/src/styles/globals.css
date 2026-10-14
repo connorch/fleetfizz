@@ -8,6 +8,8 @@
 @source "../**/*.{ts,tsx}";
 
 @theme inline {
+  /* Where the homepage hero goes two columns: the brand beside the Ledger. */
+  --breakpoint-wide: 67.5rem;
   /* One monospace face for everything; the website loads it (fontsource). */
   --font-sans: "JetBrains Mono Variable", ui-monospace, Menlo, monospace;
   --font-mono: var(--font-sans);
