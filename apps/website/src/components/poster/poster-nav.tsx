@@ -15,10 +15,13 @@ export function PosterNav({
   mark?: "trailing" | "above";
 }) {
   return (
-    <header className={cn("flex items-start justify-between", className)}>
+    // On a phone the links are a row above the brand; wider, they share its row.
+    <header
+      className={cn("flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between", className)}
+    >
       <Link
         to="/"
-        className="text-[clamp(4.5rem,13vw,11rem)] leading-[0.82] font-bold tracking-[-0.06em]"
+        className="text-[clamp(4rem,13vw,11rem)] leading-[0.82] font-bold tracking-[-0.06em]"
       >
         {mark === "above" && (
           <Glyph className="mb-[0.25em] block size-[0.42em] text-fizz-foreground dark:text-fizz" />
@@ -32,7 +35,7 @@ export function PosterNav({
           )}
         </span>
       </Link>
-      <nav className="flex items-center gap-1 pt-1">
+      <nav className="order-first flex items-center gap-1 self-end sm:order-last sm:self-start sm:pt-1">
         <DocsLink />
         <GithubLink />
         <ThemeToggle />

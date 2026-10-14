@@ -21,8 +21,9 @@ function Home() {
           Tailscale SSH, from origin.
         </p>
         <div className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1fr_auto]">
-          <Install className="justify-self-start" />
-          <Ledger className="w-fit max-w-full justify-self-end" />
+          {/* Stacked, the install centers and the Ledger goes full width. */}
+          <Install className="justify-self-center lg:justify-self-start" />
+          <Ledger className="w-full lg:w-fit lg:justify-self-end" />
         </div>
       </div>
       <div className="mx-auto w-full max-w-6xl px-6 pt-16">

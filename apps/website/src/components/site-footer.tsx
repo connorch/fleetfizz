@@ -5,7 +5,7 @@ import { Wordmark } from "./wordmark";
 export function SiteFooter() {
   return (
     <footer>
-      <div className="text-muted-foreground mx-auto flex h-14 w-full max-w-5xl items-center gap-5 px-6 text-sm">
+      <div className="text-muted-foreground mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-5 gap-y-3 px-6 py-4 text-sm">
         <Wordmark className="text-foreground" />
         <MockSwitcher />
         <span className="mr-auto" />
