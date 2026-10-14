@@ -123,15 +123,13 @@ const TONE: Record<Tone, string> = {
   ask: "font-bold text-fuchsia-300",
 };
 
-// Always dark: it is a terminal, whatever the theme.
+// The terminal: always dark, whatever the theme.
+export const TERMINAL =
+  "overflow-x-auto rounded-lg border border-white/10 bg-[#0B0F05]/90 p-5 font-mono text-[12.5px] leading-relaxed text-[#C9D0BC] backdrop-blur-sm";
+
 export function Ledger({ className }: { className?: string }) {
   return (
-    <pre
-      className={cn(
-        "overflow-x-auto rounded-lg border border-white/10 bg-[#0B0F05]/90 p-5 font-mono text-[12.5px] leading-relaxed text-[#C9D0BC] backdrop-blur-sm",
-        className,
-      )}
-    >
+    <pre className={cn(TERMINAL, className)}>
       <code>
         <span className="text-fizz">$</span> fizz ship{"\n"}
         {rows().map((row, r) => (

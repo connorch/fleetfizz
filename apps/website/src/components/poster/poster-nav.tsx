@@ -4,16 +4,10 @@ import { DocsLink, GithubLink } from "../nav-buttons";
 import { ThemeToggle } from "../theme-toggle";
 import { Glyph } from "../wordmark";
 
-// The brand on two lines, as big as the page allows. `mark` places the
-// glyph: rising off the end of "fizz", beside "fizz" at its full height, or
-// stamped above the brand.
-export function PosterBrand({
-  className,
-  mark,
-}: {
-  className?: string;
-  mark?: "trailing" | "beside" | "above" | undefined;
-}) {
+// The brand on two lines, as big as the page allows, the glyph beside
+// "fizz" at its full height. The glyph sits 0.05em below the baseline so it
+// stays inside the line box and does not add to the brand's height.
+export function PosterBrand({ className }: { className?: string }) {
   return (
     <Link
       to="/"
@@ -23,19 +17,11 @@ export function PosterBrand({
         className,
       )}
     >
-      {mark === "above" && (
-        <Glyph className="mb-[0.25em] block size-[0.42em] text-fizz-foreground dark:text-fizz" />
-      )}
       fleet
       <br />
       <span className="text-fizz-foreground dark:text-fizz">
         fizz
-        {mark === "trailing" && (
-          <Glyph className="ml-[0.06em] inline-block size-[0.42em] -translate-y-[0.38em] align-baseline" />
-        )}
-        {mark === "beside" && (
-          <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.03em] align-[-0.05em]" />
-        )}
+        <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.03em] align-[-0.05em]" />
       </span>
     </Link>
   );
@@ -49,48 +35,5 @@ export function PosterLinks({ className }: { className?: string }) {
       <GithubLink />
       <ThemeToggle />
     </nav>
-  );
-}
-
-// The poster header: the brand with the links in the far corner. On a phone
-// the links are a row above the brand.
-export function PosterNav({
-  className,
-  mark,
-}: {
-  className?: string;
-  mark?: "trailing" | "beside" | "above";
-}) {
-  return (
-    <header
-      className={cn("flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between", className)}
-    >
-      <PosterBrand mark={mark} />
-      <PosterLinks className="order-first self-end sm:order-last sm:self-start sm:pt-1" />
-    </header>
-  );
-}
-
-export const SECTIONS = [
-  "Getting started",
-  "Config",
-  "CLI",
-  "How it works",
-  "Security",
-  "Changelog",
-] as const;
-
-// The docs index, right-aligned in a corner.
-export function SectionList({ className }: { className?: string }) {
-  return (
-    <ul className={cn("text-right text-sm leading-6", className)}>
-      {SECTIONS.map((s) => (
-        <li key={s}>
-          <Link to="/" className="hover:text-fizz-foreground dark:hover:text-fizz">
-            {s}
-          </Link>
-        </li>
-      ))}
-    </ul>
   );
 }

@@ -1,32 +1,8 @@
 import { cn } from "@fleetfizz/ui/lib/utils";
 import { ConfigExample } from "./config-example";
-import { DocsButton, Install, NEEDS, PHASES } from "./content";
+import { PHASES } from "./content";
 
-// The landing page sections, shared by the homepage and its mocks so a copy
-// change lands everywhere at once.
-
-export function Hero({ className }: { className?: string }) {
-  return (
-    <section className={cn("flex flex-col items-center pt-28 pb-16 text-center", className)}>
-      <h1 className="max-w-3xl text-6xl font-semibold tracking-tighter sm:text-7xl">
-        Every machine.
-        <br />
-        One config.
-      </h1>
-      <p className="mt-6 max-w-xl text-lg text-foreground/75">
-        The same toolchain and the same repos on every Machine on your tailnet, installed from
-        origin. One command on any Machine brings the rest in line.
-      </p>
-      <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-        <Install />
-        <DocsButton />
-      </div>
-      <p className="mt-6 font-mono text-xs text-foreground/60">
-        {NEEDS.map(([, v]) => v).join("  ·  ")}
-      </p>
-    </section>
-  );
-}
+// The landing page sections below the fold.
 
 export function OneConfig({ className }: { className?: string }) {
   return (

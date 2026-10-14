@@ -9,17 +9,10 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 
 // Every landing mock, and the homepage. Goes away once one is chosen.
 const MOCKS = [
-  { value: "/", label: "Home (J)" },
-  { value: "/mock/e", label: "E · band" },
-  { value: "/mock/f", label: "F · fade" },
-  { value: "/mock/g", label: "G · sheet" },
-  { value: "/mock/h", label: "H · band + ledger" },
-  { value: "/mock/i", label: "I · poster, Geist Mono" },
-  { value: "/mock/k", label: "K · statement, Space Mono" },
-  { value: "/mock/l", label: "L · glyph off fizz" },
-  { value: "/mock/m", label: "M · glyph above install" },
-  { value: "/mock/n", label: "N · mark above brand" },
-  { value: "/mock/o", label: "O · glyph beside fizz" },
+  { value: "/", label: "Home" },
+  { value: "/mock/p", label: "P · in line, below the fold" },
+  { value: "/mock/q", label: "Q · versions grid, below the fold" },
+  { value: "/mock/r", label: "R · in line, above the fold" },
 ] as const;
 
 export function MockSwitcher() {

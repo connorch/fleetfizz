@@ -3,10 +3,9 @@ import { CheckIcon } from "@fleetfizz/ui/components/check-icon";
 import { CopyIcon } from "@fleetfizz/ui/components/copy-icon";
 import type { IconHandle } from "@fleetfizz/ui/hooks/use-icon-hover";
 import { cn } from "@fleetfizz/ui/lib/utils";
-import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-// Copy shared by every landing mock. Layout is the variant's job.
+// The landing page copy. Layout is the page's job.
 
 // The phases of a Ship, as CONTEXT.md names them. Questions belong to Plan.
 export const PHASES = [
@@ -18,6 +17,7 @@ export const PHASES = [
   ["Apply", "Run the Steps on every Machine in parallel. Offline Machines are skipped."],
 ] as const;
 
+// Not on the page yet; where it goes is still open.
 export const NEEDS = [
   ["Starting Machine", "tailscale with Tailscale SSH, gh logged in, vp"],
   ["Every other Machine", "Tailscale SSH, git, curl, a shell"],
@@ -70,26 +70,5 @@ export function Install({ className }: { className?: string }) {
         {copied ? "Copied" : ""}
       </span>
     </div>
-  );
-}
-
-export function DocsButton({ className }: { className?: string }) {
-  return (
-    <Button render={<Link to="/" />} nativeButton={false} className={className}>
-      Read the docs
-    </Button>
-  );
-}
-
-export function Needs({ className }: { className?: string }) {
-  return (
-    <dl className={cn("grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm", className)}>
-      {NEEDS.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="font-medium">{k}</dt>
-          <dd className="text-foreground/70">{v}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }

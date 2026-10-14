@@ -10,167 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MockERouteImport } from './routes/mock/e'
-import { Route as MockFRouteImport } from './routes/mock/f'
-import { Route as MockGRouteImport } from './routes/mock/g'
-import { Route as MockHRouteImport } from './routes/mock/h'
-import { Route as MockIRouteImport } from './routes/mock/i'
-import { Route as MockKRouteImport } from './routes/mock/k'
-import { Route as MockLRouteImport } from './routes/mock/l'
-import { Route as MockMRouteImport } from './routes/mock/m'
-import { Route as MockNRouteImport } from './routes/mock/n'
-import { Route as MockORouteImport } from './routes/mock/o'
+import { Route as MockPRouteImport } from './routes/mock/p'
+import { Route as MockQRouteImport } from './routes/mock/q'
+import { Route as MockRRouteImport } from './routes/mock/r'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MockERoute = MockERouteImport.update({
-  id: '/mock/e',
-  path: '/mock/e',
+const MockPRoute = MockPRouteImport.update({
+  id: '/mock/p',
+  path: '/mock/p',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MockFRoute = MockFRouteImport.update({
-  id: '/mock/f',
-  path: '/mock/f',
+const MockQRoute = MockQRouteImport.update({
+  id: '/mock/q',
+  path: '/mock/q',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MockGRoute = MockGRouteImport.update({
-  id: '/mock/g',
-  path: '/mock/g',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MockHRoute = MockHRouteImport.update({
-  id: '/mock/h',
-  path: '/mock/h',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MockIRoute = MockIRouteImport.update({
-  id: '/mock/i',
-  path: '/mock/i',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MockKRoute = MockKRouteImport.update({
-  id: '/mock/k',
-  path: '/mock/k',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MockLRoute = MockLRouteImport.update({
-  id: '/mock/l',
-  path: '/mock/l',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MockMRoute = MockMRouteImport.update({
-  id: '/mock/m',
-  path: '/mock/m',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MockNRoute = MockNRouteImport.update({
-  id: '/mock/n',
-  path: '/mock/n',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MockORoute = MockORouteImport.update({
-  id: '/mock/o',
-  path: '/mock/o',
+const MockRRoute = MockRRouteImport.update({
+  id: '/mock/r',
+  path: '/mock/r',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/mock/e': typeof MockERoute
-  '/mock/f': typeof MockFRoute
-  '/mock/g': typeof MockGRoute
-  '/mock/h': typeof MockHRoute
-  '/mock/i': typeof MockIRoute
-  '/mock/k': typeof MockKRoute
-  '/mock/l': typeof MockLRoute
-  '/mock/m': typeof MockMRoute
-  '/mock/n': typeof MockNRoute
-  '/mock/o': typeof MockORoute
+  '/mock/p': typeof MockPRoute
+  '/mock/q': typeof MockQRoute
+  '/mock/r': typeof MockRRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/mock/e': typeof MockERoute
-  '/mock/f': typeof MockFRoute
-  '/mock/g': typeof MockGRoute
-  '/mock/h': typeof MockHRoute
-  '/mock/i': typeof MockIRoute
-  '/mock/k': typeof MockKRoute
-  '/mock/l': typeof MockLRoute
-  '/mock/m': typeof MockMRoute
-  '/mock/n': typeof MockNRoute
-  '/mock/o': typeof MockORoute
+  '/mock/p': typeof MockPRoute
+  '/mock/q': typeof MockQRoute
+  '/mock/r': typeof MockRRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/mock/e': typeof MockERoute
-  '/mock/f': typeof MockFRoute
-  '/mock/g': typeof MockGRoute
-  '/mock/h': typeof MockHRoute
-  '/mock/i': typeof MockIRoute
-  '/mock/k': typeof MockKRoute
-  '/mock/l': typeof MockLRoute
-  '/mock/m': typeof MockMRoute
-  '/mock/n': typeof MockNRoute
-  '/mock/o': typeof MockORoute
+  '/mock/p': typeof MockPRoute
+  '/mock/q': typeof MockQRoute
+  '/mock/r': typeof MockRRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/mock/e'
-    | '/mock/f'
-    | '/mock/g'
-    | '/mock/h'
-    | '/mock/i'
-    | '/mock/k'
-    | '/mock/l'
-    | '/mock/m'
-    | '/mock/n'
-    | '/mock/o'
+  fullPaths: '/' | '/mock/p' | '/mock/q' | '/mock/r'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/mock/e'
-    | '/mock/f'
-    | '/mock/g'
-    | '/mock/h'
-    | '/mock/i'
-    | '/mock/k'
-    | '/mock/l'
-    | '/mock/m'
-    | '/mock/n'
-    | '/mock/o'
-  id:
-    | '__root__'
-    | '/'
-    | '/mock/e'
-    | '/mock/f'
-    | '/mock/g'
-    | '/mock/h'
-    | '/mock/i'
-    | '/mock/k'
-    | '/mock/l'
-    | '/mock/m'
-    | '/mock/n'
-    | '/mock/o'
+  to: '/' | '/mock/p' | '/mock/q' | '/mock/r'
+  id: '__root__' | '/' | '/mock/p' | '/mock/q' | '/mock/r'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  MockERoute: typeof MockERoute
-  MockFRoute: typeof MockFRoute
-  MockGRoute: typeof MockGRoute
-  MockHRoute: typeof MockHRoute
-  MockIRoute: typeof MockIRoute
-  MockKRoute: typeof MockKRoute
-  MockLRoute: typeof MockLRoute
-  MockMRoute: typeof MockMRoute
-  MockNRoute: typeof MockNRoute
-  MockORoute: typeof MockORoute
+  MockPRoute: typeof MockPRoute
+  MockQRoute: typeof MockQRoute
+  MockRRoute: typeof MockRRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,74 +78,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/mock/e': {
-      id: '/mock/e'
-      path: '/mock/e'
-      fullPath: '/mock/e'
-      preLoaderRoute: typeof MockERouteImport
+    '/mock/p': {
+      id: '/mock/p'
+      path: '/mock/p'
+      fullPath: '/mock/p'
+      preLoaderRoute: typeof MockPRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/mock/f': {
-      id: '/mock/f'
-      path: '/mock/f'
-      fullPath: '/mock/f'
-      preLoaderRoute: typeof MockFRouteImport
+    '/mock/q': {
+      id: '/mock/q'
+      path: '/mock/q'
+      fullPath: '/mock/q'
+      preLoaderRoute: typeof MockQRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/mock/g': {
-      id: '/mock/g'
-      path: '/mock/g'
-      fullPath: '/mock/g'
-      preLoaderRoute: typeof MockGRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mock/h': {
-      id: '/mock/h'
-      path: '/mock/h'
-      fullPath: '/mock/h'
-      preLoaderRoute: typeof MockHRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mock/i': {
-      id: '/mock/i'
-      path: '/mock/i'
-      fullPath: '/mock/i'
-      preLoaderRoute: typeof MockIRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mock/k': {
-      id: '/mock/k'
-      path: '/mock/k'
-      fullPath: '/mock/k'
-      preLoaderRoute: typeof MockKRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mock/l': {
-      id: '/mock/l'
-      path: '/mock/l'
-      fullPath: '/mock/l'
-      preLoaderRoute: typeof MockLRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mock/m': {
-      id: '/mock/m'
-      path: '/mock/m'
-      fullPath: '/mock/m'
-      preLoaderRoute: typeof MockMRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mock/n': {
-      id: '/mock/n'
-      path: '/mock/n'
-      fullPath: '/mock/n'
-      preLoaderRoute: typeof MockNRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mock/o': {
-      id: '/mock/o'
-      path: '/mock/o'
-      fullPath: '/mock/o'
-      preLoaderRoute: typeof MockORouteImport
+    '/mock/r': {
+      id: '/mock/r'
+      path: '/mock/r'
+      fullPath: '/mock/r'
+      preLoaderRoute: typeof MockRRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -257,16 +104,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  MockERoute: MockERoute,
-  MockFRoute: MockFRoute,
-  MockGRoute: MockGRoute,
-  MockHRoute: MockHRoute,
-  MockIRoute: MockIRoute,
-  MockKRoute: MockKRoute,
-  MockLRoute: MockLRoute,
-  MockMRoute: MockMRoute,
-  MockNRoute: MockNRoute,
-  MockORoute: MockORoute,
+  MockPRoute: MockPRoute,
+  MockQRoute: MockQRoute,
+  MockRRoute: MockRRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

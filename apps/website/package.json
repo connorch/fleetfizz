@@ -13,14 +13,13 @@
   },
   "dependencies": {
     "@fleetfizz/ui": "workspace:*",
-    "@fontsource-variable/geist-mono": "5.3.0",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
-    "@fontsource/space-mono": "5.3.0",
     "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "lucide-react": "catalog:",
+    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "three": "catalog:"
