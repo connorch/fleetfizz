@@ -3,14 +3,13 @@ import { FizzBackground } from "../components/fizz/fizz-background";
 import { Install, Needs } from "../components/landing/content";
 import { Ledger } from "../components/landing/ledger";
 import { OneConfig, Phases } from "../components/landing/sections";
-import { PosterNav, SectionList } from "../components/poster/poster-nav";
+import { PosterNav } from "../components/poster/poster-nav";
 
 export const Route = createFileRoute("/")({ component: Home, staticData: { bare: true } });
 
 // The landing page: a poster with the terminal as the object. Brand top-left,
 // links top-right, the tagline and install on the left, the Ledger filling
-// the right, the docs index in the bottom corner, then the config and the
-// four phases of a Ship.
+// the right, then the config and the three phases of a Ship.
 function Home() {
   return (
     <main>
@@ -32,7 +31,6 @@ function Home() {
           </div>
           <Ledger />
         </div>
-        <SectionList className="self-end" />
       </div>
       <div className="mx-auto w-full max-w-6xl px-6 pt-16">
         <OneConfig />

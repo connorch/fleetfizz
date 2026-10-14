@@ -6,10 +6,13 @@ import { Link } from "@tanstack/react-router";
 
 // Copy shared by every landing mock. Layout is the variant's job.
 
+// The phases of a Ship, as CONTEXT.md names them. Questions belong to Plan.
 export const PHASES = [
-  ["Gather", "Read every Machine over Tailscale SSH. Change nothing."],
-  ["Plan", "Turn the config and each Machine's state into Steps."],
-  ["Ask", "Every Question is asked on the Starting Machine before anything changes."],
+  ["Check", "Read every Machine over Tailscale SSH. Change nothing."],
+  [
+    "Plan",
+    "Turn the config and each Machine's state into Steps. Every Question is asked on the Starting Machine before anything changes.",
+  ],
   ["Apply", "Run the Steps on every Machine in parallel. Offline Machines are skipped."],
 ] as const;
 

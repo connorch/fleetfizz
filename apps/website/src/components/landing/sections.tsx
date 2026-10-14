@@ -47,7 +47,7 @@ export function OneConfig({ className }: { className?: string }) {
 export function Phases({ className }: { className?: string }) {
   return (
     <section className={cn("pb-28", className)}>
-      <ol className="grid gap-px overflow-hidden rounded-lg border bg-foreground/15 sm:grid-cols-2 lg:grid-cols-4">
+      <ol className="grid gap-px overflow-hidden rounded-lg border bg-foreground/15 sm:grid-cols-3">
         {PHASES.map(([name, body], i) => (
           <li key={name} className="bg-background/55 p-5 backdrop-blur-sm">
             <div className="flex items-baseline gap-3">
