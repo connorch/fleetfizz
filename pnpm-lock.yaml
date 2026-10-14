@@ -239,6 +239,9 @@ catalogs:
     shadcn:
       specifier: 4.21.4
       version: 4.21.4
+    simple-icons:
+      specifier: 16.35.0
+      version: 16.35.0
     tailwindcss:
       specifier: 4.3.3
       version: 4.3.3
@@ -495,6 +498,9 @@ importers:
       shadcn:
         specifier: 'catalog:'
         version: 4.21.4
+      simple-icons:
+        specifier: 'catalog:'
+        version: 16.35.0
       tw-animate-css:
         specifier: 'catalog:'
         version: 1.4.0
@@ -3688,6 +3694,10 @@ packages:
   signal-exit@4.1.0:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
+
+  simple-icons@16.35.0:
+    resolution: {integrity: sha512-TCfl/2+GTrx0nCo4pEWGvxhOb8c6NsqOU1OpwjtF4lwJAthB8IYVD0fuIMjLMg6JFuG1YBO0t1iETQqJLqkoJA==}
+    engines: {node: '>=0.12.18'}
 
   sirv@3.0.2:
     resolution: {integrity: sha512-2wcC/oGxHis/BoHkkPwldgiPSYcpZK3JU28WoMVv55yHJgcZ8rlXvuG9iZggz+sU1d4bRgIGASwyWqjxu3FM0g==}
@@ -7154,6 +7164,8 @@ snapshots:
   signal-exit@3.0.7: {}
 
   signal-exit@4.1.0: {}
+
+  simple-icons@16.35.0: {}
 
   sirv@3.0.2:
     dependencies:

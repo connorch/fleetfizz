@@ -1,15 +1,14 @@
 import { BookOpenIcon } from "@fleetfizz/ui/components/book-open-icon";
 import { Button } from "@fleetfizz/ui/components/button";
-import { GithubIcon } from "@fleetfizz/ui/components/github-icon";
-import { PackageIcon } from "@fleetfizz/ui/components/package-icon";
+import { GithubIcon, NpmIcon } from "@fleetfizz/ui/components/brand-icon";
 import { useIconHover } from "@fleetfizz/ui/hooks/use-icon-hover";
 import { Link } from "@tanstack/react-router";
 
 export const GITHUB_URL = "https://github.com/connorch/fleetfizz";
 export const NPM_URL = "https://www.npmjs.com/package/fleetfizz";
 
-// The header's and footer's links. Each icon animates while its button is
-// hovered.
+// The header's and footer's links. The docs icon animates while its button
+// is hovered; the brand marks are still.
 
 export function DocsLink() {
   const { ref, triggerProps } = useIconHover();
@@ -28,7 +27,6 @@ export function DocsLink() {
 }
 
 export function GithubLink() {
-  const { ref, triggerProps } = useIconHover();
   return (
     <Button
       variant="ghost"
@@ -36,15 +34,13 @@ export function GithubLink() {
       aria-label="GitHub"
       render={<a href={GITHUB_URL} />}
       nativeButton={false}
-      {...triggerProps}
     >
-      <GithubIcon ref={ref} size={16} />
+      <GithubIcon />
     </Button>
   );
 }
 
 export function NpmLink() {
-  const { ref, triggerProps } = useIconHover();
   return (
     <Button
       variant="ghost"
@@ -52,9 +48,8 @@ export function NpmLink() {
       aria-label="npm"
       render={<a href={NPM_URL} />}
       nativeButton={false}
-      {...triggerProps}
     >
-      <PackageIcon ref={ref} size={16} />
+      <NpmIcon />
     </Button>
   );
 }
