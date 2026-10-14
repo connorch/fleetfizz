@@ -33,7 +33,7 @@ export function Hero() {
       <div className="flex min-w-0 flex-col items-center gap-6 text-center md:items-start md:text-left wide:self-center wide:py-10">
         <p className="max-w-xl text-base text-foreground/70">
           <span className="block text-foreground">Your machines, in sync.</span>
-          One command brings all machines on your Tailnet to the same installation versions.
+          One command, and every machine on your tailnet has the same tools, versions, and repos.
         </p>
         <Install />
       </div>
