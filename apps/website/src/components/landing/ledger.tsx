@@ -1,94 +1,119 @@
 import { cn } from "@fleetfizz/ui/lib/utils";
 
-// The last frame of a `fizz ship`, laid out the way the CLI's Ledger renders
-// it (apps/cli/src/ledger.ts `rows`): notes above, then one line per Machine
-// in config order with a line under it for each item that changed, the tally,
-// and the legend. The run itself is invented: three Machines, one Question.
+// A finished `fizz ship`, laid out the way the CLI draws it (apps/cli/src/
+// view.tsx): notes above, then each Machine's line with its time and summary
+// and, under it, one line per item that changed, its status first. The same
+// columns run through every line. The run itself is invented: three
+// Machines, one Question.
 
-type Style = "dim" | "bold" | "ok" | "fail" | "skip" | "run" | "ask";
+type Tone = "dim" | "bold" | "ok" | "fail" | "skip" | "run" | "ask";
 interface Segment {
   readonly text: string;
-  readonly style?: Style;
+  readonly tone?: Tone;
 }
 type Row = ReadonlyArray<Segment>;
 
 interface Item {
+  readonly status: string;
   readonly name: string;
   readonly value: string;
-  readonly note: string;
   readonly time: string;
 }
 interface Machine {
   readonly name: string;
-  readonly head: string;
+  readonly time: string;
+  readonly summary: Row;
   readonly items: ReadonlyArray<Item>;
 }
 
 const NOTES: ReadonlyArray<Row> = [
   [{ text: "3 machines from connors-mac-studio" }],
   [
-    { text: "?", style: "ask" },
+    { text: "?", tone: "ask" },
     { text: " wrangler 4.141.0 on connors-mac-studio is above ^4.136.3" },
   ],
-  [{ text: "  -> bump the config to ^4.141.0", style: "dim" }],
+  [{ text: "  → bump the config to ^4.141.0", tone: "dim" }],
 ];
 
 const MACHINES: ReadonlyArray<Machine> = [
-  { name: "connors-mac-studio", head: "up to date", items: [] },
+  {
+    name: "connors-mac-studio",
+    time: "",
+    summary: [{ text: "up to date", tone: "ok" }],
+    items: [],
+  },
   {
     name: "connors-macbook-pro",
-    head: "5m 07s",
+    time: "5m 07s",
+    summary: [{ text: "2 of 2 done", tone: "ok" }],
     items: [
-      { name: "vp", value: "1.0.0 -> 1.1.0", note: "done", time: "16.6s" },
-      { name: "connorch-t3code", value: "3f1a2b0 -> 9e02bb1", note: "installed", time: "4m 50s" },
+      { status: "✓ done", name: "vp", value: "1.0.0 → 1.1.0", time: "16.6s" },
+      {
+        status: "✓ installed",
+        name: "connorch-t3code",
+        value: "3f1a2b0 → 9e02bb1",
+        time: "4m 50s",
+      },
     ],
   },
   {
     name: "homelab",
-    head: "14.2s",
+    time: "14.2s",
+    summary: [{ text: "2 of 2 done", tone: "ok" }],
     items: [
-      { name: "wrangler", value: "+ 4.141.0", note: "done", time: "4.1s" },
-      { name: "connorch-dotfiles", value: "+ c7d9e02", note: "installed", time: "9.8s" },
+      { status: "✓ done", name: "wrangler", value: "+ 4.141.0", time: "4.1s" },
+      { status: "✓ installed", name: "connorch-dotfiles", value: "+ c7d9e02", time: "9.8s" },
     ],
   },
 ];
 
-const TALLY: Row = [
-  { text: "ok 3", style: "ok" },
-  { text: "  skipped 0  failed 0" },
-  { text: "  in 5m 12s", style: "dim" },
+const SUMMARY: Row = [
+  { text: "2 updated", tone: "ok" },
+  { text: ", ", tone: "dim" },
+  { text: "1 up to date", tone: "ok" },
+  { text: "  in 5m 12s", tone: "dim" },
 ];
-const LEGEND: Row = [{ text: "full report: fizz report", style: "dim" }];
+const HINT: Row = [{ text: "full report: fizz report", tone: "dim" }];
 
-// The same column rules as the CLI: every width is the widest visible value.
+const GAP = "  ";
+const INDENT = "  ";
+
+// The CLI's column rules: every width is the widest value in that column,
+// and a Machine's name spans the status, name, and value columns.
 const rows = (): Row[] => {
   const items = MACHINES.flatMap((m) => m.items);
-  const nameW = Math.max(...MACHINES.map((m) => m.name.length));
-  const itemW = Math.max(...items.map((i) => i.name.length));
-  const valueW = Math.max(...items.map((i) => i.value.length));
-  const noteW = Math.max(...items.map((i) => i.note.length));
-  const out: Row[] = [...NOTES, []];
-  for (const m of MACHINES) {
+  const widest = (texts: string[]) => Math.max(0, ...texts.map((t) => t.length));
+  const status = widest(items.map((i) => i.status));
+  const item = INDENT.length + widest(items.map((i) => i.name));
+  const nameAt = status + GAP.length + INDENT.length;
+  const value = Math.max(
+    widest(items.map((i) => i.value)),
+    widest(MACHINES.map((m) => m.name)) - (nameAt + item + GAP.length),
+  );
+  const time = widest([...items.map((i) => i.time), ...MACHINES.map((m) => m.time)]);
+  const out: Row[] = [...NOTES];
+  MACHINES.forEach((m, n) => {
+    out.push([]);
     out.push([
-      { text: m.name.padEnd(nameW), style: "bold" },
-      { text: "  " },
-      { text: "OK  ", style: "ok" },
-      { text: "  " },
-      { text: m.head, style: "dim" },
+      { text: m.name.padEnd(nameAt + item + GAP.length + value), tone: "bold" },
+      { text: `${GAP}${m.time.padStart(time)}${GAP}`, tone: "dim" },
+      ...m.summary,
     ]);
     for (const i of m.items) {
       out.push([
-        { text: `    ${i.name.padEnd(itemW)}  ${i.value.padEnd(valueW)}  ` },
-        { text: i.note.padEnd(noteW), style: "ok" },
-        { text: `  ${i.time.padStart(6)}`, style: "dim" },
+        { text: i.status.padEnd(status), tone: "ok" },
+        {
+          text: `${GAP}${INDENT}${i.name.padEnd(item - INDENT.length)}${GAP}${i.value.padEnd(value)}`,
+        },
+        { text: `${GAP}${i.time.padStart(time)}`, tone: "dim" },
       ]);
     }
-  }
-  out.push([], TALLY, LEGEND);
+    if (n === MACHINES.length - 1) out.push([], SUMMARY, HINT);
+  });
   return out;
 };
 
-const STYLE: Record<Style, string> = {
+const TONE: Record<Tone, string> = {
   dim: "text-white/40",
   bold: "font-bold text-white",
   ok: "text-fizz",
@@ -112,7 +137,7 @@ export function Ledger({ className }: { className?: string }) {
         {rows().map((row, r) => (
           <span key={r}>
             {row.map((s, i) => (
-              <span key={i} className={s.style && STYLE[s.style]}>
+              <span key={i} className={s.tone && TONE[s.tone]}>
                 {s.text}
               </span>
             ))}
