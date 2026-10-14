@@ -4,12 +4,12 @@ import { cn } from "@fleetfizz/ui/lib/utils";
 import type { Variants } from "motion/react";
 import { LazyMotion, domMin, m, useAnimation, useReducedMotion } from "motion/react";
 import { forwardRef, useCallback, useImperativeHandle, useRef, type HTMLAttributes } from "react";
-export interface SunMoonIconHandle {
+export interface SunIconHandle {
   startAnimation: () => void;
   stopAnimation: () => void;
 }
 
-interface SunMoonIconProps extends Omit<
+interface SunIconProps extends Omit<
   HTMLAttributes<HTMLDivElement>,
   | "color"
   | "onDrag"
@@ -25,7 +25,7 @@ interface SunMoonIconProps extends Omit<
   color?: string;
 }
 
-const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
+const SunIcon = forwardRef<SunIconHandle, SunIconProps>(
   (
     {
       onMouseEnter,
@@ -61,29 +61,49 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
     );
 
     const handleLeave = useCallback(
-      (e?: React.MouseEvent<HTMLDivElement>) => {
-        if (!isControlled.current) controls.start("normal");
-        else onMouseLeave?.(e as any);
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!isControlled.current) {
+          controls.start("normal");
+        } else {
+          onMouseLeave?.(e);
+        }
       },
       [controls, onMouseLeave],
     );
 
-    const moonVariants: Variants = {
+    const svgVariant: Variants = {
       normal: { rotate: 0 },
       animate: {
-        rotate: [0, 15, -8, 3, 0],
-        transition: { duration: 0.8 * duration, ease: "easeInOut" },
+        rotate: [0, 14, -6, 0],
+        transition: {
+          duration: 0.8 * duration,
+          ease: "easeInOut",
+          times: [0, 0.4, 0.75, 1],
+        },
       },
     };
 
-    const rayVariants = (dx: number, dy: number): Variants => ({
-      normal: { x: 0, y: 0 },
+    const centerVariant: Variants = {
+      normal: { scale: 1 },
       animate: {
-        x: [0, dx, 0],
-        y: [0, dy, 0],
-        transition: { duration: 0.6 * duration, ease: "easeInOut" },
+        scale: [1, 1.18, 1],
+        transition: {
+          duration: 0.8 * duration,
+          ease: "easeInOut",
+        },
       },
-    });
+    };
+
+    const rayVariant: Variants = {
+      normal: { opacity: 1 },
+      animate: {
+        opacity: [1, 0.7, 1],
+        transition: {
+          duration: 0.8 * duration,
+          ease: "easeInOut",
+        },
+      },
+    };
 
     return (
       <LazyMotion features={domMin} strict>
@@ -101,21 +121,22 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
             animate={controls}
             initial="normal"
+            variants={svgVariant}
           >
-            <m.path d="M12 2v2" variants={rayVariants(0, -0.9)} />
-            <m.path
-              d="M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715"
-              variants={moonVariants}
-              style={{ transformBox: "view-box", originX: "9px", originY: "15px" }}
-            />
-            <path d="M16 12a4 4 0 0 0-4-4" />
-            <m.path d="m19 5-1.256 1.256" variants={rayVariants(0.65, -0.65)} />
-            <m.path d="M20 12h2" variants={rayVariants(0.9, 0)} />
+            <m.circle cx="12" cy="12" r="4" variants={centerVariant} />
+            <m.path d="M12 2v2" variants={rayVariant} />
+            <m.path d="M12 20v2" variants={rayVariant} />
+            <m.path d="m4.93 4.93 1.41 1.41" variants={rayVariant} />
+            <m.path d="m17.66 17.66 1.41 1.41" variants={rayVariant} />
+            <m.path d="M2 12h2" variants={rayVariant} />
+            <m.path d="M20 12h2" variants={rayVariant} />
+            <m.path d="m6.34 17.66-1.41 1.41" variants={rayVariant} />
+            <m.path d="m19.07 4.93-1.41 1.41" variants={rayVariant} />
           </m.svg>
         </div>
       </LazyMotion>
@@ -123,5 +144,5 @@ const SunMoonIcon = forwardRef<SunMoonIconHandle, SunMoonIconProps>(
   },
 );
 
-SunMoonIcon.displayName = "SunMoonIcon";
-export { SunMoonIcon };
+SunIcon.displayName = "SunIcon";
+export { SunIcon };
