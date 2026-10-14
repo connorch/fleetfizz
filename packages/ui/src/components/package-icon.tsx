@@ -4,12 +4,12 @@ import { cn } from "@fleetfizz/ui/lib/utils";
 import type { Variants } from "motion/react";
 import { LazyMotion, domMin, m, useAnimation, useReducedMotion } from "motion/react";
 import { forwardRef, useCallback, useImperativeHandle, useRef, type HTMLAttributes } from "react";
-export interface CpuIconHandle {
+export interface PackageIconHandle {
   startAnimation: () => void;
   stopAnimation: () => void;
 }
 
-interface CpuIconProps extends Omit<
+interface PackageIconProps extends Omit<
   HTMLAttributes<HTMLDivElement>,
   | "color"
   | "onDrag"
@@ -25,7 +25,7 @@ interface CpuIconProps extends Omit<
   color?: string;
 }
 
-const CpuIcon = forwardRef<CpuIconHandle, CpuIconProps>(
+const PackageIcon = forwardRef<PackageIconHandle, PackageIconProps>(
   (
     {
       onMouseEnter,
@@ -68,27 +68,15 @@ const CpuIcon = forwardRef<CpuIconHandle, CpuIconProps>(
       [controls, onMouseLeave],
     );
 
-    const pinVariants = (delay: number): Variants => ({
-      normal: { opacity: 1 },
+    const boxVariants: Variants = {
+      normal: { y: 0, rotate: 0 },
       animate: {
-        opacity: [1, 0.2, 1],
+        y: [0, -1, 0.3, 0],
+        rotate: [0, -6, 4, 0],
         transition: {
-          duration: 0.4 * duration,
-          ease: "easeInOut",
-          delay: delay * duration,
-        },
-      },
-    });
-
-    const coreVariants: Variants = {
-      normal: { scale: 1 },
-      animate: {
-        scale: [1, 0.75, 1.15, 1],
-        transition: {
-          duration: 0.6 * duration,
+          duration: 0.7 * duration,
           ease: "easeInOut",
           times: [0, 0.35, 0.7, 1],
-          delay: 0.1 * duration,
         },
       },
     };
@@ -115,28 +103,15 @@ const CpuIcon = forwardRef<CpuIconHandle, CpuIconProps>(
             animate={controls}
             initial="normal"
           >
-            <m.path d="M7 2v2" variants={pinVariants(0)} />
-            <m.path d="M12 2v2" variants={pinVariants(0.025)} />
-            <m.path d="M17 2v2" variants={pinVariants(0.05)} />
-            <m.path d="M20 7h2" variants={pinVariants(0.075)} />
-            <m.path d="M20 12h2" variants={pinVariants(0.1)} />
-            <m.path d="M20 17h2" variants={pinVariants(0.125)} />
-            <m.path d="M17 20v2" variants={pinVariants(0.15)} />
-            <m.path d="M12 20v2" variants={pinVariants(0.175)} />
-            <m.path d="M7 20v2" variants={pinVariants(0.2)} />
-            <m.path d="M2 17h2" variants={pinVariants(0.225)} />
-            <m.path d="M2 12h2" variants={pinVariants(0.25)} />
-            <m.path d="M2 7h2" variants={pinVariants(0.275)} />
-            <rect x="4" y="4" width="16" height="16" rx="2" />
-            <m.rect
-              x="8"
-              y="8"
-              width="8"
-              height="8"
-              rx="1"
-              variants={coreVariants}
+            <m.g
+              variants={boxVariants}
               style={{ transformBox: "view-box", originX: "12px", originY: "12px" }}
-            />
+            >
+              <path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" />
+              <path d="M12 22V12" />
+              <polyline points="3.29 7 12 12 20.71 7" />
+              <path d="m7.5 4.27 9 5.15" />
+            </m.g>
           </m.svg>
         </div>
       </LazyMotion>
@@ -144,5 +119,5 @@ const CpuIcon = forwardRef<CpuIconHandle, CpuIconProps>(
   },
 );
 
-CpuIcon.displayName = "CpuIcon";
-export { CpuIcon };
+PackageIcon.displayName = "PackageIcon";
+export { PackageIcon };

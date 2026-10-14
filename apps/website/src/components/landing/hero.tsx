@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { PosterBrand, PosterLinks } from "../poster/poster-nav";
 import { Install } from "./content";
 import { Ledger } from "./ledger";
@@ -17,9 +16,7 @@ import { Ledger } from "./ledger";
 // Narrower: one column with the Ledger at full width, the links to the
 // right of the brand. Narrower still (below md): everything centered, the
 // links above the brand.
-//
-// `aside` takes the Ledger's place; a mock may put something else there.
-export function Hero({ aside }: { aside?: ReactNode }) {
+export function Hero() {
   // The brand's font size. Stacked, it tracks the viewport and tops out near
   // the size the two-column layout starts at, so the switch barely moves it.
   // Two columns, it fills what the Ledger leaves: the viewport less padding,
@@ -43,7 +40,7 @@ export function Hero({ aside }: { aside?: ReactNode }) {
       <div className="flex min-w-0 flex-col wide:col-start-2 wide:row-span-2 wide:row-start-1 wide:items-end">
         <PosterLinks className="hidden shrink-0 wide:flex" />
         <div className={`hidden h-0 grow wide:block ${spacer}`} />
-        {aside ?? <Ledger className="w-full shrink-0 wide:my-auto wide:w-fit" />}
+        <Ledger className="w-full shrink-0 wide:my-auto wide:w-fit" />
       </div>
     </div>
   );

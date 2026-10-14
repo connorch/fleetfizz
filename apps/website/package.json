@@ -19,7 +19,6 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "lucide-react": "catalog:",
-    "motion": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "three": "catalog:"
