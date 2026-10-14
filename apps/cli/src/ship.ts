@@ -1,6 +1,7 @@
 // `fizz ship`: one Ship. Load the config, read the Fleet, Check every
 // reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
 // and show it all on the Ledger: live in a terminal, printed once otherwise.
+// Picking a newer config found elsewhere starts the Ship over from that one.
 import * as Console from "effect/Console";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -101,16 +102,24 @@ const packagesToResolve = (config: FleetConfig): string[] => {
 const rebuildOf = (flags: ShipFlags): Rebuild =>
   flags.rebuild.length === 0 ? "none" : flags.rebuild.includes("all") ? "all" : flags.rebuild;
 
+// A Stale Config: one text of the config, newer than this one, and the
+// Machines that hold it (one Ship from elsewhere reaches several).
+interface Stale {
+  readonly text: string;
+  readonly machines: ReadonlyArray<string>;
+  readonly description: string;
+}
+
 // The other copies of the config that this Ship would roll back (staleCopies),
-// described for the person shipping. A copy that does not parse is reported
-// and then overwritten; it cannot be newer.
+// grouped by text. A copy that does not parse is reported and then
+// overwritten; it cannot be newer.
 const staleConfigs = Effect.fn("staleConfigs")(function* (
   config: FleetConfig,
   own: string | undefined,
   checked: ReadonlyArray<Checked>,
   ledger: Ledger,
 ) {
-  const copies: Copy[] = [];
+  const copies: Array<Copy & { readonly text: string }> = [];
   for (const { machine, state } of checked) {
     if (state.config === undefined) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
@@ -119,16 +128,31 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
         "info",
         `the config on ${machine.name} does not parse; it will be overwritten`,
       );
-    } else copies.push({ machine: machine.name, config: parsed.success });
+    } else copies.push({ machine: machine.name, config: parsed.success, text: state.config });
   }
-  return staleCopies(config, copies, own).map(
-    (c) => `${c.machine} (shipped ${c.config.shippedAt} from ${c.config.shippedFrom ?? "unknown"})`,
-  );
+  const byText = Map.groupBy(staleCopies(config, copies, own), (c) => c.text);
+  return [...byText].map(([text, group]): Stale => {
+    const machines = group.map((c) => c.machine);
+    const { shippedAt, shippedFrom } = group[0]?.config ?? {};
+    return {
+      text,
+      machines,
+      description: `${machines.join(", ")} (shipped ${shippedAt} from ${shippedFrom ?? "unknown"})`,
+    };
+  });
 });
 
 const schemaJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown, { space: 2 }));
 
+// One Ship, started over each time the person picks a newer config found on
+// another Machine: that config decides what is checked, so the Check runs again.
 export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
+  while ((yield* shipPass(flags)) === "adopted") {}
+});
+
+// One pass of a Ship from the config at hand. "adopted" means it stopped
+// before any change because the person picked a Stale Config, now written here.
+const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   const fs = yield* FileSystem.FileSystem;
   const path = flags.config ?? configPath(process.env);
   const config = yield* loadConfig(path);
@@ -179,8 +203,12 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   // may have changed, prints the Ledger once, and exits non-zero when any
   // Machine failed.
   let changing = false;
+  // Set when the person picks a Stale Config: the Ship starts over, so this
+  // pass prints no Ledger (its notes already printed).
+  let adopted = false;
   const finish = Effect.fn("finish")(function* () {
     const state = yield* ledger.end;
+    if (adopted) return;
     const saved =
       changing &&
       (yield* saveReport(state).pipe(
@@ -240,10 +268,11 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
-  // A newer config elsewhere stops the Ship unless the person overrides.
+  // A newer config elsewhere stops the Ship unless the person overrides it or
+  // picks it, which writes it here and starts the Ship over from it.
   const stale = yield* staleConfigs(config, own, checked, ledger);
   if (stale.length > 0) {
-    const what = `newer config on ${stale.join(", ")}`;
+    const what = `newer config on ${stale.map((s) => s.description).join(", ")}`;
     if (flags.dryRun) {
       yield* ledger.note("info", `${what}; a Ship would ask before overwriting it`);
     } else if (flags.overwriteConfig) {
@@ -254,12 +283,25 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       );
     } else {
       yield* ledger.note("ask", what);
-      const overwrite = yield* live.ask([
-        { title: "overwrite it with this Machine's config", value: true },
-        { title: "stop", value: false },
+      const choice = yield* live.ask<Stale | "overwrite" | "stop">([
+        ...stale.map((s) => ({
+          title: `use the config on ${s.machines[0]} (replaces this one)`,
+          value: s,
+        })),
+        { title: "overwrite it with this Machine's config", value: "overwrite" },
+        { title: "stop", value: "stop" },
       ]);
-      yield* ledger.note("answer", overwrite ? "overwrite it" : "stop");
-      if (!overwrite) return yield* Effect.fail(new ShipError("aborted: the config here is older"));
+      if (choice === "stop") {
+        yield* ledger.note("answer", "stop");
+        return yield* Effect.fail(new ShipError("aborted: the config here is older"));
+      }
+      if (choice === "overwrite") yield* ledger.note("answer", "overwrite it");
+      else {
+        yield* ledger.note("answer", `use the config on ${choice.machines[0]}`);
+        yield* fs.writeFileString(path, choice.text);
+        adopted = true;
+        return "adopted" as const;
+      }
     }
   }
 

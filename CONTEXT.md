@@ -27,7 +27,7 @@ The one `config.jsonc` that describes the Fleet, kept at the same path on every 
 _Avoid_: manifest, fleet file, settings
 
 **Stale Config**:
-A Config that a Ship of the Starting Machine's Config would roll back: that Machine received a Config more recently than this one last reached it, so a Ship from elsewhere missed this Machine. Shipping over it is refused until the person confirms.
+A Config that a Ship of the Starting Machine's Config would roll back: that Machine received a Config more recently than this one last reached it, so a Ship from elsewhere missed this Machine. The Ship asks before going on: use that config on the Starting Machine and start over from it, or overwrite it.
 _Avoid_: outdated config, conflict
 
 **Targeting**:
