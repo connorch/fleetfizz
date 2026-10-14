@@ -4,9 +4,55 @@ import { DocsLink, GithubLink } from "../nav-buttons";
 import { ThemeToggle } from "../theme-toggle";
 import { Glyph } from "../wordmark";
 
-// The poster header: the brand on two lines, as big as the page allows, and
-// the links in the far corner. `mark` places the glyph: rising off the end of
-// "fizz", beside "fizz" at its full height, or stamped above the brand.
+// The brand on two lines, as big as the page allows. `mark` places the
+// glyph: rising off the end of "fizz", beside "fizz" at its full height, or
+// stamped above the brand.
+export function PosterBrand({
+  className,
+  mark,
+}: {
+  className?: string;
+  mark?: "trailing" | "beside" | "above" | undefined;
+}) {
+  return (
+    <Link
+      to="/"
+      className={cn(
+        "text-[clamp(4rem,13vw,11rem)] leading-[0.82] font-bold tracking-[-0.06em]",
+        className,
+      )}
+    >
+      {mark === "above" && (
+        <Glyph className="mb-[0.25em] block size-[0.42em] text-fizz-foreground dark:text-fizz" />
+      )}
+      fleet
+      <br />
+      <span className="text-fizz-foreground dark:text-fizz">
+        fizz
+        {mark === "trailing" && (
+          <Glyph className="ml-[0.06em] inline-block size-[0.42em] -translate-y-[0.38em] align-baseline" />
+        )}
+        {mark === "beside" && (
+          <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.08em] align-baseline" />
+        )}
+      </span>
+    </Link>
+  );
+}
+
+// The docs, GitHub, and theme links.
+export function PosterLinks({ className }: { className?: string }) {
+  return (
+    <nav className={cn("flex items-center gap-1", className)}>
+      <DocsLink />
+      <GithubLink />
+      <ThemeToggle />
+    </nav>
+  );
+}
+
+// The poster header: the brand with the links in the far corner. On a phone
+// the links are a row above the brand.
 export function PosterNav({
   className,
   mark,
@@ -15,34 +61,11 @@ export function PosterNav({
   mark?: "trailing" | "beside" | "above";
 }) {
   return (
-    // On a phone the links are a row above the brand; wider, they share its row.
     <header
       className={cn("flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between", className)}
     >
-      <Link
-        to="/"
-        className="text-[clamp(4rem,13vw,11rem)] leading-[0.82] font-bold tracking-[-0.06em]"
-      >
-        {mark === "above" && (
-          <Glyph className="mb-[0.25em] block size-[0.42em] text-fizz-foreground dark:text-fizz" />
-        )}
-        fleet
-        <br />
-        <span className="text-fizz-foreground dark:text-fizz">
-          fizz
-          {mark === "trailing" && (
-            <Glyph className="ml-[0.06em] inline-block size-[0.42em] -translate-y-[0.38em] align-baseline" />
-          )}
-          {mark === "beside" && (
-            <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.08em] align-baseline" />
-          )}
-        </span>
-      </Link>
-      <nav className="order-first flex items-center gap-1 self-end sm:order-last sm:self-start sm:pt-1">
-        <DocsLink />
-        <GithubLink />
-        <ThemeToggle />
-      </nav>
+      <PosterBrand mark={mark} />
+      <PosterLinks className="order-first self-end sm:order-last sm:self-start sm:pt-1" />
     </header>
   );
 }
