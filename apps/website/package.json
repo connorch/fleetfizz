@@ -4,6 +4,9 @@
   "private": true,
   "description": "fleetfizz.com",
   "type": "module",
+  "exports": {
+    "./brand": "./src/brand.ts"
+  },
   "scripts": {
     "dev": "vp dev",
     "build": "vp build",

@@ -1,0 +1,23 @@
+{
+  "name": "@fleetfizz/og-image",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Renders fleetfizz.com's share image (Open Graph) and favicons from React templates.",
+  "type": "module",
+  "scripts": {
+    "generate": "node src/generate.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir . --passWithNoTests"
+  },
+  "devDependencies": {
+    "@fleetfizz/website": "workspace:*",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@resvg/resvg-js": "2.6.2",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "satori": "0.52.0",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
