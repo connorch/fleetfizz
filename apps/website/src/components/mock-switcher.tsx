@@ -13,6 +13,9 @@ const MOCKS = [
   { value: "/mock/p", label: "P · in line, below the fold" },
   { value: "/mock/q", label: "Q · versions grid, below the fold" },
   { value: "/mock/r", label: "R · in line, above the fold" },
+  { value: "/mock/s", label: "S · devices on a wire" },
+  { value: "/mock/t", label: "T · tailnet map" },
+  { value: "/mock/u", label: "U · rail across the page" },
 ] as const;
 
 export function MockSwitcher() {
