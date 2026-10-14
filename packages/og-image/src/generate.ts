@@ -1,9 +1,10 @@
 import { writeFile } from "node:fs/promises";
 import { TOUCH, favicon, touchIcon } from "./icon.ts";
-import { cover, png } from "./render.tsx";
+import { cover, png } from "./render.ts";
 
 // Writes the share image and the favicons into the website's public folder.
 // Run `pnpm og` after changing a template or the brand, and commit the output.
+// Node runs the TypeScript as is; nothing here needs a loader.
 
 const out = (file: string) => new URL(`../../../apps/website/public/${file}`, import.meta.url);
 

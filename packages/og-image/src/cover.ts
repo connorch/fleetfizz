@@ -1,4 +1,5 @@
 import { FIZZ, GLYPH, INK, NAME, SITE_URL, TAGLINE } from "@fleetfizz/website/brand";
+import { createElement as h } from "react";
 
 // The share image: the hero as a 1200x630 card. The tagline top-left, the
 // brand bottom-left, the URL bottom-right, and the scene's bubbles behind, on
@@ -8,6 +9,9 @@ import { FIZZ, GLYPH, INK, NAME, SITE_URL, TAGLINE } from "@fleetfizz/website/br
 // positioning, so every box with children is an explicit flex box. It has no
 // blur or blend modes either, so the backdrop is a hand-written SVG that
 // resvg rasterizes with the rest.
+//
+// The template is createElement calls rather than JSX so Node runs it as is:
+// it strips types, but does not compile JSX.
 
 export const WIDTH = 1200;
 export const HEIGHT = 630;
@@ -64,9 +68,10 @@ export function Cover() {
   // The brand at 220px: two lines at 0.82 line height, the glyph beside
   // "fizz" at 0.82em, sitting 0.05em below the baseline like the site's.
   const brand = 220;
-  return (
-    <div
-      style={{
+  return h(
+    "div",
+    {
+      style: {
         display: "flex",
         position: "relative",
         width: WIDTH,
@@ -74,11 +79,13 @@ export function Cover() {
         background: INK,
         fontFamily: FONT,
         color: "#fff",
-      }}
-    >
-      <img src={backdrop()} width={WIDTH} height={HEIGHT} style={{ position: "absolute" }} />
-      <div
-        style={{
+      },
+    },
+    h("img", { src: backdrop(), width: WIDTH, height: HEIGHT, style: { position: "absolute" } }),
+    h(
+      "div",
+      {
+        style: {
           display: "flex",
           flexDirection: "column",
           position: "absolute",
@@ -87,13 +94,15 @@ export function Cover() {
           width: 800,
           fontSize: 28,
           lineHeight: 1.35,
-        }}
-      >
-        <span style={{ fontWeight: 700 }}>{TAGLINE.lead}</span>
-        <span style={{ color: "rgba(255,255,255,0.7)" }}>{TAGLINE.rest}</span>
-      </div>
-      <div
-        style={{
+        },
+      },
+      h("span", { style: { fontWeight: 700 } }, TAGLINE.lead),
+      h("span", { style: { color: "rgba(255,255,255,0.7)" } }, TAGLINE.rest),
+    ),
+    h(
+      "div",
+      {
+        style: {
           display: "flex",
           flexDirection: "column",
           position: "absolute",
@@ -103,35 +112,38 @@ export function Cover() {
           fontWeight: 700,
           lineHeight: 0.82,
           letterSpacing: -0.06 * brand,
-        }}
-      >
-        <span>{NAME.slice(0, 5)}</span>
-        <div style={{ display: "flex", alignItems: "flex-end", color: FIZZ }}>
-          <span>{NAME.slice(5)}</span>
-          <svg
-            viewBox={`0 0 ${GLYPH.box} ${GLYPH.box}`}
-            width={0.82 * brand}
-            height={0.82 * brand}
-            style={{ marginLeft: 0.14 * brand, marginBottom: -0.05 * brand }}
-          >
-            {GLYPH.circles.map((c) => (
-              <circle key={c.cx} {...c} fill={FIZZ} />
-            ))}
-          </svg>
-        </div>
-      </div>
-      <div
-        style={{
+        },
+      },
+      h("span", null, NAME.slice(0, 5)),
+      h(
+        "div",
+        { style: { display: "flex", alignItems: "flex-end", color: FIZZ } },
+        h("span", null, NAME.slice(5)),
+        h(
+          "svg",
+          {
+            viewBox: `0 0 ${GLYPH.box} ${GLYPH.box}`,
+            width: 0.82 * brand,
+            height: 0.82 * brand,
+            style: { marginLeft: 0.14 * brand, marginBottom: -0.05 * brand },
+          },
+          ...GLYPH.circles.map((c) => h("circle", { key: c.cx, ...c, fill: FIZZ })),
+        ),
+      ),
+    ),
+    h(
+      "div",
+      {
+        style: {
           display: "flex",
           position: "absolute",
           right: 72,
           bottom: 64,
           fontSize: 22,
           color: "rgba(255,255,255,0.55)",
-        }}
-      >
-        {SITE_URL.replace("https://", "")}
-      </div>
-    </div>
+        },
+      },
+      SITE_URL.replace("https://", ""),
+    ),
   );
 }

@@ -1,14 +1,10 @@
 import { Resvg } from "@resvg/resvg-js";
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import type { Font, default as Satori } from "satori";
-import { Cover, FONT, HEIGHT, WIDTH } from "./cover.tsx";
+import { createElement as h } from "react";
+import satori, { type Font } from "satori";
+import { Cover, FONT, HEIGHT, WIDTH } from "./cover.ts";
 
 // React template -> SVG with satori -> PNG with resvg.
-
-// satori's ESM build reaches for __dirname, which loaders like tsx leave
-// undefined; its CommonJS build has it.
-const satori: typeof Satori = createRequire(import.meta.url)("satori").default;
 
 const font = async (weight: NonNullable<Font["weight"]>): Promise<Font> => ({
   name: FONT,
@@ -28,6 +24,6 @@ export const png = (svg: string, width: number) =>
 /** The share image as a PNG, 1200x630. */
 export async function cover() {
   const fonts = await Promise.all([font(400), font(700)]);
-  const svg = await satori(<Cover />, { width: WIDTH, height: HEIGHT, fonts });
+  const svg = await satori(h(Cover), { width: WIDTH, height: HEIGHT, fonts });
   return png(svg, WIDTH);
 }
