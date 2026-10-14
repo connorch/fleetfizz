@@ -33,8 +33,8 @@ function Home() {
         />
         <div className="flex min-w-0 flex-col items-center gap-6 text-center xl:items-start xl:self-center xl:py-10 xl:text-left">
           <p className="max-w-xl text-base text-foreground/70">
-            <span className="text-foreground">Every machine. One config.</span> One command on any
-            Machine brings the rest in line, over Tailscale SSH, from origin.
+            <span className="block text-foreground">Every machine. One config.</span>
+            One command on any Machine brings the rest in line, over Tailscale SSH, from origin.
           </p>
           <Install />
         </div>
