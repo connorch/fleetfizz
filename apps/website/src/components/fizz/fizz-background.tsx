@@ -1,5 +1,14 @@
 import { cn } from "@fleetfizz/ui/lib/utils";
-import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from "react";
+import {
+  Component,
+  lazy,
+  type ReactNode,
+  type RefObject,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { Palette } from "./bubbles";
 
 // The scene is client-only: the prerendered page is the plain fizz backdrop,
@@ -53,6 +62,18 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
+// Keeps the backdrop when WebGL cannot start, rather than letting the error
+// reach the route and take the page with it.
+class WithoutWebGL extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 // Whether any of the element is in the viewport. True until observed.
 function useOnScreen(ref: RefObject<Element | null> | undefined): boolean {
   const [onScreen, setOnScreen] = useState(true);
@@ -104,13 +125,15 @@ export function FizzBackground({
         style={{ opacity: ready ? "var(--scene-opacity)" : 0 }}
       >
         {palette && (
-          <Suspense fallback={null}>
-            <Bubbles
-              palette={palette}
-              animate={!reduced && onScreen}
-              onReady={() => setReady(true)}
-            />
-          </Suspense>
+          <WithoutWebGL>
+            <Suspense fallback={null}>
+              <Bubbles
+                palette={palette}
+                animate={!reduced && onScreen}
+                onReady={() => setReady(true)}
+              />
+            </Suspense>
+          </WithoutWebGL>
         )}
       </div>
     </div>
