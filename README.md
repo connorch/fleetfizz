@@ -66,5 +66,6 @@ Node 24 and pnpm 12. `pnpm install` once, then:
 | `pnpm check` | typecheck, lint, format check, and tests        |
 | `pnpm build` | bundle the CLI to `apps/cli/dist/fleetfizz.mjs` |
 | `pnpm fmt`   | format                                          |
+| `pnpm og`    | render the site's share image and icons         |
 
 Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (pure planning), and `packages/remote` (tailnet, transport, remote scripts) are private and bundled into it.
