@@ -88,11 +88,11 @@ export interface Copy {
 // Machine, so a Ship that missed a Machine cannot outdate it. `own` is the
 // Machine whose copy `config` is: the Starting Machine, unless --config named
 // another file, which leaves that Machine's copy to be checked like any other.
-export const staleCopies = (
+export const staleCopies = <C extends Copy>(
   config: Copy["config"],
-  copies: ReadonlyArray<Copy>,
+  copies: ReadonlyArray<C>,
   own: string | undefined,
-): ReadonlyArray<Copy> =>
+): ReadonlyArray<C> =>
   copies.filter(
     (c) =>
       c.machine !== own && isNewer(c.config.shippedTo?.[c.machine], config.shippedTo?.[c.machine]),
