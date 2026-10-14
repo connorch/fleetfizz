@@ -16,7 +16,7 @@ export function ConfigExample({ className }: { className?: string }) {
   return (
     <pre
       className={cn(
-        "bg-background/55 overflow-x-auto rounded-lg border p-5 font-mono text-[12.5px] leading-relaxed backdrop-blur-sm",
+        "overflow-x-auto rounded-lg border p-5 font-mono text-[12.5px] leading-relaxed",
         className,
       )}
     >

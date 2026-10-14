@@ -25,7 +25,7 @@ export function Phases({ className }: { className?: string }) {
     <section className={cn("pb-28", className)}>
       <ol className="grid gap-px overflow-hidden rounded-lg border bg-foreground/15 sm:grid-cols-3">
         {PHASES.map(([name, body], i) => (
-          <li key={name} className="bg-background/55 p-5 backdrop-blur-sm">
+          <li key={name} className="bg-background p-5">
             <div className="flex items-baseline gap-3">
               <span className="font-mono text-xs text-fizz-foreground dark:text-fizz">
                 0{i + 1}

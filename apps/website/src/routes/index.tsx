@@ -11,9 +11,12 @@ function Home() {
     <main>
       <FizzBackground />
       <Hero />
-      <div className="mx-auto w-full max-w-6xl px-6 pt-16">
-        <OneConfig />
-        <Phases />
+      {/* Opaque from here down: the bubbles are the hero's alone. */}
+      <div className="bg-background">
+        <div className="mx-auto w-full max-w-6xl px-6 pt-16">
+          <OneConfig />
+          <Phases />
+        </div>
       </div>
     </main>
   );
