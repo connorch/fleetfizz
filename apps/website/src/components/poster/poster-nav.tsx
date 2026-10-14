@@ -6,13 +6,13 @@ import { Glyph } from "../wordmark";
 
 // The poster header: the brand on two lines, as big as the page allows, and
 // the links in the far corner. `mark` places the glyph: rising off the end of
-// "fizz", or stamped above the brand.
+// "fizz", beside "fizz" at its full height, or stamped above the brand.
 export function PosterNav({
   className,
   mark,
 }: {
   className?: string;
-  mark?: "trailing" | "above";
+  mark?: "trailing" | "beside" | "above";
 }) {
   return (
     // On a phone the links are a row above the brand; wider, they share its row.
@@ -32,6 +32,9 @@ export function PosterNav({
           fizz
           {mark === "trailing" && (
             <Glyph className="ml-[0.06em] inline-block size-[0.42em] -translate-y-[0.38em] align-baseline" />
+          )}
+          {mark === "beside" && (
+            <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.08em] align-baseline" />
           )}
         </span>
       </Link>

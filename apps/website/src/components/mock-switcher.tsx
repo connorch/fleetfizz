@@ -19,6 +19,7 @@ const MOCKS = [
   { value: "/mock/l", label: "L · glyph off fizz" },
   { value: "/mock/m", label: "M · glyph above install" },
   { value: "/mock/n", label: "N · mark above brand" },
+  { value: "/mock/o", label: "O · glyph beside fizz" },
 ] as const;
 
 export function MockSwitcher() {
