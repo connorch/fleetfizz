@@ -12,6 +12,7 @@
     "test": "vp test run --config ../../vite.config.ts --dir . --passWithNoTests"
   },
   "dependencies": {
+    "@fleetfizz/config": "workspace:*",
     "@fleetfizz/ui": "workspace:*",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@react-three/drei": "catalog:",
@@ -24,12 +25,14 @@
     "three": "catalog:"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/three": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "effect": "catalog:",
     "fleetfizz": "workspace:*",
     "nitro": "catalog:",
     "tailwindcss": "catalog:",

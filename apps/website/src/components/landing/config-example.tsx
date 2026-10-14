@@ -1,17 +1,14 @@
 import { cn } from "@fleetfizz/ui/lib/utils";
-import type { ReactNode } from "react";
+import { exampleTokens, type Token } from "./example-config";
 
-// The example fleet.config.jsonc, syntax-colored by hand for the mock.
-const K = ({ children }: { children: ReactNode }) => (
-  <span className="text-foreground">"{children}"</span>
-);
-const S = ({ children }: { children: ReactNode }) => (
-  <span className="text-fizz-foreground dark:text-fizz">"{children}"</span>
-);
-const C = ({ children }: { children: ReactNode }) => (
-  <span className="text-muted-foreground">// {children}</span>
-);
+const COLOR: Record<Token["kind"], string | undefined> = {
+  key: "text-foreground",
+  string: "text-fizz-foreground dark:text-fizz",
+  comment: "text-muted-foreground",
+  plain: undefined,
+};
 
+// The example config.jsonc, colored by token.
 export function ConfigExample({ className }: { className?: string }) {
   return (
     <pre
@@ -21,103 +18,15 @@ export function ConfigExample({ className }: { className?: string }) {
       )}
     >
       <code>
-        {"{\n"}
-        {"  "}
-        <C>The Fleet: every Machine a Ship touches.</C>
-        {"\n"}
-        {"  "}
-        <K>machines</K>
-        {": {\n"}
-        {"    "}
-        <K>mac-studio</K>
-        {": { "}
-        <K>clones</K>
-        {": "}
-        <S>/Volumes/Stack/clones</S>
-        {" },\n"}
-        {"    "}
-        <K>macbook-pro</K>
-        {": {},\n"}
-        {"    "}
-        <K>homelab</K>
-        {": {}\n"}
-        {"  },\n"}
-        {"  "}
-        <C>Tracked Repos, installed from origin on every Machine.</C>
-        {"\n"}
-        {"  "}
-        <K>repos</K>
-        {": [\n"}
-        {"    {\n"}
-        {"      "}
-        <K>origin</K>
-        {": "}
-        <S>connorch/t3code</S>
-        {",\n"}
-        {"      "}
-        <K>ref</K>
-        {": "}
-        <S>main</S>
-        {",\n"}
-        {"      "}
-        <K>platforms</K>
-        {": ["}
-        <S>darwin</S>
-        {"],\n"}
-        {"      "}
-        <K>install</K>
-        {": "}
-        <S>pnpm install && pnpm build</S>
-        {",\n"}
-        {"      "}
-        <K>outputs</K>
-        {": ["}
-        <S>~/Applications/T3 Code.app</S>
-        {"]\n"}
-        {"    },\n"}
-        {"    { "}
-        <K>origin</K>
-        {": "}
-        <S>connorch/dotfiles</S>
-        {", "}
-        <K>ref</K>
-        {": "}
-        <S>main</S>
-        {", "}
-        <K>install</K>
-        {": "}
-        <S>./install.sh</S>
-        {" }\n"}
-        {"  ],\n"}
-        {"  "}
-        <C>The vite-plus toolchain and its Globals.</C>
-        {"\n"}
-        {"  "}
-        <K>vp</K>
-        {": {\n"}
-        {"    "}
-        <K>version</K>
-        {": "}
-        <S>1.1.0</S>
-        {",\n"}
-        {"    "}
-        <K>node</K>
-        {": "}
-        <S>24.18.1</S>
-        {",\n"}
-        {"    "}
-        <K>globals</K>
-        {": { "}
-        <K>vercel</K>
-        {": "}
-        <S>^59.25.4</S>
-        {", "}
-        <K>wrangler</K>
-        {": "}
-        <S>^4.136.3</S>
-        {" }\n"}
-        {"  }\n"}
-        {"}"}
+        {exampleTokens().map((t, i) =>
+          t.kind === "plain" ? (
+            t.text
+          ) : (
+            <span key={i} className={COLOR[t.kind]}>
+              {t.text}
+            </span>
+          ),
+        )}
       </code>
     </pre>
   );
