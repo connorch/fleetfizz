@@ -75,7 +75,7 @@ export function FizzBackground({ className }: { className?: string }) {
       {/* Slightly out of focus. Oversized so the blur has no soft edge. The
           scene stays dimmed in dark mode so the text reads over it. */}
       <div
-        className="absolute -inset-6 blur-[5px] transition-opacity delay-1000 duration-[5000ms] [transition-timing-function:cubic-bezier(0.7,0,0.9,0.5)]"
+        className="absolute -inset-6 blur-[5px] transition-opacity delay-300 duration-[5000ms] [transition-timing-function:cubic-bezier(0.7,0,0.9,0.5)]"
         style={{ opacity: ready ? "var(--scene-opacity)" : 0 }}
       >
         {palette && (
