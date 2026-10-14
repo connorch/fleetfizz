@@ -18,7 +18,8 @@ export function PosterBrand({
     <Link
       to="/"
       className={cn(
-        "text-[clamp(4rem,13vw,11rem)] leading-[0.82] font-bold tracking-[-0.06em]",
+        // A layout may set --brand on an ancestor to reason about the brand's height.
+        "block text-[length:var(--brand,clamp(4rem,13vw,11rem))] leading-[0.82] font-bold tracking-[-0.06em]",
         className,
       )}
     >
