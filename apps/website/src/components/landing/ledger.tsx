@@ -27,23 +27,20 @@ interface Machine {
 }
 
 const NOTES: ReadonlyArray<Row> = [
-  [{ text: "3 machines from connors-mac-studio" }],
-  [
-    { text: "?", tone: "ask" },
-    { text: " wrangler 4.141.0 on connors-mac-studio is above ^4.136.3" },
-  ],
+  [{ text: "3 machines from mac-studio" }],
+  [{ text: "?", tone: "ask" }, { text: " wrangler 4.141.0 on mac-studio is above ^4.136.3" }],
   [{ text: "  → bump the config to ^4.141.0", tone: "dim" }],
 ];
 
 const MACHINES: ReadonlyArray<Machine> = [
   {
-    name: "connors-mac-studio",
+    name: "mac-studio",
     time: "",
     summary: [{ text: "up to date", tone: "ok" }],
     items: [],
   },
   {
-    name: "connors-macbook-pro",
+    name: "macbook-pro",
     time: "5m 07s",
     summary: [{ text: "2 of 2 done", tone: "ok" }],
     items: [

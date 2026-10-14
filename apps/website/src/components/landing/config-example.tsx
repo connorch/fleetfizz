@@ -29,14 +29,14 @@ export function ConfigExample({ className }: { className?: string }) {
         <K>machines</K>
         {": {\n"}
         {"    "}
-        <K>connors-mac-studio</K>
+        <K>mac-studio</K>
         {": { "}
         <K>clones</K>
         {": "}
         <S>/Volumes/Stack/clones</S>
         {" },\n"}
         {"    "}
-        <K>connors-macbook-pro</K>
+        <K>macbook-pro</K>
         {": {},\n"}
         {"    "}
         <K>homelab</K>
