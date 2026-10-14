@@ -5,6 +5,7 @@
   "scripts": {
     "prepare": "effect-tsgo patch && vp config --no-agent",
     "build": "vp run --filter fleetfizz build",
+    "og": "vp run --filter @fleetfizz/og-image generate",
     "typecheck": "vp run -r typecheck",
     "lint": "vp lint --report-unused-disable-directives",
     "fmt": "vp fmt",

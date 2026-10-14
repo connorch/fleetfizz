@@ -1,4 +1,5 @@
 import type { Ref } from "react";
+import { TAGLINE } from "../../brand";
 import { PosterBrand, PosterLinks } from "../poster/poster-nav";
 import { Install } from "./content";
 import { Ledger } from "./ledger";
@@ -36,8 +37,8 @@ export function Hero({ ref }: { ref?: Ref<HTMLDivElement> }) {
       </div>
       <div className="flex min-w-0 flex-col items-center gap-6 text-center md:items-start md:text-left wide:self-center wide:py-10">
         <p className="max-w-xl text-base text-foreground/70">
-          <span className="block text-foreground">Your machines, in sync.</span>
-          One command, and every machine on your tailnet has the same tools, versions, and repos.
+          <span className="block text-foreground">{TAGLINE.lead}</span>
+          {TAGLINE.rest}
         </p>
         <Install />
       </div>
