@@ -89,6 +89,29 @@ const unknownMachines = (config: FleetConfig, tailnet: Tailnet, only: ReadonlyAr
   return [...new Set(referenced.filter((name) => !known.has(name)))];
 };
 
+// Why this Machine cannot ship `config` (named by `source`) with these flags,
+// or undefined when it can. Checked for the config at hand and for every
+// Stale Config before it is offered.
+const unshippable = (
+  config: FleetConfig,
+  tailnet: Tailnet,
+  only: ReadonlyArray<string>,
+  source: string,
+): string | undefined => {
+  const unknown = unknownMachines(config, tailnet, only);
+  if (unknown.length > 0) {
+    return `unknown Machine: ${unknown.join(", ")} (the tailnet has: ${tailnet.fleet.map((m) => m.name).join(", ")})`;
+  }
+  // The Fleet is what the config lists; the Starting Machine must be in it.
+  const fleet = new Set(Object.keys(config.machines));
+  if (!fleet.has(tailnet.self.name)) {
+    return `this Machine (${tailnet.self.name}) is not in machines in ${source}`;
+  }
+  const outsideFleet = only.filter((name) => !fleet.has(name));
+  if (outsideFleet.length > 0) return `not in machines in ${source}: ${outsideFleet.join(", ")}`;
+  return undefined;
+};
+
 const packagesToResolve = (config: FleetConfig): string[] => {
   const vp = config.vp;
   if (vp === undefined) return [];
@@ -106,6 +129,7 @@ const rebuildOf = (flags: ShipFlags): Rebuild =>
 // Machines that hold it (one Ship from elsewhere reaches several).
 interface Stale {
   readonly text: string;
+  readonly config: FleetConfig;
   readonly machines: ReadonlyArray<string>;
   readonly description: string;
 }
@@ -119,7 +143,7 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
   checked: ReadonlyArray<Checked>,
   ledger: Ledger,
 ) {
-  const copies: Array<Copy & { readonly text: string }> = [];
+  const copies: Array<Copy & { readonly config: FleetConfig; readonly text: string }> = [];
   for (const { machine, state } of checked) {
     if (state.config === undefined) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
@@ -131,14 +155,18 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
     } else copies.push({ machine: machine.name, config: parsed.success, text: state.config });
   }
   const byText = Map.groupBy(staleCopies(config, copies, own), (c) => c.text);
-  return [...byText].map(([text, group]): Stale => {
-    const machines = group.map((c) => c.machine);
-    const { shippedAt, shippedFrom } = group[0]?.config ?? {};
-    return {
-      text,
-      machines,
-      description: `${machines.join(", ")} (shipped ${shippedAt} from ${shippedFrom ?? "unknown"})`,
-    };
+  return [...byText].flatMap(([text, [first, ...rest]]): Stale[] => {
+    if (first === undefined) return [];
+    const { config, machine } = first;
+    const machines = [machine, ...rest.map((c) => c.machine)];
+    return [
+      {
+        text,
+        config,
+        machines,
+        description: `${machines.join(", ")} (shipped ${config.shippedAt} from ${config.shippedFrom ?? "unknown"})`,
+      },
+    ];
   });
 });
 
@@ -158,30 +186,12 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   const config = yield* loadConfig(path);
   const tailnet = yield* readTailnet();
 
-  const unknown = unknownMachines(config, tailnet, flags.only);
-  if (unknown.length > 0) {
-    return yield* Effect.fail(
-      new ShipError(
-        `unknown Machine: ${unknown.join(", ")} (the tailnet has: ${tailnet.fleet.map((m) => m.name).join(", ")})`,
-      ),
-    );
-  }
-  // The Fleet is what the config lists; the Starting Machine must be in it.
+  const problem = unshippable(config, tailnet, flags.only, path);
+  if (problem !== undefined) return yield* Effect.fail(new ShipError(problem));
   const fleet = new Set(Object.keys(config.machines));
   // The Machine whose copy of the config this is: the Starting Machine's own
   // file, unless --config named another (staleCopies).
   const own = flags.config === undefined ? tailnet.self.name : undefined;
-  if (!fleet.has(tailnet.self.name)) {
-    return yield* Effect.fail(
-      new ShipError(`this Machine (${tailnet.self.name}) is not in machines in ${path}`),
-    );
-  }
-  const outsideFleet = flags.only.filter((name) => !fleet.has(name));
-  if (outsideFleet.length > 0) {
-    return yield* Effect.fail(
-      new ShipError(`not in machines in ${path}: ${outsideFleet.join(", ")}`),
-    );
-  }
   // Config order, so the Ledger lists Machines the way the config does.
   const order = Object.keys(config.machines);
   const targetsList = tailnet.fleet
@@ -282,9 +292,16 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
         new ShipError(`${what}; copy it here first, or pass --overwrite-config`),
       );
     } else {
+      // Only a config this Machine can ship is offered; the others say why not.
+      const usable: Stale[] = [];
+      for (const s of stale) {
+        const why = unshippable(s.config, tailnet, flags.only, `the config on ${s.machines[0]}`);
+        if (why === undefined) usable.push(s);
+        else yield* ledger.note("info", `cannot ship from here: ${why}`);
+      }
       yield* ledger.note("ask", what);
       const choice = yield* live.ask<Stale | "overwrite" | "stop">([
-        ...stale.map((s) => ({
+        ...usable.map((s) => ({
           title: `use the config on ${s.machines[0]} (replaces this one)`,
           value: s,
         })),
