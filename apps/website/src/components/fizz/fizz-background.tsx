@@ -73,9 +73,11 @@ export function FizzBackground({ className }: { className?: string }) {
       )}
     >
       {/* Slightly out of focus. Oversized so the blur has no soft edge. The
-          scene stays dimmed in dark mode so the text reads over it. */}
+          scene stays dimmed in dark mode so the text reads over it. The
+          fade-in is a one-shot animation, not a transition, so a theme
+          switch changes the opacity at once. */}
       <div
-        className="absolute -inset-6 blur-[5px] transition-opacity delay-300 duration-[5000ms] [transition-timing-function:cubic-bezier(0.7,0,0.9,0.5)]"
+        className={cn("absolute -inset-6 blur-[5px]", ready && "animate-reveal")}
         style={{ opacity: ready ? "var(--scene-opacity)" : 0 }}
       >
         {palette && (
