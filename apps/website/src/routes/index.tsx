@@ -8,26 +8,20 @@ import { PosterNav } from "../components/poster/poster-nav";
 export const Route = createFileRoute("/")({ component: Home, staticData: { bare: true } });
 
 // The landing page: a poster with the terminal as the object. Brand top-left,
-// links top-right, the tagline and install on the left, the Ledger on the
-// right at its own width, then the config and the three phases of a Ship.
+// links top-right, the tagline under the brand, the install on the left and
+// the Ledger on the right at its own width, then the config and the three phases of a Ship.
 function Home() {
   return (
     <main>
       <FizzBackground />
       <div className="flex min-h-svh flex-col p-6 sm:p-10">
         <PosterNav />
+        <p className="mt-8 max-w-xl text-base text-foreground/80">
+          Every machine. One config. One command on any Machine brings the rest in line, over
+          Tailscale SSH, from origin.
+        </p>
         <div className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1fr_auto]">
-          <div>
-            <p className="text-3xl leading-tight tracking-tight">
-              Every machine.
-              <br />
-              One config.
-            </p>
-            <p className="mt-4 max-w-sm text-sm text-foreground/70">
-              One command on any Machine brings the rest in line, over Tailscale SSH, from origin.
-            </p>
-            <Install className="mt-6" />
-          </div>
+          <Install className="justify-self-start" />
           <Ledger className="w-fit max-w-full justify-self-end" />
         </div>
       </div>
