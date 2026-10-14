@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import { PosterBrand, PosterLinks } from "../poster/poster-nav";
 import { Install } from "./content";
 import { Ledger } from "./ledger";
@@ -16,7 +17,7 @@ import { Ledger } from "./ledger";
 // Narrower: one column with the Ledger at full width, the links to the
 // right of the brand. Narrower still (below md): everything centered, the
 // links above the brand.
-export function Hero() {
+export function Hero({ ref }: { ref?: Ref<HTMLDivElement> }) {
   // The brand's font size. Stacked, it tracks the viewport and tops out near
   // the size the two-column layout starts at, so the switch barely moves it.
   // Two columns, it fills what the Ledger leaves: the viewport less padding,
@@ -25,7 +26,10 @@ export function Hero() {
   // Two lines of the brand at its line height, less the links' row.
   const spacer = "max-h-[calc(1.64*var(--brand)-1.75rem)]";
   return (
-    <div className="grid min-h-svh gap-x-10 gap-y-8 p-6 [--brand:clamp(4rem,13vw,7.5rem)] sm:p-10 wide:[--brand:clamp(4rem,calc((100vw_-_717px)/3.15),11rem)] wide:grid-cols-[minmax(0,1fr)_auto] wide:grid-rows-[auto_1fr] wide:gap-y-0">
+    <div
+      ref={ref}
+      className="grid min-h-svh gap-x-10 gap-y-8 p-6 [--brand:clamp(4rem,13vw,7.5rem)] sm:p-10 wide:[--brand:clamp(4rem,calc((100vw_-_717px)/3.15),11rem)] wide:grid-cols-[minmax(0,1fr)_auto] wide:grid-rows-[auto_1fr] wide:gap-y-0"
+    >
       <div className="flex min-w-0 flex-col items-center gap-8 md:flex-row md:items-start md:justify-between wide:contents">
         <PosterLinks className="md:order-last md:pt-1 wide:hidden" />
         <PosterBrand className="text-center md:text-left wide:justify-self-start" />

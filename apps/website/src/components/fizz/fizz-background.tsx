@@ -1,5 +1,5 @@
 import { cn } from "@fleetfizz/ui/lib/utils";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from "react";
 import type { Palette } from "./bubbles";
 
 // The scene is client-only: the prerendered page is the plain fizz backdrop,
@@ -53,12 +53,35 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
+// Whether any of the element is in the viewport. True until observed.
+function useOnScreen(ref: RefObject<Element | null> | undefined): boolean {
+  const [onScreen, setOnScreen] = useState(true);
+  useEffect(() => {
+    const el = ref?.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setOnScreen(entry?.isIntersecting ?? true),
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return onScreen;
+}
+
 // `className` positions the scene: fixed behind the whole page by default, or
-// absolute inside a band that scrolls away.
-export function FizzBackground({ className }: { className?: string }) {
+// absolute inside a band that scrolls away. `behind` is the element the scene
+// shows through; the frame loop pauses while it is scrolled out of view.
+export function FizzBackground({
+  className,
+  behind,
+}: {
+  className?: string;
+  behind?: RefObject<Element | null>;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const palette = usePalette(ref);
   const reduced = useReducedMotion();
+  const onScreen = useOnScreen(behind);
   const [ready, setReady] = useState(false);
 
   return (
@@ -82,7 +105,11 @@ export function FizzBackground({ className }: { className?: string }) {
       >
         {palette && (
           <Suspense fallback={null}>
-            <Bubbles palette={palette} animate={!reduced} onReady={() => setReady(true)} />
+            <Bubbles
+              palette={palette}
+              animate={!reduced && onScreen}
+              onReady={() => setReady(true)}
+            />
           </Suspense>
         )}
       </div>
