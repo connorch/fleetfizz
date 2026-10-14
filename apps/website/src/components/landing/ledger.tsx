@@ -70,7 +70,6 @@ const SUMMARY: Row = [
   { text: "1 up to date", tone: "ok" },
   { text: "  in 5m 12s", tone: "dim" },
 ];
-const HINT: Row = [{ text: "full report: fizz report", tone: "dim" }];
 
 const GAP = "  ";
 const INDENT = "  ";
@@ -105,7 +104,7 @@ const rows = (): Row[] => {
         { text: `${GAP}${i.time.padStart(time)}`, tone: "dim" },
       ]);
     }
-    if (n === MACHINES.length - 1) out.push([], SUMMARY, HINT);
+    if (n === MACHINES.length - 1) out.push([], SUMMARY);
   });
   return out;
 };
