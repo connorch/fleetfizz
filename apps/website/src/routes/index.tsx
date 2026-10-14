@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({ component: Home, staticData: { bare:
 
 // The landing page: a poster with the terminal as the object.
 //
-// Wide: two rows. The brand is the first; the tagline and the install are
+// Wide (xl, where the brand and the Ledger fit side by side): two rows. The brand is the first; the tagline and the install are
 // centered in the space under it. The right column spans both rows: the links
 // at the top, then the Ledger, centered on the tagline: a spacer under the
 // links grows to the brand's height before the Ledger's margins split what
@@ -25,20 +25,23 @@ function Home() {
   return (
     <main>
       <FizzBackground />
-      <div className="grid min-h-svh gap-x-10 gap-y-8 p-6 [--brand:clamp(4rem,13vw,11rem)] sm:p-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:grid-rows-[auto_1fr] lg:gap-y-0">
-        <PosterLinks className="justify-self-center lg:hidden" />
-        <PosterBrand className="justify-self-center text-center lg:justify-self-start lg:text-left" />
-        <div className="flex min-w-0 flex-col items-center gap-6 text-center lg:items-start lg:self-center lg:py-10 lg:text-left">
+      <div className="grid min-h-svh gap-x-10 gap-y-8 p-6 [--brand:clamp(4rem,13vw,11rem)] sm:p-10 xl:grid-cols-[minmax(0,1fr)_auto] xl:grid-rows-[auto_1fr] xl:gap-y-0">
+        <PosterLinks className="justify-self-center xl:hidden" />
+        <PosterBrand
+          mark="beside"
+          className="justify-self-center text-center xl:justify-self-start xl:text-left"
+        />
+        <div className="flex min-w-0 flex-col items-center gap-6 text-center xl:items-start xl:self-center xl:py-10 xl:text-left">
           <p className="max-w-xl text-base text-foreground/70">
             <span className="text-foreground">Every machine. One config.</span> One command on any
             Machine brings the rest in line, over Tailscale SSH, from origin.
           </p>
           <Install />
         </div>
-        <div className="flex min-w-0 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:items-end">
-          <PosterLinks className="hidden shrink-0 lg:flex" />
-          <div className={`hidden h-0 grow lg:block ${spacer}`} />
-          <Ledger className="w-full shrink-0 lg:my-auto lg:w-fit" />
+        <div className="flex min-w-0 flex-col xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:items-end">
+          <PosterLinks className="hidden shrink-0 xl:flex" />
+          <div className={`hidden h-0 grow xl:block ${spacer}`} />
+          <Ledger className="w-full shrink-0 xl:my-auto xl:w-fit" />
         </div>
       </div>
       <div className="mx-auto w-full max-w-6xl px-6 pt-16">
