@@ -61,7 +61,7 @@ export function Install({ className }: { className?: string }) {
         variant="ghost"
         size="icon-xs"
         aria-label={copied ? "Copied" : "Copy"}
-        className={cn("cursor-pointer", copied && "text-fizz-foreground dark:text-fizz")}
+        className={cn(copied && "text-fizz-foreground dark:text-fizz")}
         onClick={onClick}
       >
         {copied ? <CheckIcon ref={check} size={12} /> : <CopyIcon ref={copy} size={12} />}
