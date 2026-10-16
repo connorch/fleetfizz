@@ -1,0 +1,76 @@
+---
+title: Config
+description: The one config.jsonc that describes the Fleet.
+---
+
+The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every Machine. The copy on the Machine you ship from is the one a Ship reads, and the Ship copies it (and `schema.json`, for editor validation) to every other Machine.
+
+```jsonc title="config.jsonc"
+{
+  "$schema": "./schema.json",
+  "machines": {
+    "connors-mac-studio": { "clones": "/Volumes/StudioStack SSD/fleetfizz/clones" },
+    "connors-macbook-pro": {},
+  },
+  "repos": [
+    {
+      "origin": "connorch/t3code",
+      "ref": "main",
+      "platforms": ["darwin"],
+      "install": "pnpm install && pnpm build",
+      "outputs": ["~/Applications/T3 Code.app"],
+    },
+  ],
+  "vp": {
+    "version": "1.1.0",
+    "node": "24.18.1",
+    "globals": { "vercel": "^59.25.4", "wrangler": "^4.136.3" },
+  },
+}
+```
+
+## machines
+
+The Fleet, keyed by each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet.
+
+| Field    | Description                                                                                                           |
+| -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `clones` | Where this Machine keeps its Managed Clones. `~` expands on that Machine. Default: `~/.local/share/fleetfizz/clones`. |
+
+## repos
+
+Each Tracked Repo is cloned on every targeted Machine and installed from its origin ref.
+
+| Field     | Description                                                                                        |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| `origin`  | The GitHub `owner/repo`.                                                                           |
+| `ref`     | A branch, or a full 40-character commit SHA to pin it.                                             |
+| `install` | The Install Command, run in a login shell inside the Managed Clone.                                |
+| `name`    | Names the clone's directory and the repo in output. Default: `<owner>-<repo>`.                     |
+| `outputs` | Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls. |
+| `files`   | Gitignored files written into the clone before every install, keyed by path. Never secrets.        |
+
+The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
+
+## vp
+
+The vite-plus toolchain.
+
+| Field     | Description                                |
+| --------- | ------------------------------------------ |
+| `version` | The vp version. Pin it exactly.            |
+| `node`    | The default Node version. Pin it exactly.  |
+| `globals` | Global packages, each with a semver Range. |
+
+A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` always installs the newest version, and `*` installs only when missing. A Global not in the config is never uninstalled.
+
+A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
+
+## Targeting
+
+`repos` entries and the `vp` section take two optional fields that narrow where they apply. They combine with AND, and an unset field means every one.
+
+| Field       | Description                    |
+| ----------- | ------------------------------ |
+| `platforms` | `darwin`, `linux`, or both.    |
+| `machines`  | Machine names from `machines`. |

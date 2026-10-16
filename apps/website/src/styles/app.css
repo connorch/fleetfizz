@@ -1,0 +1,16 @@
+/* The site's styles: the shared theme, then Fumadocs on the same tokens. */
+@import "@fleetfizz/ui/globals.css";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* The shadcn preset colors the docs sidebar from these; the site has no
+   sidebar of its own, so it is the page's own surface. */
+:root {
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-ring: var(--ring);
+  --sidebar-primary-foreground: var(--primary-foreground);
+}

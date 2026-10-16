@@ -1,0 +1,28 @@
+---
+title: Commands
+description: fizz ship and fizz report.
+---
+
+## fizz ship
+
+Ships the config to every reachable Machine. It checks every Machine, plans its Steps, asks any Questions, then applies the plans in parallel.
+
+| Flag                 | Description                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `--dry-run`          | Check and plan only. Print every Machine's plan and change nothing.                |
+| `--only <machine>`   | Ship only to this Machine. Repeat the flag for more.                               |
+| `--rebuild <repo>`   | Run a repo's Install Command even when nothing changed. `all` for every repo.      |
+| `--bump`             | Answer every above-range Question by bumping the config.                           |
+| `--enforce`          | Answer every above-range Question by downgrading into the Range.                   |
+| `--overwrite-config` | Ship even when another Machine holds a newer config, overwriting it with this one. |
+| `--config <path>`    | The config file. Default: `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`.               |
+
+Without a terminal, a Question is never waited on: the answer is skip. Piped to a file, the Ledger prints the full list once at the end.
+
+### A newer config elsewhere
+
+If another Machine holds a config that was shipped more recently than this one, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
+
+## fizz report
+
+Prints the full Ledger of the last Ship from this Machine.

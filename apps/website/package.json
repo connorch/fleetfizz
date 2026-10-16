@@ -22,6 +22,9 @@
     "@react-three/fiber": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "fumadocs-core": "catalog:",
+    "fumadocs-mdx": "catalog:",
+    "fumadocs-ui": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -30,6 +33,7 @@
   "devDependencies": {
     "@effect/vitest": "catalog:",
     "@tailwindcss/vite": "catalog:",
+    "@types/mdx": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

@@ -1,0 +1,53 @@
+---
+title: Getting started
+description: Install fleetfizz, describe your Fleet, and ship.
+---
+
+fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node default, global packages at semver ranges) and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
+
+## Install
+
+Install fleetfizz as a vp Global on the Machine you will ship from, and make the config directory:
+
+```sh
+vp install -g fleetfizz
+mkdir -p ~/.config/fleetfizz
+```
+
+## Describe your Fleet
+
+Write `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`). Every Machine is named by its tailnet name, and the Machine you ship from must be listed:
+
+```jsonc title="config.jsonc"
+{
+  "$schema": "./schema.json",
+  "machines": {
+    "connors-mac-studio": {},
+    "connors-macbook-pro": {},
+  },
+  "vp": {
+    "version": "1.1.0",
+    "node": "24.18.1",
+    "globals": { "vercel": "^59.25.4" },
+  },
+}
+```
+
+[Config](/docs/config) covers every field.
+
+## Ship
+
+```sh
+fizz ship --dry-run   # check every Machine and print its plan; change nothing
+fizz ship             # apply the plan everywhere, in parallel
+```
+
+The Ledger lists each Machine and, under it, what changes there. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included.
+
+Every Ship copies the config to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship.
+
+## Requirements
+
+The Machine you ship from needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in. Its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere.
+
+A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none.
