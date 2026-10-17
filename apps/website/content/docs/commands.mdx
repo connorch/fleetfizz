@@ -1,0 +1,20 @@
+---
+title: Commands
+description: fizz ship and fizz report.
+---
+
+## fizz ship
+
+<include>../generated/commands/ship.md</include>
+
+A Ship checks every Machine, plans its Steps, asks any Questions, then applies the plans in parallel.
+
+Without a terminal, a Question is never waited on: the answer is skip. Piped to a file, the Ledger prints the full list once at the end.
+
+### A newer config elsewhere
+
+If another Machine holds a config that was shipped more recently than this one, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
+
+## fizz report
+
+<include>../generated/commands/report.md</include>

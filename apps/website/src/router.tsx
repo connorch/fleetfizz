@@ -13,7 +13,9 @@ declare module "@tanstack/react-router" {
     router: ReturnType<typeof getRouter>;
   }
   interface StaticDataRouteOption {
-    // The route draws its own header (a poster layout); the root draws none.
-    bare?: boolean;
+    // Who draws the page's frame. By default the root draws the site nav and
+    // footer. A poster draws its own header, so the root adds only the footer;
+    // the docs layout fills the window, so the root draws neither.
+    chrome?: "poster" | "docs";
   }
 }

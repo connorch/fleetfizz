@@ -20,6 +20,7 @@ export {
   Range,
   repoName,
   SELF_PACKAGE,
+  Targeting,
   TrackedRepo,
   VpSection,
 } from "./schema.ts";

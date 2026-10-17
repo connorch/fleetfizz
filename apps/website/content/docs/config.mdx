@@ -1,0 +1,54 @@
+---
+title: Config
+description: The one config.jsonc that describes the Fleet.
+---
+
+The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every Machine. The copy on the Machine you ship from is the one a Ship reads, and the Ship copies it (and `schema.json`, for editor validation) to every other Machine.
+
+```jsonc title="config.jsonc"
+{
+  "$schema": "./schema.json",
+  "machines": {
+    "connors-mac-studio": { "clones": "/Volumes/StudioStack SSD/fleetfizz/clones" },
+    "connors-macbook-pro": {},
+  },
+  "repos": [
+    {
+      "origin": "connorch/t3code",
+      "ref": "main",
+      "platforms": ["darwin"],
+      "install": "pnpm install && pnpm build",
+      "outputs": ["~/Applications/T3 Code.app"],
+    },
+  ],
+  "vp": {
+    "version": "1.1.0",
+    "node": "24.18.1",
+    "globals": { "vercel": "^59.25.4", "wrangler": "^4.136.3" },
+  },
+}
+```
+
+## machines
+
+<include>../generated/config/machines.md</include>
+
+## repos
+
+<include>../generated/config/repos.md</include>
+
+The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
+
+## vp
+
+<include>../generated/config/vp.md</include>
+
+A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` always installs the newest version, and `*` installs only when missing. A Global not in the config is never uninstalled.
+
+A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
+
+## Targeting
+
+`repos` entries and the `vp` section take two optional fields that narrow where they apply. They combine with AND, and an unset field means every one.
+
+<include>../generated/config/targeting.md</include>

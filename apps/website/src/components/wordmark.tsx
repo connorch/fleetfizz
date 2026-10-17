@@ -19,14 +19,25 @@ export function Glyph({ className, ...props }: ComponentProps<"svg">) {
   );
 }
 
+// The logo's green: lime in the dark, and in the light a mid green that
+// reads as the brand on a light background (lime would wash out).
+const LOGO_GREEN = "text-[oklch(0.6_0.19_128)] dark:text-fizz";
+
+// The homepage brand on one line: "fleet", "fizz" in the brand color, then
+// the glyph.
 export function Wordmark({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
-      className={cn("inline-flex items-center gap-2 font-semibold tracking-tight", className)}
+      className={cn(
+        "inline-flex items-center gap-1 font-mono font-semibold tracking-tight",
+        className,
+      )}
       {...props}
     >
-      <Glyph className="text-fizz-foreground dark:text-fizz" />
-      fleetfizz
+      <span>
+        fleet<span className={LOGO_GREEN}>fizz</span>
+      </span>
+      <Glyph className={LOGO_GREEN} />
     </span>
   );
 }

@@ -16,7 +16,7 @@ export function DocsLink() {
     <Button
       variant="ghost"
       size="sm"
-      render={<Link to="/" />}
+      render={<Link to="/docs/$" params={{ _splat: "" }} />}
       nativeButton={false}
       {...triggerProps}
     >

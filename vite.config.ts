@@ -13,6 +13,8 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "CHANGELOG.md",
       "**/routeTree.gen.ts",
+      // Written by apps/cli/src/reference.test.ts, which compares them byte for byte.
+      "apps/website/content/generated",
     ],
     sortPackageJson: {},
   },

@@ -20,6 +20,7 @@ catalog:
   "@tanstack/react-start": 1.168.61
   "@types/node": 24.12.4
   "@types/three": 0.186.0
+  "@types/mdx": 2.0.14
   "@types/react": 19.3.0
   "@types/react-dom": 19.3.0
   "@types/semver": 7.8.0
@@ -27,6 +28,10 @@ catalog:
   class-variance-authority: 0.7.1
   cn: 0.4.0
   effect: 4.0.2
+  fumadocs-core: 16.17.3
+  fumadocs-mdx: 15.4.7
+  # The Base UI build of fumadocs-ui, the same primitives as packages/ui.
+  fumadocs-ui: npm:@fumadocs/base-ui@16.17.3
   ink: 8.0.0
   jsonc-parser: 3.3.1
   lucide-react: 1.55.0

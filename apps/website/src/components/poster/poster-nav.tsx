@@ -19,7 +19,9 @@ export function PosterBrand({ className }: { className?: string }) {
     >
       fleet
       <br />
-      <span className="text-fizz-foreground dark:text-fizz">
+      {/* The glyph stays beside "fizz": the brand is sized from 100vw, which
+          counts a classic scrollbar its column does not have. */}
+      <span className="whitespace-nowrap text-fizz-foreground dark:text-fizz">
         fizz
         <Glyph className="ml-[0.14em] inline-block size-[0.82em] translate-y-[0.03em] align-[-0.05em]" />
       </span>

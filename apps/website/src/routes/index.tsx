@@ -4,7 +4,7 @@ import { FizzBackground } from "../components/fizz/fizz-background";
 import { Hero } from "../components/landing/hero";
 import { OneConfig, Phases } from "../components/landing/sections";
 
-export const Route = createFileRoute("/")({ component: Home, staticData: { bare: true } });
+export const Route = createFileRoute("/")({ component: Home, staticData: { chrome: "poster" } });
 
 // The hero, then the config and the three phases of a Ship. The bubbles run
 // only while the hero is on screen.

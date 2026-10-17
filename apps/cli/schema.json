@@ -34,11 +34,21 @@
         "properties": {
           "clones": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "allOf": [
+              {
+                "description": "Where this Machine keeps its Managed Clones. `~` expands on that Machine. Default: `~/.local/share/fleetfizz/clones`."
+              }
+            ]
           }
         },
         "additionalProperties": false
-      }
+      },
+      "allOf": [
+        {
+          "description": "The Fleet, keyed by each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet."
+        }
+      ]
     },
     "repos": {
       "type": "array",
@@ -57,7 +67,12 @@
             "items": {
               "type": "string",
               "enum": ["darwin", "linux"]
-            }
+            },
+            "allOf": [
+              {
+                "description": "`darwin`, `linux`, or both."
+              }
+            ]
           },
           "machines": {
             "type": "array",
@@ -71,31 +86,61 @@
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "allOf": [
+              {
+                "description": "Machine names from `machines`."
+              }
+            ]
           },
           "origin": {
             "type": "string",
             "title": "GitHub origin",
-            "description": "a GitHub \"owner/repo\""
+            "description": "a GitHub \"owner/repo\"",
+            "allOf": [
+              {
+                "description": "The GitHub `owner/repo`."
+              }
+            ]
           },
           "ref": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "allOf": [
+              {
+                "description": "A branch, or a full 40-character commit SHA to pin it."
+              }
+            ]
           },
           "install": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "allOf": [
+              {
+                "description": "The Install Command, run in a login shell inside the Managed Clone."
+              }
+            ]
           },
           "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "allOf": [
+              {
+                "description": "Names the clone's directory and the repo in output. Default: `<owner>-<repo>`."
+              }
+            ]
           },
           "outputs": {
             "type": "array",
             "items": {
               "type": "string",
               "minLength": 1
-            }
+            },
+            "allOf": [
+              {
+                "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
+              }
+            ]
           },
           "files": {
             "type": "object",
@@ -105,12 +150,22 @@
             },
             "additionalProperties": {
               "type": "string"
-            }
+            },
+            "allOf": [
+              {
+                "description": "Gitignored files written into the clone before every install, keyed by path. Never secrets."
+              }
+            ]
           }
         },
         "required": ["origin", "ref", "install"],
         "additionalProperties": false
-      }
+      },
+      "allOf": [
+        {
+          "description": "Each Tracked Repo is cloned on every targeted Machine and installed from its origin ref."
+        }
+      ]
     },
     "vp": {
       "type": "object",
@@ -127,7 +182,12 @@
           "items": {
             "type": "string",
             "enum": ["darwin", "linux"]
-          }
+          },
+          "allOf": [
+            {
+              "description": "`darwin`, `linux`, or both."
+            }
+          ]
         },
         "machines": {
           "type": "array",
@@ -141,15 +201,30 @@
           "items": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "allOf": [
+            {
+              "description": "Machine names from `machines`."
+            }
+          ]
         },
         "version": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "allOf": [
+            {
+              "description": "The vp version. Pin it exactly."
+            }
+          ]
         },
         "node": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "allOf": [
+            {
+              "description": "The default Node version. Pin it exactly."
+            }
+          ]
         },
         "globals": {
           "type": "object",
@@ -160,10 +235,20 @@
           "additionalProperties": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "allOf": [
+            {
+              "description": "Global packages, each with a semver Range."
+            }
+          ]
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "description": "The vite-plus toolchain."
+        }
+      ]
     }
   },
   "required": ["machines"],

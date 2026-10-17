@@ -1,11 +1,13 @@
+import "@fontsource-variable/geist";
 import "@fontsource-variable/jetbrains-mono";
-import globalsCss from "@fleetfizz/ui/globals.css?url";
+import { cn } from "@fleetfizz/ui/lib/utils";
 import { HeadContent, Outlet, Scripts, createRootRoute, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { INK, NAME, SITE_URL, TAGLINE } from "../brand";
 import { SiteFooter } from "../components/site-footer";
 import { SiteNav } from "../components/site-nav";
 import { themeInitScript } from "../components/theme-toggle";
+import appCss from "../styles/app.css?url";
 
 const DESCRIPTION = `${TAGLINE.lead} ${TAGLINE.rest}`;
 // The share image and the icons are rendered by `pnpm og` (packages/og-image).
@@ -34,7 +36,7 @@ export const Route = createRootRoute({
       { name: "twitter:image", content: IMAGE },
     ],
     links: [
-      { rel: "stylesheet", href: globalsCss },
+      { rel: "stylesheet", href: appCss },
       // The .ico is for browsers and crawlers that ignore SVG favicons.
       { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
@@ -52,13 +54,23 @@ export const Route = createRootRoute({
   component: RootLayout,
 });
 
+// Who draws the page's frame, from the deepest route that says (see
+// StaticDataRouteOption in router.tsx).
+const useChrome = () =>
+  useMatches({
+    select: (matches) => matches.findLast((m) => m.staticData.chrome)?.staticData.chrome,
+  });
+
+// The site is set in mono; the docs read in Geist. The font is on <body> so
+// what Fumadocs portals there (the search dialog) follows the page.
 function RootDocument({ children }: { children: ReactNode }) {
+  const chrome = useChrome();
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-svh flex flex-col antialiased">
+      <body className={cn("min-h-svh flex flex-col antialiased", chrome !== "docs" && "font-mono")}>
         {children}
         <Scripts />
       </body>
@@ -67,14 +79,14 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 function RootLayout() {
-  const bare = useMatches({ select: (matches) => matches.some((m) => m.staticData.bare) });
+  const chrome = useChrome();
   return (
     <>
-      {!bare && <SiteNav />}
+      {!chrome && <SiteNav />}
       <div className="flex-1">
         <Outlet />
       </div>
-      <SiteFooter />
+      {chrome !== "docs" && <SiteFooter />}
     </>
   );
 }
