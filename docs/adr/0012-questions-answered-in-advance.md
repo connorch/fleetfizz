@@ -8,6 +8,7 @@ A Question was two bespoke things: a Global above its Range (ADR 0006) and a Sta
 | -------- | --------- | --------------------------- | ------- |
 | `range`  | an Item   | `bump`, `skip`, `downgrade` | `skip`  |
 | `config` | a Machine | `overwrite`, `stop`         | `stop`  |
+| `mode`   | `vp:mode` | `managed`, `skip`           | `skip`  |
 
 A Provider returns `ask` with its Question; the engine groups the same kind and subject across Machines and asks it once in the live Ledger, after every Machine is checked and before any changes. The answer goes back to the Provider's decide, which turns it into a change or a skip. A `bump` edits the config at the key path the Question carries, to a Range that includes the newest version found, then the Ship plans again from the new config.
 

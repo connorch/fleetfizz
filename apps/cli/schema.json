@@ -238,6 +238,42 @@
             }
           ]
         },
+        "npm": {
+          "type": "string",
+          "minLength": 1,
+          "allOf": [
+            {
+              "description": "The default npm version."
+            }
+          ]
+        },
+        "pnpm": {
+          "type": "string",
+          "minLength": 1,
+          "allOf": [
+            {
+              "description": "The default pnpm version."
+            }
+          ]
+        },
+        "yarn": {
+          "type": "string",
+          "minLength": 1,
+          "allOf": [
+            {
+              "description": "The default Yarn version."
+            }
+          ]
+        },
+        "bun": {
+          "type": "string",
+          "minLength": 1,
+          "allOf": [
+            {
+              "description": "The default Bun version."
+            }
+          ]
+        },
         "globals": {
           "type": "object",
           "propertyNames": {

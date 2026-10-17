@@ -5,4 +5,8 @@ The vite-plus toolchain.
 | `dependsOn` | Providers whose Items must succeed on a Machine before vp changes there. |
 | `version` | The vp version. Pin it exactly. |
 | `node` | The default Node version. Pin it exactly. |
+| `npm` | The default npm version. |
+| `pnpm` | The default pnpm version. |
+| `yarn` | The default Yarn version. |
+| `bun` | The default Bun version. |
 | `globals` | Global packages, each with a Range, or `{ range, platforms?, machines? }` to target one. |
