@@ -29,6 +29,14 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
     },
   },
+  "brew": {
+    "items": {
+      "gh": "*",
+      "oven-sh/bun/bun": "latest",
+      "tmux": { "range": "*", "platforms": ["linux"] },
+    },
+  },
+  "cask": { "items": { "ghostty": "latest" } },
 }
 ```
 
@@ -52,8 +60,18 @@ A Global above its Range usually means someone updated it by hand, so the Ship a
 
 Repos run after vp: when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
+## brew
+
+<include>../generated/config/brew.md</include>
+
+## cask
+
+<include>../generated/config/cask.md</include>
+
+`brew` and `cask` need Homebrew on the Machine; a Ship never installs it, and `brew:brew` fails on a Machine without it. Homebrew installs only a package's newest version, so a Range there is only `"*"` (install when missing) or `"latest"` (run `brew update`, then upgrade on every Ship). A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
+
 ## Targeting
 
-`repos` entries, the `vp` section, and each Global take two optional fields that narrow where they apply. They combine with AND, so a Global applies where both it and its section do, and an unset field means every one.
+`repos` entries, the `vp`, `brew`, and `cask` sections, and each Global or Homebrew package take two optional fields that narrow where they apply. They combine with AND, so a Global or package applies where both it and its section do, and an unset field means every one.
 
 <include>../generated/config/targeting.md</include>
