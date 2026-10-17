@@ -1,10 +1,11 @@
 import "./fonts";
 import { Composition } from "remotion";
-import { logo } from "./motion/logo";
+import { fallInLine } from "./motion/fall-in-line";
 
-// Every motion graphic, one Composition each. A graphic module exports its
-// component and its frame, so adding one is one import and one entry here.
-const MOTION = [logo];
+// Every motion graphic, one Composition per render. A graphic module exports
+// its compositions (one per site theme when its colors are baked in), so
+// adding one is one import and one spread here.
+const MOTION = [...fallInLine];
 
 export const Root = () => (
   <>

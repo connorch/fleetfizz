@@ -1,4 +1,5 @@
 import { cn } from "@fleetfizz/ui/lib/utils";
+import { CodeBlock } from "./code-block";
 
 // A finished `fizz ship`, laid out the way the CLI draws it (apps/cli/src/
 // view.tsx): notes above, then each Machine's line with its time and summary
@@ -122,9 +123,9 @@ const TONE: Record<Tone, string> = {
 // Always dark: it is a terminal, whatever the theme.
 export function Ledger({ className }: { className?: string }) {
   return (
-    <pre
+    <CodeBlock
       className={cn(
-        "overflow-x-auto rounded-lg border border-white/10 bg-[#0B0F05]/90 p-5 font-mono text-[12.5px] leading-relaxed text-[#C9D0BC] backdrop-blur-sm",
+        "border-white/10 bg-[#0B0F05]/90 text-[#C9D0BC] backdrop-blur-sm [&_[data-slot=scroll-area-thumb]]:bg-white/20",
         className,
       )}
     >
@@ -141,6 +142,6 @@ export function Ledger({ className }: { className?: string }) {
           </span>
         ))}
       </code>
-    </pre>
+    </CodeBlock>
   );
 }

@@ -7,7 +7,7 @@ import { Wordmark } from "./wordmark";
 export function SiteNav() {
   return (
     <header className="relative z-10">
-      <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-6">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
         <Link to="/" className="flex items-center">
           <Wordmark />
         </Link>

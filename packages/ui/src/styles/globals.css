@@ -17,6 +17,7 @@
   --font-heading: var(--font-sans);
   --color-fizz: var(--fizz);
   --color-fizz-foreground: var(--fizz-foreground);
+  --color-logo: var(--logo);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -50,10 +51,13 @@
 }
 
 /* The brand: fizz green (#C5F82A) on near-black ink. In light mode green text
-   uses the darker "fizz ink" so it stays readable; the fill stays fizz. */
+   uses the darker "fizz ink" so it stays readable; the fill stays fizz.
+   --logo is the logo's green on the page: fizz in the dark, and in the light
+   a mid green that reads as the brand on white (fizz would wash out). */
 :root {
   --fizz: oklch(0.92 0.22 125);
   --fizz-foreground: oklch(0.17 0.04 125);
+  --logo: oklch(0.6 0.19 128);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -77,6 +81,7 @@
 
 /* Dark mode sits on the hero's deep green ink; every surface shares its hue. */
 .dark {
+  --logo: var(--fizz);
   --background: oklch(0.12 0.015 130);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.17 0.015 130);
@@ -103,6 +108,19 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Native controls and scrollbars follow the theme, and the page's
+     scrollbar is a quiet thumb on no track. */
+  html {
+    color-scheme: light;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 25%, transparent) transparent;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  /* Underlines sit clear of the descenders. */
+  a {
+    text-underline-offset: 0.3em;
   }
   /* Tailwind v4 dropped the pointer from buttons; this restores it for every
      button on the site, including the ones Fumadocs renders. */
