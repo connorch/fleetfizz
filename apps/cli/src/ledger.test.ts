@@ -45,19 +45,26 @@ const upToDate = plan("studio", [
   vp([{ kind: "leave", item: "vp", at: "1.1.0" }]),
   repos([dotfiles]),
 ]);
+const withUpkeep = (p: ProviderPlan): ProviderPlan => ({
+  ...p,
+  // An up-to-date clone's upkeep: its fetch alone.
+  steps: [...p.steps, step("repos:dotfiles:fetch", "dotfiles", "fetching")],
+});
 const changes = plan("macbook", [
   vp([{ kind: "change", item: "vp", from: "1.0.0", to: "1.1.0", change: "1.1.0" }, ...leaves]),
-  repos([
-    {
-      kind: "change",
-      item: "t3code",
-      from: "3f1a2b0",
-      to: "9e02bb1",
-      reason: "new commit",
-      change: undefined,
-    },
-    dotfiles,
-  ]),
+  withUpkeep(
+    repos([
+      {
+        kind: "change",
+        item: "t3code",
+        from: "3f1a2b0",
+        to: "9e02bb1",
+        reason: "new commit",
+        change: undefined,
+      },
+      dotfiles,
+    ]),
+  ),
 ]);
 
 describe("the Ledger", () => {
@@ -80,6 +87,8 @@ describe("the Ledger", () => {
         yield* ledger.stepDone("macbook", id, { ok: true });
       }
       yield* ledger.finish("studio", "ok");
+      yield* ledger.stepStarted("macbook", "repos:dotfiles:fetch");
+      yield* ledger.stepDone("macbook", "repos:dotfiles:fetch", { ok: true });
       yield* ledger.stepStarted("macbook", "repos:t3code:fetch");
       yield* ledger.stepDone("macbook", "repos:t3code:fetch", { ok: true });
       yield* ledger.stepStarted("macbook", "repos:t3code:install");
@@ -116,7 +125,7 @@ describe("the Ledger", () => {
           "            vp:vercel       59.25.4",
           "✗ failed    repos:t3code    3f1a2b0 → 9e02bb1  1m 30s  exit 1",
           "            │ ERR_PNPM_OUTDATED_LOCKFILE",
-          "            repos:dotfiles  a41c0d2                    up to date",
+          "            repos:dotfiles  a41c0d2              0.0s  up to date",
           "✓ copied    config                               2.0s",
         ].join("\n"),
       );

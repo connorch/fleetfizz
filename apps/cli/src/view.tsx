@@ -98,6 +98,8 @@ const statusOf = (i: Item, dryRun: boolean): Part & { readonly detail?: string |
       return { text: "– skipped", tone: "skip", detail: i.detail };
     case "ok":
       if (i.kind === "config") return { text: "✓ copied", tone: "dim" };
+      // Only its upkeep ran (a Managed Clone's reset): still unchanged.
+      if (!i.changes) return { text: "", detail: i.kind === "record" ? "up to date" : undefined };
       if (i.kind === "record") {
         return i.from !== undefined && i.from === i.to
           ? { text: "✓ rebuilt", tone: "ok", detail: i.reason }
