@@ -1,16 +1,17 @@
 // The read-only Check script: one ssh per Machine, printing ff-state Facts.
+// The engine's Facts (home, records, config, end) around each Provider's own.
 import { CONFIG_FILE } from "@fleetfizz/config";
+import type { AnyProvider, Scope, Targeted } from "@fleetfizz/core";
 
 import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 
-export interface CheckRepo {
-  readonly name: string;
-  readonly outputs: ReadonlyArray<string>;
-}
-
 export interface CheckInput {
-  readonly cloneRoot: string;
-  readonly repos: ReadonlyArray<CheckRepo>;
+  readonly scope: Scope;
+  // In run order, each with its Items that target this Machine.
+  readonly providers: ReadonlyArray<{
+    readonly provider: AnyProvider;
+    readonly items: ReadonlyArray<Targeted>;
+  }>;
 }
 
 export const STATE_DIR = "~/.local/state/fleetfizz";
@@ -18,49 +19,33 @@ export const RECORDS_DIR = `${STATE_DIR}/records`;
 // The config directory on a Machine, as a shell expression (ADR 0008).
 export const CONFIG_DIR_SH = '"${XDG_CONFIG_HOME:-$HOME/.config}/fleetfizz"';
 
+// Where an Item's Install Record lives on a Machine, as a shell word.
+export const recordDir = (provider: string): string =>
+  `${quotePath(RECORDS_DIR)}/${quote(provider)}`;
+export const recordFile = (provider: string, item: string): string =>
+  `${recordDir(provider)}/${quote(`${item}.json`)}`;
+// Records written before Providers sat directly in RECORDS_DIR, one per repo.
+// Read when the Item has no record of its own yet; the next install moves it.
+const LEGACY_RECORD_PROVIDER = "repos";
+
+const recordFact = (provider: string, item: string): string[] => [
+  `ff_r=${recordFile(provider, item)}`,
+  ...(provider === LEGACY_RECORD_PROVIDER
+    ? [`[ -f "$ff_r" ] || ff_r=${quotePath(RECORDS_DIR)}/${quote(`${item}.json`)}`]
+    : []),
+  `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"record\\",\\"provider\\":\\"${provider}\\",\\"item\\":\\"$(ff_json ${quote(item)})\\",\\"record\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
+];
+
 export const checkScript = (input: CheckInput): string => {
   const lines = [
     prelude,
     fingerprintFn,
     `ff_state "{\\"fact\\":\\"home\\",\\"path\\":\\"$(ff_json "$HOME")\\"}"`,
-    // vp: version and where it is (a Homebrew path means `vp upgrade` cannot upgrade it).
-    "if command -v vp >/dev/null 2>&1; then",
-    `  ff_v=$(command vp --version 2>/dev/null | sed -n 's/^vp v\\{0,1\\}\\([^ ]*\\).*/\\1/p' | head -n 1)`,
-    `  ff_state "{\\"fact\\":\\"vp\\",\\"version\\":\\"$(ff_json "$ff_v")\\",\\"path\\":\\"$(ff_json "$(command -v vp)")\\"}"`,
-    `  ff_n=$(command vp env default 2>/dev/null | sed -n 's/^Default Node.js version: //p' | head -n 1)`,
-    `  if [ -n "$ff_n" ]; then ff_state "{\\"fact\\":\\"node\\",\\"version\\":\\"$(ff_json "$ff_n")\\"}"; else ff_state '{"fact":"node","version":null}'; fi`,
-    `  ff_g=$(command vp list --global --json 2>/dev/null | tr -d '\\n')`,
-    `  ff_state "{\\"fact\\":\\"globals\\",\\"list\\":\${ff_g:-[]}}"`,
-    "else",
-    `  ff_state '{"fact":"vp","version":null}'`,
-    "fi",
-    `ff_root=${quotePath(input.cloneRoot)}`,
-    `if [ -d "$ff_root" ]; then ff_present=true; else ff_present=false; fi`,
-    `ff_state "{\\"fact\\":\\"cloneRoot\\",\\"path\\":\\"$(ff_json "$ff_root")\\",\\"present\\":$ff_present}"`,
   ];
-  for (const repo of input.repos) {
-    const name = quote(repo.name);
-    lines.push(
-      `ff_d="$ff_root"/${name}`,
-      `if [ -d "$ff_d/.git" ]; then`,
-      `  ff_state "{\\"fact\\":\\"repo\\",\\"name\\":\\"$(ff_json ${name})\\",\\"present\\":true,\\"head\\":\\"$(ff_json "$(git -C "$ff_d" rev-parse HEAD 2>/dev/null)")\\",\\"origin\\":\\"$(ff_json "$(git -C "$ff_d" remote get-url origin 2>/dev/null)")\\"}"`,
-      "else",
-      `  ff_state "{\\"fact\\":\\"repo\\",\\"name\\":\\"$(ff_json ${name})\\",\\"present\\":false}"`,
-      "fi",
-    );
-    for (const output of repo.outputs) {
-      lines.push(
-        `ff_p=${quotePath(output)}; ff_f=$(ff_fp "$ff_p")`,
-        `if [ -n "$ff_f" ]; then ff_state "{\\"fact\\":\\"output\\",\\"repo\\":\\"$(ff_json ${name})\\",\\"path\\":\\"$(ff_json ${quote(output)})\\",\\"fingerprint\\":\\"$(ff_json "$ff_f")\\"}"; else ff_state "{\\"fact\\":\\"output\\",\\"repo\\":\\"$(ff_json ${name})\\",\\"path\\":\\"$(ff_json ${quote(output)})\\",\\"fingerprint\\":null}"; fi`,
-      );
-    }
-  }
-  for (const repo of input.repos) {
-    const name = quote(repo.name);
-    lines.push(
-      `ff_r=${quotePath(RECORDS_DIR)}/${quote(`${repo.name}.json`)}`,
-      `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"record\\",\\"name\\":\\"$(ff_json ${name})\\",\\"record\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
-    );
+  for (const { provider, items } of input.providers) {
+    lines.push(provider.observe(items, input.scope));
+    if (provider.rule === "record")
+      for (const item of items) lines.push(...recordFact(provider.name, item.name));
   }
   // The Machine's config, base64 on one line (`base64 -w0` is linux only).
   lines.push(

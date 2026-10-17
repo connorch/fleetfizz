@@ -1,19 +1,31 @@
-// @fleetfizz/core: pure planning. No I/O.
+// @fleetfizz/core: the Provider engine. Pure; the only Effects are the
+// Provider resolve signatures, which run elsewhere.
 export {
-  expandHome,
-  NODE_PACKAGE,
-  plan,
-  VP_PACKAGE,
-  type Answer,
-  type Failure,
+  dependenciesOf,
+  machinesNamed,
+  planMachine,
+  targetedItems,
   type MachinePlan,
   type PlanInput,
+  type ProviderPlan,
+} from "./engine.ts";
+export {
+  address,
+  decideRangeItem,
+  isQuestionKind,
+  orderProviders,
+  parseAddress,
+  QUESTION_CHOICES,
+  type AnyProvider,
+  type Context,
+  type Decision,
+  type Provider,
   type Question,
-  type Rebuild,
-  type RepoStep,
-  type Skipped,
-  type VpStep,
-} from "./plan.ts";
+  type QuestionKind,
+  type Scope,
+  type Step,
+  type Targeted,
+} from "./provider.ts";
 export { decideRange, type RangeDecision } from "./range.ts";
 export {
   decideInstall,
@@ -21,13 +33,5 @@ export {
   type InstallInputs,
   type InstallRecord,
 } from "./record.ts";
-export {
-  assembleState,
-  emptyState,
-  Fact,
-  GlobalEntry,
-  InstallRecordSchema,
-  type MachineState,
-  type RepoState,
-} from "./state.ts";
+export { assembleState, emptyState, type MachineState } from "./state.ts";
 export { targets, type MachineIdentity, type Targeting } from "./targeting.ts";

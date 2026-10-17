@@ -30,6 +30,7 @@
     "@effect/vitest": "catalog:",
     "@fleetfizz/config": "workspace:*",
     "@fleetfizz/core": "workspace:*",
+    "@fleetfizz/providers": "workspace:*",
     "@fleetfizz/remote": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

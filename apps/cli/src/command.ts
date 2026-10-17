@@ -20,23 +20,34 @@ const shipCommand = Command.make("ship", {
   ),
   rebuild: Flag.String("rebuild").pipe(
     Flag.atLeast(0),
-    Flag.withMetavar("repo"),
+    Flag.withMetavar("item"),
     Flag.withDescription(
-      "Run a repo's Install Command even when nothing changed. `all` for every repo.",
+      "Rebuild an Item (`provider:item`) even when it is up to date. `all` for every Item.",
+    ),
+  ),
+  answer: Flag.String("answer").pipe(
+    Flag.atLeast(0),
+    Flag.withMetavar("answer"),
+    Flag.withDescription(
+      "Answer a Question in advance: `kind=choice` or `kind:subject=choice`. Repeat the flag for more.",
     ),
   ),
   bump: Flag.Boolean("bump").pipe(
     Flag.withDefault(false),
-    Flag.withDescription("Answer every above-range Question by bumping the config."),
+    Flag.withDescription(
+      "Answer every above-range Question by bumping the config (`--answer range=bump`).",
+    ),
   ),
   enforce: Flag.Boolean("enforce").pipe(
     Flag.withDefault(false),
-    Flag.withDescription("Answer every above-range Question by downgrading into the Range."),
+    Flag.withDescription(
+      "Answer every above-range Question by downgrading into the Range (`--answer range=downgrade`).",
+    ),
   ),
   overwriteConfig: Flag.Boolean("overwrite-config").pipe(
     Flag.withDefault(false),
     Flag.withDescription(
-      "Ship even when another Machine holds a newer config, overwriting it with this one.",
+      "Ship even when another Machine holds a newer config, overwriting it (`--answer config=overwrite`).",
     ),
   ),
   config: Flag.String("config").pipe(
@@ -51,9 +62,13 @@ const shipCommand = Command.make("ship", {
       dryRun: flags.dryRun,
       only: flags.only,
       rebuild: flags.rebuild,
-      bump: flags.bump,
-      enforce: flags.enforce,
-      overwriteConfig: flags.overwriteConfig,
+      // The shortcut flags are answers; an --answer for a subject still wins.
+      answers: [
+        ...flags.answer,
+        ...(flags.bump ? ["range=bump"] : []),
+        ...(flags.enforce ? ["range=downgrade"] : []),
+        ...(flags.overwriteConfig ? ["config=overwrite"] : []),
+      ],
       config: flags.config._tag === "Some" ? flags.config.value : undefined,
       version: packageJson.version,
     }).pipe(

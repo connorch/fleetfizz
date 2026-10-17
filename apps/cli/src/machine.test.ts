@@ -2,36 +2,41 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { emptyState, type MachinePlan } from "@fleetfizz/core";
-import { doneLine, END_STEP, stepId, stepLine } from "@fleetfizz/remote";
+import type { MachinePlan, ProviderPlan } from "@fleetfizz/core";
+import { doneLine, END_STEP, skipLine, stepLine } from "@fleetfizz/remote";
 
 import { makeLedger } from "./ledger.ts";
 import { apply } from "./machine.ts";
 
-const repoPlan = (failures: MachinePlan["failures"] = []): MachinePlan => ({
+const fetch = "repos:skills:fetch";
+const install = "repos:skills:install";
+
+// A Machine whose repos Provider fetches and installs skills, with `more`
+// decisions beside it.
+const repoPlan = (more: ProviderPlan["decisions"] = []): MachinePlan => ({
   machine: { name: "studio", platform: "darwin" },
-  vp: [],
-  repos: [
+  providers: [
     {
-      name: "skills",
-      origin: "connorch/skills",
-      ref: "main",
-      pin: false,
-      path: "~/clones/skills",
-      expanded: "/Users/c/clones/skills",
-      install: "pnpm install",
-      files: {},
-      outputs: [],
-      decision: { run: true, reason: "never installed" },
+      name: "repos",
+      rule: "record",
+      dependsOn: [],
+      decisions: [
+        {
+          kind: "change",
+          item: "skills",
+          to: "9e02bb1",
+          reason: "never installed",
+          change: undefined,
+        },
+        ...more,
+      ],
+      steps: [
+        { id: fetch, items: ["skills"], doing: "fetching", run: [] },
+        { id: install, items: ["skills"], doing: "installing", run: [] },
+      ],
     },
   ],
-  questions: [],
-  skipped: [],
-  failures,
 });
-
-const fetch = stepId("skills", "fetch");
-const install = stepId("skills", "install");
 const local = { name: "studio", local: true };
 
 // Scripts run in the local login shell and print markers like the real Apply
@@ -44,18 +49,17 @@ const run = (plan: MachinePlan, script: ReadonlyArray<string>) =>
       machines: ["studio"],
       print: () => Effect.void,
     });
-    yield* ledger.plan("studio", plan, emptyState);
+    yield* ledger.plan("studio", plan);
     const { outcome } = yield* apply(local, plan, script.join("\n"), [""], ledger);
     const machine = store.get().state.machines[0];
-    return { outcome, machine, skills: machine?.items.find((i) => i.name === "skills") };
+    return { outcome, machine, skills: machine?.items.find((i) => i.name === "repos:skills") };
   }).pipe(Effect.provide(NodeServices.layer));
 
 describe("apply", () => {
-  it.effect("marks the repo installed at the commit its fetch reached", () =>
+  it.effect("marks a repo installed once its last step is done", () =>
     Effect.gen(function* () {
       const { outcome, machine, skills } = yield* run(repoPlan(), [
         stepLine(fetch),
-        `printf 'ff-state %s\\n' '{"fact":"repo","name":"skills","present":true,"head":"9e02bb1d"}'`,
         doneLine(fetch, true),
         stepLine(install),
         "echo Progress: resolved 1",
@@ -104,18 +108,32 @@ describe("apply", () => {
     }),
   );
 
+  it.effect("shows a step the script skipped, with its reason", () =>
+    Effect.gen(function* () {
+      const { outcome, skills } = yield* run(repoPlan(), [
+        skipLine(fetch, "'depends on vp'"),
+        skipLine(install, "'depends on vp'"),
+        doneLine(END_STEP, true),
+      ]);
+      expect(outcome).toBe("ok");
+      expect(skills).toMatchObject({ status: "skipped", detail: "depends on vp" });
+    }),
+  );
+
   it.effect("keeps a Machine failed when its plan had failures, even if every step passed", () =>
     Effect.gen(function* () {
-      const plan = repoPlan([{ what: "vp", reason: "vp is not installed", section: "vp" }]);
+      const plan = repoPlan([{ kind: "fail", item: "dotfiles", reason: "could not resolve main" }]);
       const { outcome, machine } = yield* run(plan, [
         stepLine(fetch),
         doneLine(fetch, true),
+        stepLine(install),
+        doneLine(install, true),
         doneLine(END_STEP, true),
       ]);
       expect(outcome).toBe("failed");
-      expect(machine?.items.find((i) => i.name === "vp")).toMatchObject({
+      expect(machine?.items.find((i) => i.name === "repos:dotfiles")).toMatchObject({
         status: "failed",
-        detail: "vp is not installed",
+        detail: "could not resolve main",
       });
     }),
   );

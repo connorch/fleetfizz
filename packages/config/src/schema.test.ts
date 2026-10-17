@@ -29,7 +29,16 @@ describe("FleetConfig", () => {
             files: { ".env": "A=1\n" },
           },
         ],
-        vp: { version: "1.1.0", node: "24.18.1", globals: { vercel: "^59.25.4", skills: "*" } },
+        vp: {
+          version: "1.1.0",
+          node: "24.18.1",
+          dependsOn: [],
+          globals: {
+            vercel: "^59.25.4",
+            skills: "*",
+            wrangler: { range: "latest", machines: ["connors-mac-studio"] },
+          },
+        },
       }),
     ).toBe(true);
   });
@@ -52,6 +61,17 @@ describe("FleetConfig", () => {
   it("rejects an empty platforms list and an unknown platform", () => {
     expect(ok({ machines: { a: {} }, vp: { platforms: [] } })).toBe(false);
     expect(ok({ machines: { a: {} }, vp: { platforms: ["windows"] } })).toBe(false);
+  });
+
+  it("rejects Globals the vp section manages elsewhere", () => {
+    for (const name of ["vp", "node", "vite-plus", "fleetfizz"]) {
+      expect(ok({ machines: { a: {} }, vp: { globals: { [name]: "*" } } }), name).toBe(false);
+    }
+  });
+
+  it("rejects an unknown Provider in dependsOn", () => {
+    expect(ok({ machines: { a: {} }, vp: { dependsOn: ["repos"] } })).toBe(true);
+    expect(ok({ machines: { a: {} }, vp: { dependsOn: ["npm"] } })).toBe(false);
   });
 
   it("validates Ranges", () => {

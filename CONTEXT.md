@@ -27,7 +27,7 @@ The one `config.jsonc` that describes the Fleet, kept at the same path on every 
 _Avoid_: manifest, fleet file, settings
 
 **Stale Config**:
-A Config that a Ship of the Starting Machine's Config would roll back: that Machine received a Config more recently than this one last reached it, so a Ship from elsewhere missed this Machine. The Ship asks before going on: use that config on the Starting Machine and start over from it, or overwrite it.
+A Config that a Ship of the Starting Machine's Config would roll back: that Machine received a Config more recently than this one last reached it, so a Ship from elsewhere missed this Machine. The Ship asks a Question before going on: use that config on the Starting Machine and start over from it, overwrite it, or stop.
 _Avoid_: outdated config, conflict
 
 **Targeting**:
@@ -37,7 +37,7 @@ _Avoid_: filter, selector, scope
 ### Shipping
 
 **Ship**:
-One manual run that brings every reachable targeted Machine in line with the config: its vp section and its Tracked Repos.
+One manual run that brings every reachable targeted Machine in line with the config: every Item of every Provider.
 _Avoid_: deploy, sync, rollout
 
 **Check**:
@@ -49,7 +49,7 @@ The phase of a Ship that turns the config and checked state into Steps and Quest
 _Avoid_: diff, preview
 
 **Question**:
-A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range).
+A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
 _Avoid_: conflict, prompt (a prompt is how a Question is asked)
 
 **Apply**:
@@ -57,12 +57,22 @@ The phase of a Ship that runs each Machine's Steps.
 _Avoid_: execute, deploy
 
 **Step**:
-One unit of change on one Machine (fetch a Tracked Repo, run its Install Command, install Globals) whose success is reported on its own.
+One unit of work on one Machine (fetch a Tracked Repo, run its Install Command, install Globals) whose success is reported on its own; most Steps change an Item, and some are upkeep that keeps one as it is.
 _Avoid_: task, action, job
 
 **Ledger**:
-The output of a Ship: one line per Machine with a summary of its items and, under it, one line per item that changes (vp, Node, a Global, a Tracked Repo), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
+The output of a Ship: one line per Machine with a summary of its items and, under it, one line per Item that changes, written `provider:item` (`vp:node`, `repos:connorch-t3code`), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
 _Avoid_: log
+
+### Providers
+
+**Provider**:
+One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos), with its own section of the config.
+_Avoid_: kind, adapter, plugin, manager
+
+**Item**:
+One entry a Provider keeps in line on one Machine: vp, Node, a Global, a Tracked Repo. Written `provider:item` (`vp:node`, `repos:connorch-t3code`).
+_Avoid_: resource, dependency, package
 
 ### Tracked Repos
 
@@ -87,7 +97,7 @@ The shell command that installs a Tracked Repo from its Managed Clone.
 _Avoid_: build script, hook
 
 **Install Record**:
-For one Machine and one Tracked Repo: the commit, Managed Clone path, Install Command, Files, and Output fingerprints of the last successful install.
+For one Machine and one Item of a Provider that cannot report what it installed (a Tracked Repo): the commit, Managed Clone path, Install Command, Files, and Output fingerprints of the last successful install.
 _Avoid_: lock, cache, receipt
 
 **Output**:
@@ -131,11 +141,13 @@ _Avoid_: credential forwarding, shared token
 - A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, a **File**, or an **Output** differs from it (**Drift**)
 - The **Starting Machine** lends its **Lent Token** to each other **Machine** for the length of one **Ship**; **Install Commands** never see it
 - An offline **Machine** is skipped, never failed, and stays behind until the next **Ship**
+- A **Provider** can depend on other **Providers**. When an **Item** of a dependency fails on a **Machine**, its dependents are skipped there; a dependency the config does not target at that **Machine** does not hold them back
+- Removing an **Item** from the **Config** never uninstalls it
 
 ## Example dialogue
 
 > **Dev:** "I ran pnpm install:desktop:local in my own t3code checkout on the MacBook Pro. Does the next **Ship** put origin back?"
-> **Connor:** "Only if the app is one of t3code's **Outputs**. Then its fingerprint no longer matches the **Install Record**, that is **Drift**, and the **Ship** reinstalls. Without **Outputs**, the commit is unchanged, so ship with `--rebuild connorch-t3code`."
+> **Connor:** "Only if the app is one of t3code's **Outputs**. Then its fingerprint no longer matches the **Install Record**, that is **Drift**, and the **Ship** reinstalls. Without **Outputs**, the commit is unchanged, so ship with `--rebuild repos:connorch-t3code`."
 
 > **Dev:** "Someone ran `vp update -g` and vercel is now 60.1.0, but the **Range** is `^59.25.4`."
 > **Connor:** "That's a **Question**. The **Ship** asks it on the **Starting Machine** before any **Machine** changes: bump the **Range**, skip it on that **Machine**, or downgrade."
@@ -144,6 +156,6 @@ _Avoid_: credential forwarding, shared token
 
 - "fleetfizz" is the product (and its npm package); `fizz` is its command. "fleetfizz ship" is wrong: it is `fizz ship`.
 
-- "Ship" used to mean installing one repo's skills; it now covers every **Tracked Repo** and the **vp section**.
+- "Ship" used to mean installing one repo's skills; it now covers every **Item** of every **Provider**.
 - "Managed Clone" used to mean only the skills repo's clone on a remote Machine; it now means any **Tracked Repo**'s clone on any **Machine**, the **Starting Machine** included.
 - "working copy" is the developer's own checkout, where the config is read from. It is never a **Managed Clone**, and a **Ship** never installs from it.

@@ -6,7 +6,7 @@ import { LedgerView, Styled } from "./view.tsx";
 
 const item = (name: string, status: Item["status"]): Item => ({
   name,
-  kind: "version",
+  kind: "range",
   from: "1.0.0",
   to: "2.0.0",
   changes: true,

@@ -1,76 +1,120 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Stream from "effect/Stream";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import type { MachinePlan, RepoStep } from "@fleetfizz/core";
+import type { MachinePlan, ProviderPlan } from "@fleetfizz/core";
 
-import { applyScript, CONFIG_STEP, END_STEP } from "./apply.ts";
-import { doneLine, stepLine } from "./protocol.ts";
+import { applyScript, applyStdin } from "./apply.ts";
+import { parseLine } from "./protocol.ts";
 
-const repo = (over: Partial<RepoStep>): RepoStep => ({
-  name: "skills",
-  origin: "connorch/skills",
-  ref: "main",
-  pin: false,
-  path: "~/clones/skills",
-  expanded: "/Users/c/clones/skills",
-  install: "pnpm install",
-  files: {},
-  outputs: [],
-  decision: { run: true, reason: "never installed" },
+const provider = (over: Partial<ProviderPlan> & Pick<ProviderPlan, "name">): ProviderPlan => ({
+  rule: "range",
+  dependsOn: [],
+  decisions: [],
+  steps: [],
   ...over,
 });
 
-const planOf = (over: Partial<MachinePlan>): MachinePlan => ({
+const planOf = (providers: ReadonlyArray<ProviderPlan>): MachinePlan => ({
   machine: { name: "studio", platform: "darwin" },
-  vp: [],
-  repos: [],
-  questions: [],
-  skipped: [],
-  failures: [],
-  ...over,
+  providers,
 });
 
-const script = (plan: MachinePlan) =>
-  applyScript({
-    plan,
-    cloneRoot: "~/clones",
-    env: { machine: "studio", platform: "darwin", machines: ["studio", "mbp"] },
-  });
-
-describe("applyScript", () => {
-  it("reads three stdin lines, then config, vp, repos, and the end marker in order", () => {
-    const text = script(
-      planOf({
-        vp: [{ kind: "bootstrap" }, { kind: "vp", from: null, version: "1.1.0" }],
-        repos: [repo({})],
+// Runs the script in sh with a throwaway config dir; returns its markers.
+const run = (plan: MachinePlan) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const handle = yield* spawner.spawn(
+      ChildProcess.make("/bin/sh", ["-c", applyScript(plan)], {
+        stdin: Stream.encodeText(Stream.make(`${applyStdin(undefined, "{}", "{}").join("\n")}\n`)),
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { XDG_CONFIG_HOME: yield* fs.makeTempDirectoryScoped() },
+        extendEnv: true,
       }),
     );
-    const at = (needle: string) => {
-      const index = text.indexOf(needle);
-      expect(index, needle).toBeGreaterThanOrEqual(0);
-      return index;
-    };
-    expect(at("read -r ff_token")).toBeLessThan(at("read -r ff_config"));
-    expect(at("read -r ff_config")).toBeLessThan(at("read -r ff_schema"));
-    expect(at("read -r ff_schema")).toBeLessThan(at(stepLine(CONFIG_STEP)));
-    expect(at(stepLine(CONFIG_STEP))).toBeLessThan(at("https://vite.plus"));
-    expect(at("https://vite.plus")).toBeLessThan(at("vp upgrade '1.1.0'"));
-    expect(at("vp upgrade '1.1.0'")).toBeLessThan(at("git clone"));
-    expect(text.trimEnd().split("\n").at(-1)).toBe(doneLine(END_STEP, true));
-  });
+    const stdout = yield* Stream.runCollect(Stream.decodeText(handle.stdout));
+    return markers(stdout.join(""));
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
-  it("pins check out the commit detached; branches reset to origin", () => {
-    const sha = "b517dd423fd19282898c33e43acb8eb67546ebab";
-    const pinned = script(planOf({ repos: [repo({ ref: sha, pin: true })] }));
-    expect(pinned).toContain(`checkout --quiet --detach '${sha}'`);
-    expect(pinned).not.toContain("origin/");
-    const branch = script(planOf({ repos: [repo({})] }));
-    expect(branch).toContain("reset --quiet --hard 'origin/main'");
-  });
-
-  it("runs the Install Command in a login shell inside the clone, with the Fleet in its env", () => {
-    const text = script(planOf({ repos: [repo({ install: "cargo build --release" })] }));
-    expect(text).toContain(
-      `(cd "$ff_d" && FLEETFIZZ_MACHINE='studio' FLEETFIZZ_PLATFORM='darwin' FLEETFIZZ_MACHINES='studio,mbp' "\${SHELL:-/bin/sh}" -lc 'cargo build --release')`,
+const markers = (stdout: string) =>
+  stdout
+    .split("\n")
+    .map(parseLine)
+    .flatMap((line) =>
+      line.kind === "step"
+        ? [`step ${line.id}`]
+        : line.kind === "done"
+          ? [`${line.done.ok ? "ok" : "failed"} ${line.done.id}`]
+          : line.kind === "skip"
+            ? [`skipped ${line.skip.id}: ${line.skip.reason}`]
+            : [],
     );
-  });
+
+describe("applyScript", () => {
+  it.effect("copies the config, runs each Provider's Steps in order, and ends", () =>
+    Effect.gen(function* () {
+      const markers = yield* run(
+        planOf([
+          provider({
+            name: "vp",
+            steps: [{ id: "vp:vp:upgrade", items: ["vp"], doing: "upgrading", run: ["true"] }],
+          }),
+          provider({
+            name: "repos",
+            dependsOn: ["vp"],
+            steps: [{ id: "repos:x:fetch", items: ["x"], doing: "fetching", run: ["true"] }],
+          }),
+        ]),
+      );
+      expect(markers).toEqual([
+        "step config",
+        "ok config",
+        "step vp:vp:upgrade",
+        "ok vp:vp:upgrade",
+        "step repos:x:fetch",
+        "ok repos:x:fetch",
+        "ok end",
+      ]);
+    }),
+  );
+
+  it.effect(
+    "skips a failed Item's later Steps, and every Step of a Provider that depends on it",
+    () =>
+      Effect.gen(function* () {
+        const markers = yield* run(
+          planOf([
+            provider({
+              name: "vp",
+              steps: [
+                { id: "vp:vp:bootstrap", items: ["vp"], doing: "installing", run: ["false"] },
+                { id: "vp:node:default", items: ["node"], doing: "installing", run: ["true"] },
+                { id: "vp:vp:upgrade", items: ["vp"], doing: "upgrading", run: ["true"] },
+              ],
+            }),
+            provider({
+              name: "repos",
+              dependsOn: ["vp"],
+              steps: [{ id: "repos:x:fetch", items: ["x"], doing: "fetching", run: ["true"] }],
+            }),
+          ]),
+        );
+        expect(markers).toEqual([
+          "step config",
+          "ok config",
+          "step vp:vp:bootstrap",
+          "failed vp:vp:bootstrap",
+          "step vp:node:default",
+          "ok vp:node:default",
+          "skipped vp:vp:upgrade: an earlier step failed",
+          "skipped repos:x:fetch: depends on vp",
+          "ok end",
+        ]);
+      }),
+  );
 });

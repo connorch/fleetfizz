@@ -1,13 +1,13 @@
 // The Ledger: what a Ship shows. One line per Machine in config order with a
-// summary of its items and, under it, one line per item that changes (vp,
-// Node, a Global, a Tracked Repo), its status first. The full Ledger lists
-// every item, changed or not, and the config copy.
+// summary of its Items and, under it, one line per Item that changes, by its
+// address (`provider:item`), its status first. The full Ledger lists every
+// Item, changed or not, and the config copy.
 //
 //   connors-mac-studio                                         up to date
 //
 //   connors-macbook-pro                                5m 07s  2 of 2 done
-//   ✓ done         vp               1.0.0 → 1.1.0       16.6s
-//   ✓ installed    connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
+//   ✓ done         vp:vp                    1.0.0 → 1.1.0       16.6s
+//   ✓ installed    repos:connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
 //
 //   1 updated, 1 up to date  in 5m 12s
 //
@@ -19,8 +19,8 @@ import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import type { MachinePlan, MachineState } from "@fleetfizz/core";
-import { CONFIG_STEP, isFetchStep, stepId, vpStepId } from "@fleetfizz/remote";
+import { address, type MachinePlan } from "@fleetfizz/core";
+import { CONFIG_STEP } from "@fleetfizz/remote";
 
 export const Note = Schema.Struct({
   kind: Schema.Literals(["ask", "answer", "info"]),
@@ -28,17 +28,18 @@ export const Note = Schema.Struct({
 });
 export type Note = typeof Note.Type;
 
-// One thing on one Machine: shown as `from -> to`, `+ to` (new), or just
-// `from` (no change). Repo commits are short SHAs.
+// One Item on one Machine, by address, or the config copy: shown as
+// `from -> to`, `+ to` (new), or just `from` (no change). `kind` is its
+// Provider's rule.
 const Item = Schema.Struct({
   name: Schema.String,
-  kind: Schema.Literals(["version", "repo", "config"]),
+  kind: Schema.Literals(["range", "record", "config"]),
   from: Schema.optionalKey(Schema.String),
   to: Schema.optionalKey(Schema.String),
   // Why it changes when the version or commit alone does not say
-  // ("never installed", "drift: ...", "reinstall").
+  // ("never installed", "drift: ...", "installed on Node 22").
   reason: Schema.optionalKey(Schema.String),
-  // Planned to change, or changed during Apply (a fetch that moved a commit).
+  // Planned to change, or failed.
   changes: Schema.Boolean,
   status: Schema.Literals(["idle", "running", "ok", "failed", "skipped"]),
   // What a running item is doing: "fetching", "installing".
@@ -46,8 +47,8 @@ const Item = Schema.Struct({
   // Why it failed or was skipped.
   detail: Schema.optionalKey(Schema.String),
   output: Schema.optionalKey(Schema.Array(Schema.String)),
-  // The Apply step ids that move this item.
-  steps: Schema.Array(Schema.String),
+  // The Apply Steps that move this Item, in order, and what each is doing.
+  steps: Schema.Array(Schema.Struct({ id: Schema.String, doing: Schema.String })),
   started: Schema.optionalKey(Schema.Number),
   ended: Schema.optionalKey(Schema.Number),
 });
@@ -89,12 +90,12 @@ export interface Ledger {
   readonly skip: (name: string, reason: string) => Effect.Effect<void>;
   // The Machine failed as a whole: the first line is why, the rest is output.
   readonly fail: (name: string, lines: ReadonlyArray<string>) => Effect.Effect<void>;
-  readonly plan: (name: string, plan: MachinePlan, state: MachineState) => Effect.Effect<void>;
+  readonly plan: (name: string, plan: MachinePlan) => Effect.Effect<void>;
   readonly start: (name: string) => Effect.Effect<void>;
   readonly stepStarted: (name: string, id: string) => Effect.Effect<void>;
   readonly stepDone: (name: string, id: string, result: StepResult) => Effect.Effect<void>;
-  // A Tracked Repo's commit after its fetch.
-  readonly fetched: (name: string, repo: string, head: string) => Effect.Effect<void>;
+  // A Step the script skipped: an earlier Step failed, or a dependency did.
+  readonly stepSkipped: (name: string, id: string, reason: string) => Effect.Effect<void>;
   readonly finish: (name: string, outcome: Outcome) => Effect.Effect<void>;
   readonly end: Effect.Effect<LedgerState>;
 }
@@ -113,94 +114,63 @@ export interface LedgerStore {
   readonly tick: Effect.Effect<void>;
 }
 
-const short = (sha: string | undefined) => (sha === undefined ? undefined : sha.slice(0, 7));
-
-const doingOf = (id: string) =>
-  id === CONFIG_STEP ? "copying" : isFetchStep(id) ? "fetching" : "installing";
-
-// Every item on one Machine: what it has now (from the Check), with the plan's
-// changes, skips, and failures laid over it.
-export const itemsOf = (p: MachinePlan, state: MachineState): Item[] => {
-  // Keyed by kind too: a Tracked Repo may share a name with a Global.
-  const items = new Map<string, Item>();
-  const key = (kind: Item["kind"], name: string) => `${kind}:${name}`;
-  const base = (name: string, from?: string, kind: Item["kind"] = "version"): Item => ({
-    name,
-    kind,
-    ...(from === undefined ? {} : { from }),
-    changes: false,
-    status: "idle",
-    steps: [],
-  });
-  const set = (name: string, change: (item: Item) => Item, kind: Item["kind"] = "version") =>
-    items.set(key(kind, name), change(items.get(key(kind, name)) ?? base(name, undefined, kind)));
-  // `from` null means nothing is installed now; undefined keeps the checked one.
-  const plans =
-    (id: string, to: string, from?: string | null, reason?: string) =>
-    ({ from: checked, ...item }: Item): Item => {
-      const now = from === undefined ? checked : (from ?? undefined);
-      return {
-        ...item,
-        ...(now === undefined ? {} : { from: now }),
-        to,
-        ...(reason === undefined ? {} : { reason }),
-        changes: true,
-        steps: [...item.steps, id],
+// Every Item on one Machine, one per Decision, and the config copy. A
+// Question in a dry run, never asked, shows as skipped.
+export const itemsOf = (p: MachinePlan): Item[] => [
+  ...p.providers.flatMap((pp) =>
+    pp.decisions.map((d): Item => {
+      const base = {
+        name: address(pp.name, d.item),
+        kind: pp.rule,
+        steps: pp.steps
+          .filter((step) => step.items.includes(d.item))
+          .map(({ id, doing }) => ({ id, doing })),
       };
-    };
-
-  const vp = state.vp?.version ?? undefined;
-  items.set(key("version", "vp"), base("vp", vp));
-  if (state.node != null) items.set(key("version", "node"), base("node", state.node));
-  for (const g of state.globals) items.set(key("version", g.name), base(g.name, g.version));
-
-  for (const step of p.vp) {
-    const id = vpStepId(step);
-    switch (step.kind) {
-      case "bootstrap":
-        set("vp", plans(id, "latest", null));
-        break;
-      case "vp":
-      case "node":
-        set(step.kind, plans(id, step.version, step.from));
-        break;
-      case "reinstall":
-        set(step.name, plans(id, step.version, step.version, "reinstall"));
-        break;
-      case "globals":
-        for (const pkg of step.packages) set(pkg.name, plans(id, pkg.version, pkg.from ?? null));
-        break;
-    }
-  }
-  for (const repo of p.repos) {
-    const from = short(state.records[repo.name]?.commit);
-    const to = short(repo.head);
-    items.set(key("repo", repo.name), {
-      name: repo.name,
-      kind: "repo",
-      ...(from === undefined ? {} : { from }),
-      ...(to === undefined ? {} : { to }),
-      ...(repo.decision.run ? { reason: repo.decision.reason } : {}),
-      changes: repo.decision.run,
-      status: "idle",
-      steps: [stepId(repo.name, "fetch"), stepId(repo.name, "install")],
-    });
-  }
-  for (const s of p.skipped) set(s.what, (i) => ({ ...i, status: "skipped", detail: s.reason }));
-  // A repo that failed planning has no item yet and gets one of its own.
-  for (const f of p.failures) {
-    const kind = f.section === "repos" ? "repo" : "version";
-    set(f.what, (i) => ({ ...i, changes: true, status: "failed", detail: f.reason }), kind);
-  }
-  items.set(key("config", CONFIG_STEP), {
+      switch (d.kind) {
+        case "change":
+          return {
+            ...base,
+            ...(d.from === undefined ? {} : { from: d.from }),
+            to: d.to,
+            ...(d.reason === undefined ? {} : { reason: d.reason }),
+            changes: true,
+            status: "idle",
+          };
+        case "leave":
+          return {
+            ...base,
+            ...(d.at === undefined ? {} : { from: d.at }),
+            changes: false,
+            status: "idle",
+          };
+        case "skip":
+        case "fail":
+          return {
+            ...base,
+            ...(d.at === undefined ? {} : { from: d.at }),
+            changes: d.kind === "fail",
+            status: d.kind === "fail" ? "failed" : "skipped",
+            detail: d.reason,
+          };
+        case "ask":
+          return {
+            ...base,
+            ...(d.at === undefined ? {} : { from: d.at }),
+            changes: false,
+            status: "skipped",
+            detail: d.question.problem,
+          };
+      }
+    }),
+  ),
+  {
     name: CONFIG_STEP,
     kind: "config",
     changes: false,
     status: "idle",
-    steps: [CONFIG_STEP],
-  });
-  return [...items.values()];
-};
+    steps: [{ id: CONFIG_STEP, doing: "copying" }],
+  },
+];
 
 // A Machine's outcome, counting failures the plan already knew about. A
 // planned Machine is a dry run's ok; in a stopped Ship it never ran, and a
@@ -251,7 +221,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
   const items = (name: string, id: string, change: (item: Item, now: number) => Item) =>
     machine(name, (m, now) => ({
       ...m,
-      items: m.items.map((i) => (i.steps.includes(id) ? change(i, now) : i)),
+      items: m.items.map((i) => (i.steps.some((step) => step.id === id) ? change(i, now) : i)),
     }));
 
   const store: LedgerStore = {
@@ -277,28 +247,24 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         ...(output.length === 0 ? {} : { output }),
         ended: now,
       })),
-    plan: (name, p, state) =>
-      machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p, state) })),
+    plan: (name, p) => machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p) })),
     start: (name) => machine(name, (m, now) => ({ ...m, status: "running", started: now })),
-    // An item keeps its first failure: a later Step for the same item (vp's
-    // upgrade after its installer) must not hide it.
+    // An Item keeps its first failure: a later Step for the same Item must
+    // not hide it.
     stepStarted: (name, id) =>
       items(name, id, (item, now) =>
-        item.status === "failed"
+        item.status === "failed" || item.status === "skipped"
           ? item
           : {
               ...item,
-              // Every Ship copies the config and fetches every repo; neither is a
-              // change on its own.
-              changes: item.changes || !(id === CONFIG_STEP || isFetchStep(id)),
               status: "running",
-              doing: doingOf(id),
+              doing: item.steps.find((step) => step.id === id)?.doing ?? "running",
               started: item.started ?? now,
             },
       ),
     stepDone: (name, id, result) =>
       items(name, id, (item, now) => {
-        if (item.status === "failed") return item;
+        if (item.status === "failed" || item.status === "skipped") return item;
         if (!result.ok) {
           return {
             ...item,
@@ -309,21 +275,17 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
             ended: now,
           };
         }
+        // An Item with more Steps to go (a repo's fetch, then its install) runs on.
+        if (item.steps.at(-1)?.id !== id) return item;
         const { doing: _, ...rest } = item;
-        // A fetch is the first half of an install, which runs on.
-        if (isFetchStep(id)) return item.changes ? item : { ...rest, status: "idle", ended: now };
         return { ...rest, status: "ok", ended: now };
       }),
-    fetched: (name, repo, head) =>
-      machine(name, (m) => ({
-        ...m,
-        items: m.items.map((i) =>
-          i.kind === "repo" && i.name === repo
-            ? // The fetch already moved the checkout, even if the install never runs.
-              { ...i, to: head.slice(0, 7), changes: i.changes || head.slice(0, 7) !== i.from }
-            : i,
-        ),
-      })),
+    stepSkipped: (name, id, reason) =>
+      items(name, id, (item, now) => {
+        if (item.status === "failed") return item;
+        const { doing: _, ...rest } = item;
+        return { ...rest, status: "skipped", detail: reason, ended: now };
+      }),
     finish: (name, outcome) =>
       machine(name, (m, now) => ({
         ...m,
