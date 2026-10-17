@@ -145,19 +145,17 @@ const decideRanged = (
     bumpPath: item.bumpPath,
     ctx,
   });
-  // A bare Machine still gets the installer's newest vp when the registry
-  // cannot be read and any version will do.
-  if (
-    item.kind === "vp" &&
-    observed.vp === undefined &&
-    decision.kind === "fail" &&
-    (item.range === "*" || item.range === "latest")
-  )
-    return { kind: "change", item: item.name, to: "latest", change: { kind: "bootstrap" } };
+  // A bare Machine gets vp's installer, then the resolved version. When the
+  // registry cannot be read and any version will do, the installer's newest is enough.
+  if (item.kind === "vp" && observed.vp === undefined) {
+    if (decision.kind === "change")
+      return { ...decision, change: { kind: "bootstrap", version: decision.change } };
+    if (decision.kind === "fail" && (item.range === "*" || item.range === "latest"))
+      return { kind: "change", item: item.name, to: "latest", change: { kind: "bootstrap" } };
+    return decision;
+  }
   if (decision.kind !== "change") return decision;
   const version = decision.change;
-  if (item.kind === "vp" && observed.vp === undefined)
-    return { ...decision, change: { kind: "bootstrap", version } };
   if (item.kind === "vp" && isHomebrew(observed.vp?.path))
     return {
       kind: "fail",
