@@ -31,8 +31,10 @@ export const Ref = Schema.NonEmptyString;
 export const isPin = (ref: string): boolean => /^[0-9a-f]{40}$/.test(ref);
 
 // The built-in Providers, each a top-level config key. Their order is only
-// the tie-break when dependsOn leaves two Providers unordered.
-export const PROVIDER_NAMES = ["vp", "repos", "brew", "cask"] as const;
+// the tie-break when dependsOn leaves two Providers unordered: packages come
+// before repos, whose array section cannot declare dependsOn, so an Install
+// Command can use a Formula installed in the same Ship.
+export const PROVIDER_NAMES = ["vp", "brew", "cask", "repos"] as const;
 export const ProviderName = Schema.Literals(PROVIDER_NAMES);
 export type ProviderName = typeof ProviderName.Type;
 

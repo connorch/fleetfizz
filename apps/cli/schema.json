@@ -212,7 +212,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["vp", "repos", "brew", "cask"]
+            "enum": ["vp", "brew", "cask", "repos"]
           },
           "allOf": [
             {
@@ -360,7 +360,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["vp", "repos", "brew", "cask"]
+            "enum": ["vp", "brew", "cask", "repos"]
           },
           "allOf": [
             {
@@ -492,7 +492,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["vp", "repos", "brew", "cask"]
+            "enum": ["vp", "brew", "cask", "repos"]
           },
           "allOf": [
             {

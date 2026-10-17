@@ -19,7 +19,7 @@ Everything that is the same for every Provider lives in the engine, written once
 
 ## dependsOn
 
-Dependencies are between Providers, not Items. A Provider declares the ones it always needs (repos need vp), and a section can add more (`"vp": { "dependsOn": [...] }`). Providers run in dependency order, with the built-in order breaking ties; a cycle is a config error that names the whole cycle.
+Dependencies are between Providers, not Items. A Provider declares the ones it always needs (repos need vp), and a section can add more (`"vp": { "dependsOn": [...] }`). Providers run in dependency order, with the built-in order (vp, brew, cask, repos) breaking ties, so a repo builds with the packages installed in the same Ship; a cycle is a config error that names the whole cycle.
 
 On each Machine, a Provider is held back when a dependency has a failed Item there, or is held back itself. Its changes and Questions become skips with `depends on <provider>`. A dependency with no Items on that Machine (not targeted, say brew on linux) holds nothing back: if it did, one `dependsOn` line would quietly stop every linux Machine. Apply is one shell script per Machine, so failures at runtime hold back dependents in shell, with one flag per Provider; their Steps print skip lines instead of running. Within a Provider, a Step that shares an Item with a failed Step is skipped, as before.
 

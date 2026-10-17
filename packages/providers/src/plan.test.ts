@@ -384,10 +384,12 @@ describe("the brew and cask Providers", () => {
       expect.objectContaining({ kind: "change", item: "jq", to: "latest" }),
       expect.objectContaining({ kind: "change", item: "oven-sh/bun/bun", to: "latest" }),
     ]);
-    const steps = result.providers.flatMap((p) =>
-      p.steps.map((s) => [s.id, s.items, s.run.join("").includes("brew update")]),
-    );
-    expect(steps.slice(-4)).toEqual([
+    // Packages come before repos, so an Install Command can use them.
+    expect(result.providers.map((p) => p.name)).toEqual(["vp", "brew", "cask", "repos"]);
+    const steps = result.providers
+      .filter((p) => p.name === "brew" || p.name === "cask")
+      .flatMap((p) => p.steps.map((s) => [s.id, s.items, s.run.join("").includes("brew update")]));
+    expect(steps).toEqual([
       ["brew:formulae:install", ["jq", "oven-sh/bun/bun"], true],
       ["brew:formulae:upgrade", ["tmux"], true],
       ["cask:casks:install", ["raycast"], false],
