@@ -24,7 +24,10 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
   "vp": {
     "version": "1.1.0",
     "node": "24.18.1",
-    "globals": { "vercel": "^59.25.4", "wrangler": "^4.136.3" },
+    "globals": {
+      "vercel": "^59.25.4",
+      "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
+    },
   },
 }
 ```
@@ -47,8 +50,10 @@ A Ship installs the newest version in a Global's Range when it is missing or bel
 
 A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
 
+Repos run after vp: when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+
 ## Targeting
 
-`repos` entries and the `vp` section take two optional fields that narrow where they apply. They combine with AND, and an unset field means every one.
+`repos` entries, the `vp` section, and each Global take two optional fields that narrow where they apply. They combine with AND, so a Global applies where both it and its section do, and an unset field means every one.
 
 <include>../generated/config/targeting.md</include>
