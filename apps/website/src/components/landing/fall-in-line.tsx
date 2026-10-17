@@ -4,6 +4,7 @@ import lightHevc from "@fleetfizz/video/renders/fall-in-line-light.mov";
 import lightWebm from "@fleetfizz/video/renders/fall-in-line-light.webm";
 import { cn } from "@fleetfizz/ui/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import { useReducedMotion } from "../../lib/use-reduced-motion";
 import { useDark } from "../theme-toggle";
 
 // Its colors are baked in, so packages/video renders it once per theme.
@@ -29,6 +30,7 @@ export function FallInLine({ className }: { className?: string }) {
   const video = useRef<HTMLVideoElement>(null);
   const [near, setNear] = useState(false);
   const [seen, setSeen] = useState(false);
+  const reduced = useReducedMotion();
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -48,15 +50,19 @@ export function FallInLine({ className }: { className?: string }) {
       observer.disconnect();
     };
   }, []);
-  // Runs again on a theme switch, which mounts a new <video>.
+  // Runs again on a theme switch, which mounts a new <video>, and when the
+  // reduced-motion setting changes, which stops it on the still.
   useEffect(() => {
     const el = video.current;
     if (!el) return;
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) el.currentTime = STILL;
+    if (reduced) {
+      el.pause();
+      el.currentTime = STILL;
+    }
     // play() rejects when a pause interrupts it, which is expected here.
     else if (near) el.play().catch(() => {});
     else el.pause();
-  }, [near, seen, theme]);
+  }, [near, seen, theme, reduced]);
   const { hevc, webm } = RENDERS[theme];
   return (
     <div ref={box} aria-hidden="true" className={cn("aspect-[4/1]", className)}>

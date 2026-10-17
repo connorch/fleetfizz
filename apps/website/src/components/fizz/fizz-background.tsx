@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useReducedMotion } from "../../lib/use-reduced-motion";
 import type { Palette } from "./bubbles";
 
 // The scene is client-only: the prerendered page is the plain fizz backdrop,
@@ -48,18 +49,6 @@ function usePalette(ref: React.RefObject<HTMLDivElement | null>): Palette | unde
     return () => observer.disconnect();
   }, [ref]);
   return palette;
-}
-
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const query = matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(query.matches);
-    const onChange = () => setReduced(query.matches);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return reduced;
 }
 
 // Keeps the backdrop when WebGL cannot start, rather than letting the error
