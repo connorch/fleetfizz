@@ -22,8 +22,14 @@ export const vpEnv = [
   `export PATH="\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"`,
 ].join("\n");
 
+// Puts Homebrew on PATH for the same reason: over ssh, linux login shells
+// skip the .bashrc line that does it. In the prelude, so repos' Install
+// Commands find what brew installed. Appended, so a brew already on PATH wins.
+const brewEnv = `export PATH="$PATH:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin"`;
+
 export const prelude = [
   vpEnv,
+  brewEnv,
   // JSON-escapes $1 for embedding inside a double-quoted JSON string.
   `ff_json() { printf '%s' "$1" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | tr -d '\\n'; }`,
   `ff_state() { printf 'ff-state %s\\n' "$1"; }`,

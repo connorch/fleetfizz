@@ -34,10 +34,6 @@ const HomebrewFact = Schema.Union([
 ]);
 const decodeFact = Schema.decodeUnknownOption(HomebrewFact);
 
-// Over ssh, linux login shells often skip the .bashrc line that puts
-// Homebrew on PATH. Appended, so a brew already on PATH wins.
-const BREW_PATH = `export PATH="$PATH:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin"`;
-
 const NO_BREW = "Homebrew is not installed; install it first";
 
 // One Homebrew Provider: `brew` for Formulae, `cask` for Casks.
@@ -60,8 +56,7 @@ const homebrew = <Name extends "brew" | "cask">(
       doing: what === "install" ? "installing" : "upgrading",
       run: [
         [
-          `( ${BREW_PATH}`,
-          `${update}NONINTERACTIVE=1 brew ${what} ${flag} ${names.map(quote).join(" ")}`,
+          `( ${update}NONINTERACTIVE=1 brew ${what} ${flag} ${names.map(quote).join(" ")}`,
           "ff_rc=$?",
           report(names),
           "exit $ff_rc )",
@@ -85,7 +80,6 @@ const homebrew = <Name extends "brew" | "cask">(
     },
     observe: (items) =>
       [
-        BREW_PATH,
         "if command -v brew >/dev/null 2>&1; then",
         `  ff_state "{\\"provider\\":\\"${name}\\",\\"fact\\":\\"brew\\",\\"version\\":\\"$(ff_json "$(brew --version 2>/dev/null | head -n 1 | sed 's/^Homebrew //')")\\"}"`,
         `  ${report(items.flatMap((i) => (i.kind === "package" ? [i.name] : [])))}`,
