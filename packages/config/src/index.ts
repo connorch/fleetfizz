@@ -14,11 +14,9 @@ export {
 export {
   DEFAULT_CLONE_ROOT,
   FleetConfig,
-  Global,
   isPin,
   MachineSettings,
   Platform,
-  PROVIDER_NAMES,
   ProviderName,
   Range,
   repoName,

@@ -157,7 +157,7 @@ export type AnyProvider = Provider<ProviderName, Targeted, unknown, unknown, unk
 
 // A "range" Question for an Item above its Range. Skipping is the default:
 // it changes nothing.
-export const rangeQuestion = (
+const rangeQuestion = (
   subject: string,
   installed: string,
   range: string,

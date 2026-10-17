@@ -40,6 +40,7 @@ import {
   checkScript,
   readLentToken,
   readTailnet,
+  type LentToken,
   type Machine,
   type Tailnet,
 } from "@fleetfizz/remote";
@@ -339,7 +340,9 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   // The Lent Token, only when a repo is targeted, read before resolving so
   // private repos resolve too. Without one, private repos fail and public
   // repos still ship.
-  const lent = targeted.some(({ provider, items }) => provider.name === "repos" && items.length > 0)
+  const lent: LentToken = targeted.some(
+    ({ provider, items }) => provider.name === "repos" && items.length > 0,
+  )
     ? yield* readLentToken()
     : { token: undefined };
   if (lent.token === undefined && lent.reason !== undefined) {

@@ -16,7 +16,6 @@ export {
   orderProviders,
   parseAddress,
   QUESTION_CHOICES,
-  rangeQuestion,
   type AnyProvider,
   type Context,
   type Decision,
