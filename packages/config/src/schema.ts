@@ -77,11 +77,17 @@ export type TrackedRepo = typeof TrackedRepo.Type;
 export const Global = Schema.Union([Range, Schema.Struct({ ...Targeting, range: Range })]);
 export type Global = typeof Global.Type;
 
-// Packages a Ship manages through other vp keys (or pins itself), and the vp
-// Item's own name, so they cannot be Globals too.
+// The package managers vp keeps a default version of, each its own vp key.
+export const PACKAGE_MANAGERS = ["npm", "pnpm", "yarn", "bun"] as const;
+export type PackageManager = (typeof PACKAGE_MANAGERS)[number];
+
+// Packages a Ship manages through other vp keys (or pins itself), and the
+// names of vp's implicit Items, so they cannot be Globals too.
 const NOT_GLOBALS: Readonly<Record<string, string>> = {
   vp: "the vp Item is vp itself; set it with vp.version",
+  mode: "the mode Item is vp's managed mode",
   node: "set Node with vp.node",
+  ...Object.fromEntries(PACKAGE_MANAGERS.map((pm) => [pm, `set ${pm} with vp.${pm}`])),
   "vite-plus": "set vp with vp.version",
   fleetfizz: "a Ship installs the fleetfizz that ships",
 };
@@ -98,6 +104,11 @@ export const VpSection = Schema.Struct({
   node: Schema.optionalKey(Range).annotateKey({
     description: "The default Node version. Pin it exactly.",
   }),
+  // Each package manager's default version.
+  npm: Schema.optionalKey(Range).annotateKey({ description: "The default npm version." }),
+  pnpm: Schema.optionalKey(Range).annotateKey({ description: "The default pnpm version." }),
+  yarn: Schema.optionalKey(Range).annotateKey({ description: "The default Yarn version." }),
+  bun: Schema.optionalKey(Range).annotateKey({ description: "The default Bun version." }),
   // Global package name -> Range, or { range, platforms?, machines? }.
   globals: Schema.optionalKey(
     Schema.Record(Schema.NonEmptyString, Global).check(
@@ -108,7 +119,8 @@ export const VpSection = Schema.Struct({
         },
         {
           title: "Globals",
-          description: "npm packages other than vp, node, vite-plus, and fleetfizz",
+          description:
+            "npm packages other than vp, node, a package manager, vite-plus, and fleetfizz",
         },
       ),
     ),

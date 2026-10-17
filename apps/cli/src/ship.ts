@@ -381,39 +381,46 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
         },
       }),
     }));
-  let planned = planAll(config, given);
 
   // Questions: every Machine's, before anything changes. A bump edits the
-  // config, so the plan is made again from the new Ranges.
-  const asked: Asked[] = planned.flatMap((g) =>
-    g.plan.providers.flatMap((pp) =>
-      pp.decisions.flatMap((d) =>
-        d.kind === "ask" ? [{ machine: g.machine.name, question: d.question }] : [],
+  // config, so the plan is made again from the new Ranges. An answer can
+  // reveal new Questions (managed mode exposes the defaults' Ranges, which
+  // may sit above a Range just bumped), so this repeats until a round
+  // decides nothing new. An answered Question that still asks is answered
+  // the same way again.
+  let cfg = config;
+  const decided = new Map<string, string>();
+  const answer: Context["answer"] = (kind, subject) =>
+    decided.get(`${kind}:${subject}`) ?? given(kind, subject);
+  let planned = planAll(cfg, answer);
+  for (;;) {
+    const asked: Asked[] = planned.flatMap((g) =>
+      g.plan.providers.flatMap((pp) =>
+        pp.decisions.flatMap((d) =>
+          d.kind === "ask" ? [{ machine: g.machine.name, question: d.question }] : [],
+        ),
       ),
-    ),
-  );
-  const answered = yield* askQuestions({
-    asked,
-    answer: given,
-    ledger,
-    ask: live.ask,
-    dryRun: flags.dryRun,
-  });
-  if (answered.length > 0) {
-    let cfg = config;
-    for (const { question, newest, answer } of answered) {
-      if (answer !== "bump" || question.bump === undefined) continue;
+    );
+    const answered = yield* askQuestions({
+      asked,
+      answer,
+      ledger,
+      ask: live.ask,
+      dryRun: flags.dryRun,
+    });
+    let progressed = false;
+    for (const { question, newest, answer: choice } of answered) {
+      const key = `${question.kind}:${question.subject}`;
+      progressed ||= !decided.has(key);
+      decided.set(key, choice);
+      if (choice !== "bump" || question.bump === undefined) continue;
       changing = true;
-      yield* bumpConfig(path, question.bump.path, newest);
+      const range = yield* bumpConfig(path, question.bump.path, newest);
+      progressed ||= range !== question.bump.range;
       cfg = yield* loadConfig(path);
     }
-    const decided = new Map(
-      answered.map((a) => [`${a.question.kind}:${a.question.subject}`, a.answer]),
-    );
-    planned = planAll(
-      cfg,
-      (kind, subject) => decided.get(`${kind}:${subject}`) ?? given(kind, subject),
-    );
+    if (!progressed) break;
+    planned = planAll(cfg, answer);
   }
 
   for (const { machine, plan: p } of planned) yield* ledger.plan(machine.name, p);

@@ -1,6 +1,6 @@
 # fleetfizz
 
-Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node default, global packages at semver ranges), Homebrew Formulae and Casks, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
+Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node and package-manager defaults, global packages at semver ranges), Homebrew Formulae and Casks, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/adr).
 
@@ -34,6 +34,7 @@ mkdir -p ~/.config/fleetfizz
   "vp": {
     "version": "1.1.0",
     "node": "24.18.1",
+    "pnpm": "^10",
     "globals": {
       "vercel": "^59.25.4",
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
@@ -70,7 +71,7 @@ The `vp`, `brew`, and `cask` sections, each Global or Homebrew package, and each
 
 `brew` (Formulae) and `cask` (Casks, macOS only) need Homebrew on the Machine; a Ship never installs it, and `brew:brew` fails on a Machine without it. Homebrew installs only a package's newest version, so a Range there is only `"*"` or `"latest"`. A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
 
-Flags: `--only <machine>` (repeatable), `--rebuild repos:<name>` to reinstall a Tracked Repo or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
+Flags: `--only <machine>` (repeatable), `--rebuild repos:<name>` to reinstall a Tracked Repo or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, `mode=managed|skip`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
 
 The Starting Machine needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
 

@@ -49,7 +49,7 @@ The phase of a Ship that turns the config and checked state into Steps and Quest
 _Avoid_: diff, preview
 
 **Question**:
-A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
+A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config, vp in system-first mode). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
 _Avoid_: conflict, prompt (a prompt is how a Question is asked)
 
 **Apply**:
@@ -71,7 +71,7 @@ One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos, Formu
 _Avoid_: kind, adapter, plugin, manager
 
 **Item**:
-One entry a Provider keeps in line on one Machine: vp, Node, a Global, a Tracked Repo, a Formula, a Cask. Written `provider:item` (`vp:node`, `repos:connorch-t3code`).
+One entry a Provider keeps in line on one Machine: vp, its mode, Node, a package manager, a Global, a Tracked Repo, a Formula, a Cask. Written `provider:item` (`vp:node`, `repos:connorch-t3code`).
 _Avoid_: resource, dependency, package
 
 ### Tracked Repos
@@ -115,7 +115,7 @@ _Avoid_: template, asset
 ### The vp section
 
 **vp section**:
-The part of the config that sets the vite-plus toolchain on each Machine: the vp version, the Node default, and the Globals.
+The part of the config that sets the vite-plus toolchain on each Machine: the vp version, managed mode, the Node and package-manager defaults, and the Globals.
 _Avoid_: toolchain config, runtime
 
 **Global**:
@@ -123,7 +123,7 @@ A package installed with `vp install -g`.
 _Avoid_: tool, binary, global package
 
 **Range**:
-A package.json semver spec (`^59.25.4`, `1.2.3`, `*`, `latest`) that a Global, vp, or Node must satisfy. A Formula or Cask takes only `*` or `latest`: Homebrew installs only the newest version.
+A package.json semver spec (`^59.25.4`, `1.2.3`, `*`, `latest`) that a Global, vp, Node, or a package manager must satisfy. A Formula or Cask takes only `*` or `latest`: Homebrew installs only the newest version.
 _Avoid_: version constraint, requirement
 
 ### Homebrew

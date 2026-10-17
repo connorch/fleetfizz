@@ -47,10 +47,12 @@ export interface Context extends Scope {
 
 // Every Question kind and its choices, so `--answer kind=choice` is checked
 // before anything runs. A "range" Question is an Item above its Range; a
-// "config" Question is a Stale Config (ADR 0008).
+// "config" Question is a Stale Config (ADR 0008); a "mode" Question is vp in
+// system-first mode (ADR 0011).
 export const QUESTION_CHOICES = {
   range: ["bump", "skip", "downgrade"],
   config: ["overwrite", "stop"],
+  mode: ["managed", "skip"],
 } as const;
 export type QuestionKind = keyof typeof QUESTION_CHOICES;
 export const isQuestionKind = (kind: string): kind is QuestionKind => kind in QUESTION_CHOICES;

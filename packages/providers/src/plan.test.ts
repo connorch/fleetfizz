@@ -31,14 +31,16 @@ const config: FleetConfig = {
 const SKILLS_HEAD = "abc1234000000000000000000000000000000000";
 const SKILLS_TIP = "def5678000000000000000000000000000000000";
 
+const versions = {
+  "vite-plus": ["1.0.0", "1.1.0"],
+  node: ["24.18.1", "24.19.0"],
+  vercel: ["58.0.0", "59.25.4", "59.30.0", "60.1.0"],
+  "inngest-cli": ["1.45.1"],
+  skills: ["1.5.7", "1.7.0"],
+};
+
 const resolved: PlanInput["resolved"] = {
-  vp: {
-    "vite-plus": ["1.0.0", "1.1.0"],
-    node: ["24.18.1", "24.19.0"],
-    vercel: ["58.0.0", "59.25.4", "59.30.0", "60.1.0"],
-    "inngest-cli": ["1.45.1"],
-    skills: ["1.5.7", "1.7.0"],
-  },
+  vp: versions,
   repos: { "connorch-skills": { commit: SKILLS_TIP } },
 };
 
@@ -50,6 +52,7 @@ type Global = { name: string; version: string; platform?: { node?: string } };
 // A MacBook Pro before its first Ship: old vp, old Globals, nothing cloned.
 const facts = (over: {
   vp?: { version: string; path: string } | null;
+  mode?: "managed" | "system-first";
   globals?: ReadonlyArray<Global>;
   rootPresent?: boolean;
   rootPath?: string;
@@ -67,7 +70,9 @@ const facts = (over: {
       ? [{ provider: "vp", fact: "vp", version: null }]
       : [
           { provider: "vp", fact: "vp", ...vp },
-          { provider: "vp", fact: "node", version: "24.18.1" },
+          { provider: "vp", fact: "mode", mode: over.mode ?? "managed" },
+          { provider: "vp", fact: "default", tool: "node", version: "24.18.1" },
+          { provider: "vp", fact: "default", tool: "pnpm", version: "10.0.0" },
           {
             provider: "vp",
             fact: "globals",
@@ -124,6 +129,7 @@ describe("the vp Provider", () => {
     const vp = provider(plan({}), "vp");
     expect(vp.decisions).toEqual([
       expect.objectContaining({ kind: "change", item: "vp", from: "1.0.0-rc.0", to: "1.1.0" }),
+      { kind: "leave", item: "mode", at: "managed" },
       { kind: "leave", item: "node", at: "24.18.1" },
       expect.objectContaining({ kind: "change", item: "vercel", from: "58.0.0", to: "59.30.0" }),
       expect.objectContaining({ kind: "change", item: "inngest-cli", to: "1.45.1" }),
@@ -167,6 +173,7 @@ describe("the vp Provider", () => {
     const vp = provider(result, "vp");
     expect(vp.steps.map((s) => s.id)).toEqual([
       "vp:vp:install",
+      "vp:mode:on",
       "vp:node:default",
       "vp:globals:install",
     ]);
@@ -174,7 +181,67 @@ describe("the vp Provider", () => {
     expect(vp.steps[0]?.run[0]).toMatch(
       /^curl -fsSL https:\/\/vite\.plus \| bash && .* && command vp upgrade '1\.1\.0'$/,
     );
-    expect(vp.steps[2]?.items).toEqual(["vercel", "inngest-cli", "skills", "fleetfizz"]);
+    expect(vp.steps[3]?.items).toEqual(["vercel", "inngest-cli", "skills", "fleetfizz"]);
+  });
+
+  it("keeps package managers' defaults, with Yarn 2 and newer from @yarnpkg/cli-dist", () => {
+    const vp = provider(
+      plan({
+        config: { ...config, vp: { ...config.vp, pnpm: "^10.2.0", yarn: "^4" } },
+        resolved: {
+          ...resolved,
+          vp: {
+            ...versions,
+            pnpm: ["10.0.0", "10.2.0"],
+            yarn: ["1.22.22"],
+            "@yarnpkg/cli-dist": ["4.18.1"],
+          },
+        },
+      }),
+      "vp",
+    );
+    expect(vp.decisions.filter((d) => d.item === "pnpm" || d.item === "yarn")).toEqual([
+      expect.objectContaining({ kind: "change", item: "pnpm", from: "10.0.0", to: "10.2.0" }),
+      expect.objectContaining({ kind: "change", item: "yarn", to: "4.18.1" }),
+    ]);
+    expect(vp.steps.filter((s) => s.id.endsWith(":default")).map((s) => s.run)).toEqual([
+      ["( command vp env default 'pnpm@10.2.0' )"],
+      ["( command vp env default 'yarn@4.18.1' )"],
+    ]);
+  });
+
+  it("asks to switch a system-first Machine to managed mode, skipping by default", () => {
+    const vp = (answers?: Readonly<Record<string, string>>) =>
+      provider(
+        plan({
+          state: facts({ mode: "system-first" }),
+          ...(answers === undefined ? {} : { answers }),
+        }),
+        "vp",
+      );
+    const asked = vp();
+    expect(asked.decisions.find((d) => d.item === "mode")).toMatchObject({
+      kind: "ask",
+      question: { kind: "mode", subject: "vp:mode", found: "system-first", default: "skip" },
+    });
+    expect(asked.decisions.find((d) => d.item === "node")).toMatchObject({
+      kind: "skip",
+      reason: "needs managed mode",
+    });
+    // The rest of the section still ships.
+    expect(asked.steps.map((s) => s.id)).toContain("vp:globals:install");
+    expect(vp({ "mode:vp:mode": "skip" }).decisions.find((d) => d.item === "mode")).toEqual({
+      kind: "skip",
+      item: "mode",
+      at: "system-first",
+      reason: "needs managed mode",
+    });
+    const managed = vp({ "mode:vp:mode": "managed" });
+    expect(managed.decisions.find((d) => d.item === "node")).toMatchObject({ kind: "leave" });
+    expect(managed.steps.map((s) => [s.id, s.run])).toContainEqual([
+      "vp:mode:on",
+      ["( command vp env on )"],
+    ]);
   });
 
   it("bootstraps vp without the registry when any version will do", () => {

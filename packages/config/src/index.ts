@@ -19,6 +19,8 @@ export {
   HomebrewRange,
   isPin,
   MachineSettings,
+  PACKAGE_MANAGERS,
+  type PackageManager,
   Platform,
   ProviderName,
   Range,
