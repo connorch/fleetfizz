@@ -196,7 +196,7 @@ describe("the vp Provider", () => {
       kind: "skip",
       item: "vercel",
       at: "60.1.0",
-      reason: "60.1.0 is above ^59.25.4",
+      reason: "is above ^59.25.4",
     });
     expect(vercel({ "range:vp:vercel": "downgrade" })).toMatchObject({
       kind: "change",

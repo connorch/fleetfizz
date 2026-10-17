@@ -205,8 +205,7 @@ export const decideRangeItem = (input: {
     case "ask": {
       const subject = address(input.provider, item);
       const answer = input.ctx.answer("range", subject);
-      if (answer === "skip")
-        return { kind: "skip", item, ...at, reason: `${decision.installed} is above ${range}` };
+      if (answer === "skip") return { kind: "skip", item, ...at, reason: `is above ${range}` };
       if (answer === "downgrade") {
         const target = decideRange(range, undefined, available);
         return target.kind === "install" ? install(target.version) : unavailable;
