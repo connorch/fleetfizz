@@ -79,11 +79,13 @@ The Starting Machine needs `tailscale` (with Tailscale SSH to the others) and `g
 
 Node 24 and pnpm 12. `pnpm install` once, then:
 
-| Command      | What it does                                    |
-| ------------ | ----------------------------------------------- |
-| `pnpm check` | typecheck, lint, format check, and tests        |
-| `pnpm build` | bundle the CLI to `apps/cli/dist/fleetfizz.mjs` |
-| `pnpm fmt`   | format                                          |
-| `pnpm og`    | render the site's share image and icons         |
+| Command             | What it does                                        |
+| ------------------- | --------------------------------------------------- |
+| `pnpm check`        | typecheck, lint, format check, and tests            |
+| `pnpm build`        | bundle the CLI to `apps/cli/dist/fleetfizz.mjs`     |
+| `pnpm fmt`          | format                                              |
+| `pnpm og`           | render the site's share image and icons             |
+| `pnpm video`        | open Remotion Studio for the site's motion graphics |
+| `pnpm video:render` | render them to transparent WebM and HEVC (macOS)    |
 
-Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: vp, repos, brew, and cask) are private and bundled into it.
+Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: vp, repos, brew, and cask) are private and bundled into it. For the site, `apps/website` is fleetfizz.com; `packages/brand-assets` holds the name, copy, colors, and glyph that it, `packages/og-image` (the share image and favicons), and `packages/video` (motion graphics as Remotion compositions) share.

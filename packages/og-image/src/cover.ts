@@ -1,4 +1,4 @@
-import { FIZZ, GLYPH, INK, NAME, SITE_URL, TAGLINE } from "@fleetfizz/website/brand";
+import { FIZZ, FONT, GLYPH, INK, NAME, SITE_URL, TAGLINE } from "@fleetfizz/brand-assets";
 import { createElement as h } from "react";
 
 // The share image: the hero as a 1200x630 card. The tagline top-left, the
@@ -15,9 +15,6 @@ import { createElement as h } from "react";
 
 export const WIDTH = 1200;
 export const HEIGHT = 630;
-
-// Satori needs a font file per weight it is asked for.
-export const FONT = "JetBrains Mono";
 
 // The scene: a glow low on the right, and six bubbles over it, screened so
 // overlaps add up. Each bubble is a translucent olive sphere with a brighter

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { NAME, SITE_URL, TAGLINE } from "../brand";
+import { NAME, SITE_URL, TAGLINE } from "@fleetfizz/brand-assets";
 import { markdownPath, markdownResponse, pagesInOrder } from "../lib/source";
 
 // The llms.txt index: every docs page, linked to its Markdown copy.

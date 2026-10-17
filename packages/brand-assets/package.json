@@ -1,0 +1,16 @@
+{
+  "name": "@fleetfizz/brand-assets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The fleetfizz brand: name, copy, colors, typeface, and the glyph's geometry.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}
