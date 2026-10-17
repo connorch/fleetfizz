@@ -117,4 +117,37 @@ describe("applyScript", () => {
         ]);
       }),
   );
+
+  it.effect("holds a Provider back through a dependency that has nothing to change", () =>
+    Effect.gen(function* () {
+      const markers = yield* run(
+        planOf([
+          provider({
+            name: "brew",
+            decisions: [{ kind: "change", item: "jq", to: "1.8.0", change: undefined }],
+            steps: [{ id: "brew:jq:install", items: ["jq"], doing: "installing", run: ["false"] }],
+          }),
+          provider({
+            name: "cask",
+            dependsOn: ["brew"],
+            decisions: [{ kind: "leave", item: "firefox", at: "140.0" }],
+          }),
+          provider({
+            name: "vp",
+            dependsOn: ["cask"],
+            decisions: [{ kind: "change", item: "vp", to: "1.1.0", change: undefined }],
+            steps: [{ id: "vp:vp:upgrade", items: ["vp"], doing: "upgrading", run: ["true"] }],
+          }),
+        ]),
+      );
+      expect(markers).toEqual([
+        "step config",
+        "ok config",
+        "step brew:jq:install",
+        "failed brew:jq:install",
+        "skipped vp:vp:upgrade: depends on cask",
+        "ok end",
+      ]);
+    }),
+  );
 });

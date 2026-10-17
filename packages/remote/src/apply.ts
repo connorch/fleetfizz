@@ -44,12 +44,14 @@ const configStep = (): string[] => {
 };
 
 // One Provider's Steps. A Provider whose dependency failed at runtime skips
-// every Step ("depends on <dependency>"); within a Provider, a Step sharing an
-// Item with a failed Step is skipped. Any failure holds back the Provider's
-// dependents. Flags are shell variables: ff_held_<provider>, and
-// ff_f_<provider>_<n> per Item.
+// every Step ("depends on <dependency>") and is held itself, even with no
+// Steps, so a hold passes down a chain as it does in planMachine. Within a
+// Provider, a Step sharing an Item with a failed Step is skipped. Any failure
+// holds back the Provider's dependents. Flags are shell variables:
+// ff_held_<provider>, and ff_f_<provider>_<n> per Item.
 const providerSteps = (plan: ProviderPlan): string[] => {
-  if (plan.steps.length === 0) return [];
+  // Nothing targeted: like planMachine, not a link in any chain.
+  if (plan.decisions.length === 0 && plan.steps.length === 0) return [];
   const held = `ff_held_${plan.name}`;
   const items = [...new Set(plan.steps.flatMap((step) => step.items))];
   const flag = (item: string) => `ff_f_${plan.name}_${items.indexOf(item)}`;
@@ -60,12 +62,16 @@ const providerSteps = (plan: ProviderPlan): string[] => {
     ...marked(s.id, s.run, [...s.items.map((item) => `${flag(item)}=1`), `${held}=1`]),
     "fi",
   ];
-  return [
+  const why = [
     `ff_why=""`,
     ...plan.dependsOn.map(
       (dep) =>
         `if [ -z "$ff_why" ] && [ -n "\${ff_held_${dep}:-}" ]; then ff_why=${quote(dep)}; fi`,
     ),
+  ];
+  if (plan.steps.length === 0) return [...why, `if [ -n "$ff_why" ]; then ${held}=1; fi`];
+  return [
+    ...why,
     `if [ -n "$ff_why" ]; then`,
     `${held}=1`,
     ...plan.steps.map((s) => skipLine(s.id, `"depends on $ff_why"`)),
