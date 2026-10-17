@@ -381,7 +381,6 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
         },
       }),
     }));
-  let planned = planAll(config, given);
 
   // Questions: every Machine's, before anything changes. A bump edits the
   // config, so the plan is made again from the new Ranges. An answer can
@@ -393,6 +392,7 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   const decided = new Map<string, string>();
   const answer: Context["answer"] = (kind, subject) =>
     decided.get(`${kind}:${subject}`) ?? given(kind, subject);
+  let planned = planAll(cfg, answer);
   for (;;) {
     const asked: Asked[] = planned.flatMap((g) =>
       g.plan.providers.flatMap((pp) =>
