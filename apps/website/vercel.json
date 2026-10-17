@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "pnpm build",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../packages/ui ../../apps/cli/package.json ../../pnpm-lock.yaml ../../pnpm-workspace.yaml"
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../packages ../../apps/cli/package.json ../../pnpm-lock.yaml ../../pnpm-workspace.yaml"
 }
