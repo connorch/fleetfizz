@@ -136,7 +136,7 @@ describe("the vp Provider", () => {
       expect.objectContaining({
         kind: "change",
         item: "skills",
-        reason: "installed on Node 22.0.0",
+        reason: "Node 22.0.0 → 24.18.1",
       }),
       expect.objectContaining({ kind: "change", item: "fleetfizz", to: "0.2.0" }),
     ]);
