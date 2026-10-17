@@ -24,6 +24,7 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
   "vp": {
     "version": "1.1.0",
     "node": "24.18.1",
+    "pnpm": "^10",
     "globals": {
       "vercel": "^59.25.4",
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
@@ -57,6 +58,8 @@ The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FL
 A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` always installs the newest version, and `*` installs only when missing. A Global not in the config is never uninstalled.
 
 A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
+
+Node and the package-manager defaults only take effect in vp's managed mode, where `node`, `npm`, `pnpm`, `yarn`, and `bun` run vp's version instead of a system install such as Homebrew's Node. A Machine with any tool in system-first mode gets a Question: switch it to managed mode (`vp env on`), or skip, which leaves the mode alone and skips that Machine's Node and package-manager defaults. Skip is the default, since switching changes which `node` every shell there runs.
 
 Repos run last, after vp and the Homebrew packages, so an Install Command can use a Formula installed in the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
