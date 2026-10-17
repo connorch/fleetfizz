@@ -1,64 +1,90 @@
-// Above-range Questions, asked in the live Ledger on the Starting Machine and
-// grouped by package. Without a terminal the answer is skip; --bump and
-// --enforce answer every Question in advance (ADR 0006).
+// Questions the Plan cannot answer alone, asked in the live Ledger on the
+// Starting Machine, once per kind and subject however many Machines ask.
+// `--answer` answers them in advance; without a terminal, each takes its
+// default (ADR 0006).
 import * as Effect from "effect/Effect";
 
 import { bumpedRange } from "@fleetfizz/config";
-import type { Question } from "@fleetfizz/core";
+import { isQuestionKind, QUESTION_CHOICES, type Context, type Question } from "@fleetfizz/core";
 
 import type { Ledger } from "./ledger.ts";
 import type { Live } from "./live.tsx";
-import type { ShipFlags } from "./ship.ts";
 
-export type Decision =
-  | { readonly kind: "bump"; readonly installed: string }
-  | { readonly kind: "skip" }
-  | { readonly kind: "downgrade" };
-
-// The newest installed version among the Machines asking, which is what a bump adopts.
-const newest = (group: ReadonlyArray<Question>): string =>
-  [...group]
-    .map((q) => q.installed)
-    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] ?? "";
-
-export const askQuestions = Effect.fn("askQuestions")(function* (
-  questions: ReadonlyArray<Question>,
-  flags: Pick<ShipFlags, "bump" | "enforce">,
-  ledger: Ledger,
-  ask: Live["ask"],
-) {
-  const groups = new Map<string, Question[]>();
-  for (const q of questions) groups.set(q.package, [...(groups.get(q.package) ?? []), q]);
-  const decided: Record<string, Decision> = {};
-  for (const [pkg, group] of groups) {
-    const where = group.map((q) => `${q.installed} on ${q.machine}`).join(", ");
-    const range = group[0]?.range ?? "";
-    const bump = { kind: "bump", installed: newest(group) } as const;
-    const bumpTitle = `bump the config to ${bumpedRange(range, newest(group))}`;
-    const answer = (decision: Decision) =>
-      decision.kind === "bump"
-        ? bumpTitle
-        : decision.kind === "skip"
-          ? "skip on these Machines"
-          : "downgrade into the range";
-    yield* ledger.note("ask", `${pkg} ${where} is above ${range}`);
-    const decision: Decision = flags.bump
-      ? bump
-      : flags.enforce
-        ? { kind: "downgrade" }
-        : ask === undefined
-          ? // The plan reports each skipped package; there is no one to ask.
-            { kind: "skip" }
-          : yield* ask<Decision>([
-              { title: bumpTitle, value: bump },
-              {
-                title: "skip on these Machines (leave as is, shown as skipped)",
-                value: { kind: "skip" },
-              },
-              { title: "downgrade into the range", value: { kind: "downgrade" } },
-            ]);
-    yield* ledger.note("answer", answer(decision));
-    decided[pkg] = decision;
+// `--answer` entries: `kind=choice` for every Question of a kind, or
+// `kind:subject=choice` for one (`range:vp:node=downgrade`). The more
+// specific answer wins.
+export const parseAnswers = (
+  raw: ReadonlyArray<string>,
+): { readonly answer: Context["answer"] } | { readonly invalid: string } => {
+  const given = new Map<string, string>();
+  for (const entry of raw) {
+    const at = entry.lastIndexOf("=");
+    const key = entry.slice(0, at);
+    const choice = entry.slice(at + 1);
+    const kind = key.split(":")[0] ?? "";
+    if (at <= 0 || !isQuestionKind(kind)) {
+      return {
+        invalid: `--answer ${entry}: expected kind=choice or kind:subject=choice, kind one of ${Object.keys(QUESTION_CHOICES).join(", ")}`,
+      };
+    }
+    const choices: ReadonlyArray<string> = QUESTION_CHOICES[kind];
+    if (!choices.includes(choice)) {
+      return { invalid: `--answer ${entry}: ${kind} takes ${choices.join(", ")}` };
+    }
+    given.set(key, choice);
   }
-  return decided;
+  return { answer: (kind, subject) => given.get(`${kind}:${subject}`) ?? given.get(kind) };
+};
+
+export interface Asked {
+  readonly machine: string;
+  readonly question: Question;
+}
+
+export interface Answered {
+  readonly question: Question;
+  readonly machines: ReadonlyArray<string>;
+  // The newest version found among them, which a bump adopts.
+  readonly newest: string;
+  readonly answer: string;
+}
+
+const newestOf = (found: ReadonlyArray<string>): string =>
+  found.toSorted((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] ?? "";
+
+// Notes each Question, then answers it: in advance, live, or by its default.
+// A dry run only notes them.
+export const askQuestions = Effect.fn("askQuestions")(function* (input: {
+  readonly asked: ReadonlyArray<Asked>;
+  readonly answer: Context["answer"];
+  readonly ledger: Ledger;
+  readonly ask: Live["ask"];
+  readonly dryRun: boolean;
+}) {
+  const groups = Map.groupBy(input.asked, (a) => `${a.question.kind}:${a.question.subject}`);
+  const answered: Answered[] = [];
+  for (const group of groups.values()) {
+    const question = group[0]?.question;
+    if (question === undefined) continue;
+    const newest = newestOf(group.map((a) => a.question.found));
+    const where = group.map((a) => `${a.question.found} on ${a.machine}`).join(", ");
+    yield* input.ledger.note("ask", `${question.subject} ${where} ${question.problem}`);
+    if (input.dryRun) {
+      yield* input.ledger.note("answer", "not asked (dry run)");
+      continue;
+    }
+    const choices = question.choices.map((c) => ({
+      value: c.value,
+      title:
+        c.value === "bump" && question.bump !== undefined
+          ? `bump the config to ${bumpedRange(question.bump.range, newest)}`
+          : c.title,
+    }));
+    const answer =
+      input.answer(question.kind, question.subject) ??
+      (input.ask === undefined ? question.default : yield* input.ask(choices));
+    yield* input.ledger.note("answer", choices.find((c) => c.value === answer)?.title ?? answer);
+    answered.push({ question, machines: group.map((a) => a.machine), newest, answer });
+  }
+  return answered;
 });

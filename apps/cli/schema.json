@@ -208,6 +208,18 @@
             }
           ]
         },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["vp", "repos"]
+          },
+          "allOf": [
+            {
+              "description": "Providers whose Items must succeed on a Machine before vp changes there."
+            }
+          ]
+        },
         "version": {
           "type": "string",
           "minLength": 1,
@@ -233,12 +245,65 @@
             "minLength": 1
           },
           "additionalProperties": {
-            "type": "string",
-            "minLength": 1
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "platforms": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "enum": ["darwin", "linux"]
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": ["darwin", "linux"]
+                    },
+                    "allOf": [
+                      {
+                        "description": "`darwin`, `linux`, or both."
+                      }
+                    ]
+                  },
+                  "machines": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "allOf": [
+                      {
+                        "description": "Machine names from `machines`."
+                      }
+                    ]
+                  },
+                  "range": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["range"],
+                "additionalProperties": false
+              }
+            ]
           },
           "allOf": [
             {
-              "description": "Global packages, each with a semver Range."
+              "description": "Global packages, each with a Range, or `{ range, platforms?, machines? }` to target one."
             }
           ]
         }

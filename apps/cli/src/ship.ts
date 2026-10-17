@@ -11,25 +11,27 @@ import * as Schema from "effect/Schema";
 import {
   bumpConfig,
   configPath,
-  DEFAULT_CLONE_ROOT,
   fleetConfigJsonSchema,
   loadConfig,
   parseConfig,
-  repoName,
   stampText,
   staleCopies,
   type Copy,
   type FleetConfig,
+  type ProviderName,
 } from "@fleetfizz/config";
 import {
-  NODE_PACKAGE,
-  plan,
-  VP_PACKAGE,
-  type Answer,
+  dependenciesOf,
+  machinesNamed,
+  orderProviders,
+  planMachine,
+  targetedItems,
+  type Context,
   type MachinePlan,
   type MachineState,
-  type Rebuild,
+  type Targeted,
 } from "@fleetfizz/core";
+import { PROVIDERS } from "@fleetfizz/providers";
 import {
   applyScript,
   applyStdin,
@@ -37,7 +39,6 @@ import {
   checkScript,
   readLentToken,
   readTailnet,
-  resolveVersions,
   type Machine,
   type Tailnet,
 } from "@fleetfizz/remote";
@@ -45,17 +46,17 @@ import {
 import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
 import { apply, check } from "./machine.ts";
-import { askQuestions } from "./questions.ts";
+import { askQuestions, parseAnswers, type Asked } from "./questions.ts";
 import { saveReport } from "./report.tsx";
 import { colorful, ledgerText, noteText } from "./view.tsx";
 
 export interface ShipFlags {
   readonly dryRun: boolean;
   readonly only: ReadonlyArray<string>;
+  // Addresses (`provider:item`), or `all`.
   readonly rebuild: ReadonlyArray<string>;
-  readonly bump: boolean;
-  readonly enforce: boolean;
-  readonly overwriteConfig: boolean;
+  // `--answer` entries (parseAnswers), the shortcut flags included.
+  readonly answers: ReadonlyArray<string>;
   readonly config: string | undefined;
   // The running fleetfizz version, pinned on every Machine (ADR 0008).
   readonly version: string;
@@ -82,8 +83,7 @@ const unknownMachines = (config: FleetConfig, tailnet: Tailnet, only: ReadonlyAr
   const known = new Set(tailnet.fleet.map((m) => m.name));
   const referenced = [
     ...Object.keys(config.machines),
-    ...(config.repos ?? []).flatMap((r) => r.machines ?? []),
-    ...(config.vp?.machines ?? []),
+    ...PROVIDERS.flatMap((p) => machinesNamed(p, config)),
     ...only,
   ];
   return [...new Set(referenced.filter((name) => !known.has(name)))];
@@ -111,19 +111,6 @@ const unshippable = (
   if (outsideFleet.length > 0) return `not in machines in ${source}: ${outsideFleet.join(", ")}`;
   return undefined;
 };
-
-const packagesToResolve = (config: FleetConfig): string[] => {
-  const vp = config.vp;
-  if (vp === undefined) return [];
-  return [
-    ...(vp.version === undefined ? [] : [VP_PACKAGE]),
-    ...(vp.node === undefined ? [] : [NODE_PACKAGE]),
-    ...Object.keys(vp.globals ?? {}),
-  ];
-};
-
-const rebuildOf = (flags: ShipFlags): Rebuild =>
-  flags.rebuild.length === 0 ? "none" : flags.rebuild.includes("all") ? "all" : flags.rebuild;
 
 // A Stale Config: one text of the config, newer than this one, and the
 // Machines that hold it (one Ship from elsewhere reaches several).
@@ -182,8 +169,15 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
 // before any change because the person picked a Stale Config, now written here.
 const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   const fs = yield* FileSystem.FileSystem;
+  const parsed = parseAnswers(flags.answers);
+  if ("invalid" in parsed) return yield* Effect.fail(new ShipError(parsed.invalid));
+  const given = parsed.answer;
   const path = flags.config ?? configPath(process.env);
   const config = yield* loadConfig(path);
+  const ordered = orderProviders(PROVIDERS, (p) => dependenciesOf(p, config));
+  if ("cycle" in ordered)
+    return yield* Effect.fail(new ShipError(`dependsOn cycle: ${ordered.cycle.join(" → ")}`));
+  const providers = ordered.order;
   const tailnet = yield* readTailnet();
 
   const problem = unshippable(config, tailnet, flags.only, path);
@@ -249,13 +243,6 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   yield* Effect.addFinalizer(() => finish());
   const live = redraw ? yield* startLive(store, color) : noLive;
 
-  const cloneRootOf = (machine: Machine) =>
-    config.machines[machine.name]?.clones ?? DEFAULT_CLONE_ROOT;
-  const checkRepos = (config.repos ?? []).map((r) => ({
-    name: repoName(r),
-    outputs: r.outputs ?? [],
-  }));
-
   // Check, in parallel. Every Machine is checked before any Question is asked.
   const checked: Checked[] = yield* Effect.forEach(
     targetsList,
@@ -269,7 +256,14 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
         yield* ledger.skip(machine.name, "no Tailscale SSH server");
         return undefined;
       }
-      const script = checkScript({ cloneRoot: cloneRootOf(machine), repos: checkRepos });
+      const identity = { name: machine.name, platform: machine.platform };
+      const script = checkScript({
+        scope: { machine: identity, config },
+        providers: providers.map((provider) => ({
+          provider,
+          items: targetedItems(provider, config, identity),
+        })),
+      });
       const result = yield* check({ name: machine.name, local }, script, ledger);
       if (result.kind !== "checked") return undefined;
       yield* ledger.checked(machine.name);
@@ -283,10 +277,13 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   const stale = yield* staleConfigs(config, own, checked, ledger);
   if (stale.length > 0) {
     const what = `newer config on ${stale.map((s) => s.description).join(", ")}`;
+    const answers = stale.flatMap((s) => s.machines).map((m) => given("config", m));
     if (flags.dryRun) {
       yield* ledger.note("info", `${what}; a Ship would ask before overwriting it`);
-    } else if (flags.overwriteConfig) {
-      yield* ledger.note("info", `${what}; overwriting it (--overwrite-config)`);
+    } else if (answers.every((a) => a === "overwrite")) {
+      yield* ledger.note("info", `${what}; overwriting it, as answered`);
+    } else if (answers.includes("stop")) {
+      return yield* Effect.fail(new ShipError("aborted: the config here is older"));
     } else if (live.ask === undefined) {
       return yield* Effect.fail(
         new ShipError(`${what}; copy it here first, or pass --overwrite-config`),
@@ -322,50 +319,82 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
     }
   }
 
-  const versions = yield* resolveVersions(packagesToResolve(config));
+  // The Lent Token, read before resolving so private repos resolve too.
+  // Without one, private repos fail and public repos still ship.
+  const lent = yield* readLentToken();
+  if (lent.token === undefined && lent.reason !== undefined && (config.repos ?? []).length > 0) {
+    yield* ledger.note("info", `no gh token (${lent.reason}); private repos will fail`);
+  }
 
-  const planAll = (cfg: FleetConfig, answers: Readonly<Record<string, Answer>>): Planned[] =>
+  // Each Provider resolves once, for every checked Machine's Items, so every
+  // Machine gets the same version or commit.
+  const resolved: Partial<Record<ProviderName, unknown>> = Object.fromEntries(
+    yield* Effect.forEach(
+      providers,
+      (provider) => {
+        const items = new Map<string, Targeted>();
+        for (const { machine } of checked)
+          for (const item of targetedItems(provider, config, machine)) items.set(item.name, item);
+        return provider
+          .resolve([...items.values()], lent.token === undefined ? {} : { token: lent.token })
+          .pipe(Effect.map((r) => [provider.name, r] as const));
+      },
+      { concurrency: "unbounded" },
+    ),
+  );
+
+  const planAll = (cfg: FleetConfig, answer: Context["answer"]): Planned[] =>
     checked.map((g) => ({
       ...g,
-      plan: plan({
-        config: cfg,
-        machine: { name: g.machine.name, platform: g.machine.platform },
+      plan: planMachine({
+        providers,
         state: g.state,
-        self: flags.version,
-        versions,
-        rebuild: rebuildOf(flags),
-        answers,
+        resolved,
+        ctx: {
+          machine: { name: g.machine.name, platform: g.machine.platform },
+          config: cfg,
+          self: flags.version,
+          rebuild: (address) => flags.rebuild.includes("all") || flags.rebuild.includes(address),
+          answer,
+        },
       }),
     }));
-  let cfg = config;
-  let planned = planAll(cfg, {});
+  let planned = planAll(config, given);
 
   // Questions: every Machine's, before anything changes. A bump edits the
   // config, so the plan is made again from the new Ranges.
-  const questions = planned.flatMap((g) => g.plan.questions);
-  if (questions.length > 0 && flags.dryRun) {
-    for (const q of questions) {
-      yield* ledger.note("ask", `${q.package} ${q.installed} on ${q.machine} is above ${q.range}`);
-      yield* ledger.note("answer", "not asked (dry run)");
-    }
-  }
-  if (questions.length > 0 && !flags.dryRun) {
-    const decided = yield* askQuestions(questions, flags, ledger, live.ask);
-    for (const [pkg, decision] of Object.entries(decided)) {
-      if (decision.kind !== "bump") continue;
-      changing = true;
-      yield* bumpConfig(path, pkg, decision.installed);
-    }
-    if (Object.values(decided).some((d) => d.kind === "bump")) cfg = yield* loadConfig(path);
-    const answers = Object.fromEntries(
-      Object.entries(decided).flatMap(([pkg, d]) =>
-        d.kind === "bump" ? [] : [[pkg, d.kind] as const],
+  const asked: Asked[] = planned.flatMap((g) =>
+    g.plan.providers.flatMap((pp) =>
+      pp.decisions.flatMap((d) =>
+        d.kind === "ask" ? [{ machine: g.machine.name, question: d.question }] : [],
       ),
+    ),
+  );
+  const answered = yield* askQuestions({
+    asked,
+    answer: given,
+    ledger,
+    ask: live.ask,
+    dryRun: flags.dryRun,
+  });
+  if (answered.length > 0) {
+    let cfg = config;
+    for (const { question, newest, answer } of answered) {
+      if (answer !== "bump" || question.bump === undefined) continue;
+      changing = true;
+      yield* bumpConfig(path, question.bump.path, newest);
+      cfg = yield* loadConfig(path);
+    }
+    const decided = new Map(
+      answered.map((a) => [`${a.question.kind}:${a.question.subject}`, a.answer]),
     );
-    planned = planAll(cfg, answers);
+    planned = planAll(
+      cfg,
+      (kind, subject) => decided.get(`${kind}:${subject}`) ?? given(kind, subject),
+    );
   }
 
-  for (const { machine, plan: p, state } of planned) yield* ledger.plan(machine.name, p, state);
+  for (const { machine, plan: p } of planned) yield* ledger.plan(machine.name, p);
 
   if (flags.dryRun) return;
 
@@ -382,28 +411,12 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   yield* fs.writeFileString(path, stamped);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
 
-  // The Lent Token, when any repo ships. Without one, private repos fail at
-  // fetch and public repos still ship.
-  const lent = planned.some((g) => g.plan.repos.length > 0)
-    ? yield* readLentToken()
-    : { token: undefined };
-  if (lent.token === undefined && lent.reason !== undefined) {
-    yield* ledger.note("info", `no gh token (${lent.reason}); private repos will fail`);
-  }
-
-  // Apply, in parallel. No Machine changed before this point. Install
-  // Commands see the whole Fleet, not just this Ship's targets.
-  const machineNames = [...fleet];
+  // Apply, in parallel. No Machine changed before this point.
   const stdin = applyStdin(lent.token, stamped, schema);
   const delivered: string[] = yield* Effect.forEach(
     planned,
     Effect.fn("applyOne")(function* ({ machine, local, plan: p }) {
-      const script = applyScript({
-        plan: p,
-        cloneRoot: cloneRootOf(machine),
-        env: { machine: machine.name, platform: machine.platform, machines: machineNames },
-      });
-      const applied = yield* apply({ name: machine.name, local }, p, script, stdin, ledger);
+      const applied = yield* apply({ name: machine.name, local }, p, applyScript(p), stdin, ledger);
       return applied.done.includes(CONFIG_STEP) ? machine.name : undefined;
     }),
     { concurrency: "unbounded" },

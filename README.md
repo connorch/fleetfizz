@@ -34,7 +34,10 @@ mkdir -p ~/.config/fleetfizz
   "vp": {
     "version": "1.1.0",
     "node": "24.18.1",
-    "globals": { "vercel": "^59.25.4", "wrangler": "^4.136.3" },
+    "globals": {
+      "vercel": "^59.25.4",
+      "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
+    },
   },
 }
 ```
@@ -47,13 +50,15 @@ fizz ship             # apply the plan everywhere, in parallel
 fizz report           # print the full Ledger of the last Ship from this Machine
 ```
 
-The Ledger lists each Machine and, under it, what changes there. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
+The Ledger lists each Machine and, under it, what changes there, by address: `vp:node`, `repos:connorch-t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 
 Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
 
 Each Install Command runs in a login shell inside its Managed Clone, with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
 
-Flags: `--only <machine>` (repeatable), `--rebuild <repo>` or `--rebuild all`, `--bump` and `--enforce` to answer above-range questions in advance, `--overwrite-config`, `--config <path>`.
+The `vp` section, each Global, and each repo can take `platforms` and `machines`; they combine with AND, so a Global applies where both it and its section do. Repos run after vp: when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+
+Flags: `--only <machine>` (repeatable), `--rebuild <address>` (`--rebuild repos:connorch-t3code`) or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
 
 The Starting Machine needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
 
@@ -68,4 +73,4 @@ Node 24 and pnpm 12. `pnpm install` once, then:
 | `pnpm fmt`   | format                                          |
 | `pnpm og`    | render the site's share image and icons         |
 
-Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (pure planning), and `packages/remote` (tailnet, transport, remote scripts) are private and bundled into it.
+Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: vp and repos) are private and bundled into it.

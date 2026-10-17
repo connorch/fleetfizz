@@ -2,7 +2,7 @@
 // into Ledger events. Check and Apply differ only in what they fold.
 import * as Effect from "effect/Effect";
 
-import { assembleState, type Fact, type MachinePlan, type MachineState } from "@fleetfizz/core";
+import { assembleState, type MachinePlan, type MachineState } from "@fleetfizz/core";
 import {
   END_STEP,
   parseLine,
@@ -61,7 +61,7 @@ const CHECK_TIMEOUT = "2 minutes";
 
 // The Check on one Machine: the script's Facts become its MachineState.
 export const check = Effect.fn("check")(function* (target: Target, script: string, ledger: Ledger) {
-  const facts: Fact[] = [];
+  const facts: unknown[] = [];
   const output: string[] = [];
   const run = yield* runOn(
     target,
@@ -144,14 +144,13 @@ export const apply = Effect.fn("apply")(function* (
             );
             break;
           }
+          case "skip":
+            yield* ledger.stepSkipped(target.name, line.skip.id, line.skip.reason);
+            break;
           case "text":
             if (line.text.trim() !== "") (current?.output ?? head).push(line.text.trimEnd());
             break;
           case "state":
-            // A fetch reports the commit it reached.
-            if (line.fact.fact === "repo" && line.fact.head !== undefined) {
-              yield* ledger.fetched(target.name, line.fact.name, line.fact.head);
-            }
             break;
         }
       }),
@@ -178,5 +177,6 @@ export const apply = Effect.fn("apply")(function* (
     yield* ledger.fail(target.name, ["apply did not finish", ...head]);
     return yield* finish("failed");
   }
-  return yield* finish(failed.length > 0 || p.failures.length > 0 ? "failed" : "ok");
+  const planFailed = p.providers.some((pp) => pp.decisions.some((d) => d.kind === "fail"));
+  return yield* finish(failed.length > 0 || planFailed ? "failed" : "ok");
 });

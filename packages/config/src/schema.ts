@@ -30,11 +30,22 @@ export const Origin = Schema.String.check(
 export const Ref = Schema.NonEmptyString;
 export const isPin = (ref: string): boolean => /^[0-9a-f]{40}$/.test(ref);
 
-// A package.json semver spec: "^59.25.4", "1.2.3", "*", "latest".
+// The built-in Providers, each a top-level config key. Their order is only
+// the tie-break when dependsOn leaves two Providers unordered.
+export const PROVIDER_NAMES = ["vp", "repos"] as const;
+export const ProviderName = Schema.Literals(PROVIDER_NAMES);
+export type ProviderName = typeof ProviderName.Type;
+
+// A package.json semver spec (ADR 0006):
+// - "*": install when missing, never upgrade.
+// - "latest": install or upgrade to the newest version on every Ship.
+// - a semver Range ("^59.25.4", "1.2.3"): leave inside, install the newest
+//   match when below or missing, ask when above.
 export const Range = Schema.NonEmptyString.check(
   Schema.makeFilter((range) => range === "latest" || semver.validRange(range) !== null, {
     title: "Range",
-    description: 'a semver range, "*", or "latest"',
+    description:
+      'a semver range (leave inside it, install below it, ask above it), "*" (install when missing, never upgrade), or "latest" (upgrade to the newest on every Ship)',
   }),
 );
 
@@ -60,8 +71,23 @@ export const TrackedRepo = Schema.Struct({
 });
 export type TrackedRepo = typeof TrackedRepo.Type;
 
+// A Global: its Range, or its Range with its own Targeting.
+export const Global = Schema.Union([Range, Schema.Struct({ ...Targeting, range: Range })]);
+export type Global = typeof Global.Type;
+
+// Packages a Ship manages through other vp keys (or pins itself), so they
+// cannot be Globals too.
+const NOT_GLOBALS: Readonly<Record<string, string>> = {
+  node: "set Node with vp.node",
+  "vite-plus": "set vp with vp.version",
+  fleetfizz: "a Ship installs the fleetfizz that ships",
+};
+
 export const VpSection = Schema.Struct({
   ...Targeting,
+  dependsOn: Schema.optionalKey(Schema.Array(ProviderName)).annotateKey({
+    description: "Providers whose Items must succeed on a Machine before vp changes there.",
+  }),
   // Exact pins are recommended for vp and Node: a change affects every tool.
   version: Schema.optionalKey(Range).annotateKey({
     description: "The vp version. Pin it exactly.",
@@ -69,8 +95,20 @@ export const VpSection = Schema.Struct({
   node: Schema.optionalKey(Range).annotateKey({
     description: "The default Node version. Pin it exactly.",
   }),
-  globals: Schema.optionalKey(Schema.Record(Schema.NonEmptyString, Range)).annotateKey({
-    description: "Global packages, each with a semver Range.",
+  // Global package name -> Range, or { range, platforms?, machines? }.
+  globals: Schema.optionalKey(
+    Schema.Record(Schema.NonEmptyString, Global).check(
+      Schema.makeFilter(
+        (globals) => {
+          const name = Object.keys(globals).find((n) => n in NOT_GLOBALS);
+          return name === undefined || `"${name}" is not a Global: ${NOT_GLOBALS[name]}`;
+        },
+        { title: "Globals", description: "npm packages other than node, vite-plus, and fleetfizz" },
+      ),
+    ),
+  ).annotateKey({
+    description:
+      "Global packages, each with a Range, or `{ range, platforms?, machines? }` to target one.",
   }),
 });
 export type VpSection = typeof VpSection.Type;

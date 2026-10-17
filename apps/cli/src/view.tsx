@@ -98,7 +98,7 @@ const statusOf = (i: Item, dryRun: boolean): Part & { readonly detail?: string |
       return { text: "– skipped", tone: "skip", detail: i.detail };
     case "ok":
       if (i.kind === "config") return { text: "✓ copied", tone: "dim" };
-      if (i.kind === "repo") {
+      if (i.kind === "record") {
         return i.from !== undefined && i.from === i.to
           ? { text: "✓ rebuilt", tone: "ok", detail: i.reason }
           : { text: "✓ installed", tone: "ok" };
@@ -107,7 +107,7 @@ const statusOf = (i: Item, dryRun: boolean): Part & { readonly detail?: string |
     case "idle":
       if (i.changes)
         return { text: dryRun ? "· planned" : "· queued", tone: "dim", detail: i.reason };
-      return { text: "", detail: i.kind === "repo" ? "up to date" : undefined };
+      return { text: "", detail: i.kind === "record" ? "up to date" : undefined };
   }
 };
 
@@ -124,7 +124,7 @@ const countsOf = (m: MachineEntry) => {
 };
 
 // Nothing left to run: Apply ended, or a dry run never runs it. A Machine
-// with nothing to change still copies the config and fetches its repos.
+// with nothing to change still copies the config.
 const settled = (m: MachineEntry, dryRun: boolean) =>
   dryRun || m.status === "ok" || m.status === "failed";
 
