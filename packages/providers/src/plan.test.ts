@@ -375,6 +375,7 @@ describe("the brew and cask Providers", () => {
   }));
 
   it("installs missing packages and upgrades latest ones, one batch Step each", () => {
+    // A batch with a "latest" Item runs brew update first.
     const result = plan({ config: homebrew, state: facts({ homebrew: installed }) });
     expect(provider(result, "brew").decisions).toEqual([
       { kind: "leave", item: "brew", at: "4.6.0" },
@@ -383,11 +384,14 @@ describe("the brew and cask Providers", () => {
       expect.objectContaining({ kind: "change", item: "jq", to: "latest" }),
       expect.objectContaining({ kind: "change", item: "oven-sh/bun/bun", to: "latest" }),
     ]);
-    expect(result.providers.flatMap((p) => p.steps.map((s) => [s.id, s.items])).slice(-4)).toEqual([
-      ["brew:formulae:install", ["jq", "oven-sh/bun/bun"]],
-      ["brew:formulae:upgrade", ["tmux"]],
-      ["cask:casks:install", ["raycast"]],
-      ["cask:casks:upgrade", ["ghostty"]],
+    const steps = result.providers.flatMap((p) =>
+      p.steps.map((s) => [s.id, s.items, s.run.join("").includes("brew update")]),
+    );
+    expect(steps.slice(-4)).toEqual([
+      ["brew:formulae:install", ["jq", "oven-sh/bun/bun"], true],
+      ["brew:formulae:upgrade", ["tmux"], true],
+      ["cask:casks:install", ["raycast"], false],
+      ["cask:casks:upgrade", ["ghostty"], true],
     ]);
   });
 

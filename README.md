@@ -70,7 +70,7 @@ The `vp` section, each Global, and each repo can take `platforms` and `machines`
 
 `brew` (Formulae) and `cask` (Casks, macOS only) need Homebrew on the Machine; a Ship never installs it, and `brew:brew` fails on a Machine without it. Homebrew installs only a package's newest version, so a Range there is only `"*"` or `"latest"`. A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
 
-Flags: `--only <machine>` (repeatable), `--rebuild <address>` (`--rebuild repos:connorch-t3code`) or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
+Flags: `--only <machine>` (repeatable), `--rebuild repos:<name>` to reinstall a Tracked Repo or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
 
 The Starting Machine needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
 

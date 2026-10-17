@@ -1,6 +1,7 @@
 // The brew and cask Providers: Formulae and Casks, installed with Homebrew.
 // Homebrew installs only a package's newest version, so a Range is "*"
-// (install when missing) or "latest" (brew update, then upgrade every Ship).
+// (install when missing) or "latest" (brew update, then install or upgrade
+// every Ship).
 // A Ship never installs Homebrew itself: the implicit `brew:brew` Item fails
 // on a Machine without it.
 import * as Effect from "effect/Effect";
@@ -24,6 +25,7 @@ export interface HomebrewObserved {
 export interface HomebrewChange {
   readonly kind: "install" | "upgrade";
   readonly name: string;
+  readonly range: HomebrewRange;
 }
 
 const HomebrewFact = Schema.Union([
@@ -46,22 +48,27 @@ const homebrew = <Name extends "brew" | "cask">(
   // Prints each named Item's installed version as an AtFact.
   const report = (names: ReadonlyArray<string>) =>
     `for ff_i in ${names.map(quote).join(" ")}; do ff_v=$(brew list --versions ${flag} "$ff_i" 2>/dev/null | awk '{print $NF}'); [ -z "$ff_v" ] || ff_at ${name} "$ff_i" "$ff_v"; done`;
-  // One Step for a batch, then the versions it reached. The subshell exits
-  // with the brew command's code, so the Step's result is that command's.
-  const step = (what: "install" | "upgrade", names: ReadonlyArray<string>): Step => ({
-    id: `${name}:${name === "brew" ? "formulae" : "casks"}:${what}`,
-    items: names,
-    doing: what === "install" ? "installing" : "upgrading",
-    run: [
-      [
-        `( ${BREW_PATH}`,
-        `${what === "upgrade" ? "brew update && " : ""}NONINTERACTIVE=1 brew ${what} ${flag} ${names.map(quote).join(" ")}`,
-        "ff_rc=$?",
-        report(names),
-        "exit $ff_rc )",
-      ].join("; "),
-    ],
-  });
+  // One Step for a batch, then the versions it reached. A batch with a
+  // "latest" Item runs brew update first. The subshell exits with the brew
+  // command's code, so the Step's result is that command's.
+  const step = (what: HomebrewChange["kind"], batch: ReadonlyArray<HomebrewChange>): Step => {
+    const names = batch.map((c) => c.name);
+    const update = batch.some((c) => c.range === "latest") ? "brew update && " : "";
+    return {
+      id: `${name}:${name === "brew" ? "formulae" : "casks"}:${what}`,
+      items: names,
+      doing: what === "install" ? "installing" : "upgrading",
+      run: [
+        [
+          `( ${BREW_PATH}`,
+          `${update}NONINTERACTIVE=1 brew ${what} ${flag} ${names.map(quote).join(" ")}`,
+          "ff_rc=$?",
+          report(names),
+          "exit $ff_rc )",
+        ].join("; "),
+      ],
+    };
+  };
   return {
     name,
     rule: "range",
@@ -119,7 +126,7 @@ const homebrew = <Name extends "brew" | "cask">(
             kind: "change",
             item: item.name,
             to: "latest",
-            change: { kind: "install", name: item.name },
+            change: { kind: "install", name: item.name, range: item.range },
           };
         // Whether "latest" is newer is only known after brew update, in Apply.
         if (item.range === "latest")
@@ -128,17 +135,15 @@ const homebrew = <Name extends "brew" | "cask">(
             item: item.name,
             from: installed,
             to: "latest",
-            change: { kind: "upgrade", name: item.name },
+            change: { kind: "upgrade", name: item.name, range: item.range },
           };
         return { kind: "leave", item: item.name, ...at };
       });
     },
     act(decisions) {
       const changes = decisions.flatMap((d) => (d.kind === "change" ? [d.change] : []));
-      const names = (kind: HomebrewChange["kind"]) =>
-        changes.flatMap((c) => (c.kind === kind ? [c.name] : []));
       return (["install", "upgrade"] as const).flatMap((what) => {
-        const batch = names(what);
+        const batch = changes.filter((c) => c.kind === what);
         return batch.length === 0 ? [] : [step(what, batch)];
       });
     },

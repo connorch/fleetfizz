@@ -4,7 +4,7 @@ Ship the config to every reachable Machine.
 | --- | --- |
 | `--dry-run` | Check and plan only. Print every Machine's plan and change nothing. |
 | `--only <machine>` | Ship only to this Machine. Repeat the flag for more. |
-| `--rebuild <item>` | Rebuild an Item (`provider:item`) even when it is up to date. `all` for every Item. |
+| `--rebuild <item>` | Rebuild a record Item (`repos:<name>`) even when it is up to date. `all` for every one. |
 | `--answer <answer>` | Answer a Question in advance: `kind=choice` or `kind:subject=choice`. Repeat the flag for more. |
 | `--bump` | Answer every above-range Question by bumping the config (`--answer range=bump`). |
 | `--enforce` | Answer every above-range Question by downgrading into the Range (`--answer range=downgrade`). |
