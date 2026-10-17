@@ -103,7 +103,6 @@ const homebrew = <Name extends "brew" | "cask">(
     decide({ items, observed, ctx }) {
       return items.map((item): Decision<HomebrewChange> => {
         const installed = observed.at.get(item.name);
-        const at = installed === undefined ? {} : { at: installed };
         if (item.kind === "homebrew")
           return observed.brew === undefined
             ? { kind: "fail", item: item.name, reason: NO_BREW }
@@ -131,7 +130,7 @@ const homebrew = <Name extends "brew" | "cask">(
             to: "latest",
             change: { kind: "upgrade", name: item.name, range: item.range },
           };
-        return { kind: "leave", item: item.name, ...at };
+        return { kind: "leave", item: item.name, at: installed };
       });
     },
     act(decisions) {

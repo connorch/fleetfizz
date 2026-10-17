@@ -58,7 +58,7 @@ A Ship installs the newest version in a Global's Range when it is missing or bel
 
 A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
 
-Repos run after vp: when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+Repos run last, after vp and the Homebrew packages, so an Install Command can use a Formula installed in the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
 ## brew
 

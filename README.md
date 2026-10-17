@@ -66,7 +66,7 @@ Every Ship copies this config (and `schema.json`, for editor validation) to ever
 
 Each Install Command runs in a login shell inside its Managed Clone, with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
 
-The `vp` section, each Global, and each repo can take `platforms` and `machines`; they combine with AND, so a Global applies where both it and its section do. Repos run after vp: when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+The `vp`, `brew`, and `cask` sections, each Global or Homebrew package, and each repo can take `platforms` and `machines`; they combine with AND, so a Global applies where both it and its section do. Repos run last, after vp and the Homebrew packages, so an Install Command can use a Formula installed in the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
 `brew` (Formulae) and `cask` (Casks, macOS only) need Homebrew on the Machine; a Ship never installs it, and `brew:brew` fails on a Machine without it. Homebrew installs only a package's newest version, so a Range there is only `"*"` or `"latest"`. A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
 
