@@ -96,6 +96,8 @@ export interface Ledger {
   readonly stepDone: (name: string, id: string, result: StepResult) => Effect.Effect<void>;
   // A Step the script skipped: an earlier Step failed, or a dependency did.
   readonly stepSkipped: (name: string, id: string, reason: string) => Effect.Effect<void>;
+  // An Apply Step reported the version an Item reached (core's AtFact).
+  readonly reached: (name: string, item: string, at: string) => Effect.Effect<void>;
   readonly finish: (name: string, outcome: Outcome) => Effect.Effect<void>;
   readonly end: Effect.Effect<LedgerState>;
 }
@@ -286,6 +288,14 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         const { doing: _, ...rest } = item;
         return { ...rest, status: "skipped", detail: reason, ended: now };
       }),
+    // "latest" becomes the version reached. An Item already there did not change.
+    reached: (name, item, at) =>
+      machine(name, (m) => ({
+        ...m,
+        items: m.items.map((i) =>
+          i.name !== item ? i : { ...i, to: at, changes: i.status === "failed" || i.from !== at },
+        ),
+      })),
     finish: (name, outcome) =>
       machine(name, (m, now) => ({
         ...m,

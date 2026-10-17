@@ -1,6 +1,6 @@
 # fleetfizz
 
-Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node default, global packages at semver ranges) and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
+Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node default, global packages at semver ranges), Homebrew Formulae and Casks, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/adr).
 
@@ -39,6 +39,16 @@ mkdir -p ~/.config/fleetfizz
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
     },
   },
+  // Homebrew packages: "*" installs when missing; "latest" runs brew update,
+  // then upgrades on every Ship. A tapped name taps on install.
+  "brew": {
+    "items": {
+      "gh": "*",
+      "oven-sh/bun/bun": "latest",
+      "tmux": { "range": "*", "platforms": ["linux"] },
+    },
+  },
+  "cask": { "items": { "ghostty": "latest" } },
 }
 ```
 
@@ -58,6 +68,8 @@ Each Install Command runs in a login shell inside its Managed Clone, with `FLEET
 
 The `vp` section, each Global, and each repo can take `platforms` and `machines`; they combine with AND, so a Global applies where both it and its section do. Repos run after vp: when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
+`brew` (Formulae) and `cask` (Casks, macOS only) need Homebrew on the Machine; a Ship never installs it, and `brew:brew` fails on a Machine without it. Homebrew installs only a package's newest version, so a Range there is only `"*"` or `"latest"`. A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
+
 Flags: `--only <machine>` (repeatable), `--rebuild <address>` (`--rebuild repos:connorch-t3code`) or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
 
 The Starting Machine needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
@@ -73,4 +85,4 @@ Node 24 and pnpm 12. `pnpm install` once, then:
 | `pnpm fmt`   | format                                          |
 | `pnpm og`    | render the site's share image and icons         |
 
-Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: vp and repos) are private and bundled into it.
+Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: vp, repos, brew, and cask) are private and bundled into it.

@@ -8,7 +8,15 @@ import type * as Schema from "effect/Schema";
 import { CliOutput, Command, type HelpDoc } from "effect/cli";
 import * as TestConsole from "effect/testing/TestConsole";
 
-import { FleetConfig, MachineSettings, Targeting, TrackedRepo, VpSection } from "@fleetfizz/config";
+import {
+  BrewSection,
+  CaskSection,
+  FleetConfig,
+  MachineSettings,
+  Targeting,
+  TrackedRepo,
+  VpSection,
+} from "@fleetfizz/config";
 
 import packageJson from "../package.json" with { type: "json" };
 import { fizz } from "./command.ts";
@@ -81,6 +89,8 @@ export const reference = Effect.gen(function* () {
     "config/machines.md": section("machines", MachineSettings.fields),
     "config/repos.md": section("repos", TrackedRepo.fields),
     "config/vp.md": section("vp", VpSection.fields),
+    "config/brew.md": section("brew", BrewSection.fields),
+    "config/cask.md": section("cask", CaskSection.fields),
     "config/targeting.md": `${table(
       ["Field", "Description"],
       Object.entries(Targeting).map(([name, field]) => [`\`${name}\``, describe(name, field)]),

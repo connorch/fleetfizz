@@ -67,11 +67,11 @@ _Avoid_: log
 ### Providers
 
 **Provider**:
-One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos), with its own section of the config.
+One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos, Formulae, Casks), with its own section of the config.
 _Avoid_: kind, adapter, plugin, manager
 
 **Item**:
-One entry a Provider keeps in line on one Machine: vp, Node, a Global, a Tracked Repo. Written `provider:item` (`vp:node`, `repos:connorch-t3code`).
+One entry a Provider keeps in line on one Machine: vp, Node, a Global, a Tracked Repo, a Formula, a Cask. Written `provider:item` (`vp:node`, `repos:connorch-t3code`).
 _Avoid_: resource, dependency, package
 
 ### Tracked Repos
@@ -123,8 +123,18 @@ A package installed with `vp install -g`.
 _Avoid_: tool, binary, global package
 
 **Range**:
-A package.json semver spec (`^59.25.4`, `1.2.3`, `*`, `latest`) that a Global, vp, or Node must satisfy.
+A package.json semver spec (`^59.25.4`, `1.2.3`, `*`, `latest`) that a Global, vp, or Node must satisfy. A Formula or Cask takes only `*` or `latest`: Homebrew installs only the newest version.
 _Avoid_: version constraint, requirement
+
+### Homebrew
+
+**Formula**:
+A Homebrew package, an Item of the `brew` Provider. Homebrew itself is the `brew:brew` Item, which a Ship checks but never installs.
+_Avoid_: brew package
+
+**Cask**:
+A Homebrew macOS app, an Item of the `cask` Provider. A Cask and a Formula can share a name (`ollama`).
+_Avoid_: app, brew app
 
 ### Secrets
 

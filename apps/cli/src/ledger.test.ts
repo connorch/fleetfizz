@@ -132,3 +132,66 @@ describe("the Ledger", () => {
     }),
   );
 });
+
+describe("an Item planned to latest", () => {
+  it.effect(
+    "shows the version it reached, and an upgrade that found nothing newer as unchanged",
+    () =>
+      Effect.gen(function* () {
+        const latest = (item: string, from?: string) =>
+          ({
+            kind: "change",
+            item,
+            ...(from === undefined ? {} : { from }),
+            to: "latest",
+            change: undefined,
+          }) as const;
+        const brew: ProviderPlan = {
+          name: "brew",
+          rule: "range",
+          dependsOn: [],
+          decisions: [latest("gh"), latest("tmux", "3.5a"), latest("jq", "1.7")],
+          steps: [
+            { id: "brew:formulae:install", items: ["gh"], doing: "installing", run: [] },
+            { id: "brew:formulae:upgrade", items: ["tmux", "jq"], doing: "upgrading", run: [] },
+          ],
+        };
+        const { ledger, store } = yield* makeLedger({
+          from: "studio",
+          dryRun: false,
+          machines: ["studio"],
+          print: () => Effect.void,
+        });
+        yield* ledger.plan("studio", plan("studio", [brew]));
+        yield* ledger.start("studio");
+        for (const [id, reached] of [
+          ["brew:formulae:install", [["gh", "2.80.0"]]],
+          [
+            "brew:formulae:upgrade",
+            [
+              ["tmux", "3.5a"],
+              ["jq", "1.8.1"],
+            ],
+          ],
+        ] as const) {
+          yield* ledger.stepStarted("studio", id);
+          for (const [item, at] of reached) yield* ledger.reached("studio", `brew:${item}`, at);
+          yield* ledger.stepDone("studio", id, { ok: true });
+        }
+        yield* ledger.finish("studio", "ok");
+        const ended = yield* ledger.end;
+        expect(ledgerText(ended, { full: true, now: store.get().now }, false)).toBe(
+          [
+            "",
+            "studio                            0.0s  2 of 2 done",
+            "✓ done    brew:gh    + 2.80.0     0.0s",
+            "          brew:tmux  3.5a         0.0s",
+            "✓ done    brew:jq    1.7 → 1.8.1  0.0s",
+            "          config",
+            "",
+            "1 updated  in 0.0s",
+          ].join("\n"),
+        );
+      }),
+  );
+});

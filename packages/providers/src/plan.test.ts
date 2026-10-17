@@ -55,6 +55,7 @@ const facts = (over: {
   rootPath?: string;
   repos?: ReadonlyArray<unknown>;
   records?: ReadonlyArray<unknown>;
+  homebrew?: ReadonlyArray<unknown>;
 }) => {
   const vp =
     over.vp === undefined
@@ -84,6 +85,7 @@ const facts = (over: {
     },
     ...(over.repos ?? []),
     ...(over.records ?? []),
+    ...(over.homebrew ?? []),
     { fact: "end" },
   ]);
 };
@@ -350,5 +352,72 @@ describe("the repos Provider", () => {
     const linux = plan({ machine: { name: "bluefin", platform: "linux" } });
     expect(provider(linux, "repos").decisions.map((d) => d.item)).toEqual(["connorch-skills"]);
     expect(stepIds(linux)).not.toContain("repos:kitlangton-psychopomp:fetch");
+  });
+});
+
+describe("the brew and cask Providers", () => {
+  const homebrew: FleetConfig = {
+    ...config,
+    brew: { items: { gh: "*", tmux: "latest", jq: "*", "oven-sh/bun/bun": "latest" } },
+    cask: { items: { ghostty: "latest", raycast: "*" } },
+  };
+  // Homebrew 4.6.0 with gh and tmux installed, and the ghostty Cask.
+  const installed = [
+    ...(["brew", "cask"] as const).map((p) => ({ provider: p, fact: "brew", version: "4.6.0" })),
+    { provider: "brew", fact: "at", item: "gh", at: "2.80.0" },
+    { provider: "brew", fact: "at", item: "tmux", at: "3.5a" },
+    { provider: "cask", fact: "at", item: "ghostty", at: "1.2.0" },
+  ];
+  const noBrew = (["brew", "cask"] as const).map((p) => ({
+    provider: p,
+    fact: "brew",
+    version: null,
+  }));
+
+  it("installs missing packages and upgrades latest ones, one batch Step each", () => {
+    const result = plan({ config: homebrew, state: facts({ homebrew: installed }) });
+    expect(provider(result, "brew").decisions).toEqual([
+      { kind: "leave", item: "brew", at: "4.6.0" },
+      { kind: "leave", item: "gh", at: "2.80.0" },
+      expect.objectContaining({ kind: "change", item: "tmux", from: "3.5a", to: "latest" }),
+      expect.objectContaining({ kind: "change", item: "jq", to: "latest" }),
+      expect.objectContaining({ kind: "change", item: "oven-sh/bun/bun", to: "latest" }),
+    ]);
+    expect(result.providers.flatMap((p) => p.steps.map((s) => [s.id, s.items])).slice(-4)).toEqual([
+      ["brew:formulae:install", ["jq", "oven-sh/bun/bun"]],
+      ["brew:formulae:upgrade", ["tmux"]],
+      ["cask:casks:install", ["raycast"]],
+      ["cask:casks:upgrade", ["ghostty"]],
+    ]);
+  });
+
+  it("fails brew:brew without Homebrew, skipping Formulae and failing Casks", () => {
+    const result = plan({ config: homebrew, state: facts({ homebrew: noBrew }) });
+    const brew = provider(result, "brew");
+    expect(brew.decisions[0]).toEqual({
+      kind: "fail",
+      item: "brew",
+      reason: "Homebrew is not installed; install it first",
+    });
+    expect(brew.decisions.slice(1).map((d) => d.kind)).toEqual(["skip", "skip", "skip", "skip"]);
+    expect(provider(result, "cask").decisions.map((d) => d.kind)).toEqual(["fail", "fail"]);
+    expect(stepIds(result).filter((id) => id.startsWith("brew") || id.startsWith("cask"))).toEqual(
+      [],
+    );
+  });
+
+  it("fails Casks on linux", () => {
+    const linux = plan({
+      config: homebrew,
+      machine: { name: "bluefin", platform: "linux" },
+      state: facts({ homebrew: installed }),
+    });
+    expect(provider(linux, "cask").decisions.map((d) => d.kind)).toEqual(["fail", "fail"]);
+  });
+
+  it("plans nothing for a Provider without a section", () => {
+    const result = plan({ state: facts({ homebrew: installed }) });
+    expect(provider(result, "brew").decisions).toEqual([]);
+    expect(provider(result, "cask").decisions).toEqual([]);
   });
 });

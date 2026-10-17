@@ -27,6 +27,8 @@ export const prelude = [
   // JSON-escapes $1 for embedding inside a double-quoted JSON string.
   `ff_json() { printf '%s' "$1" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | tr -d '\\n'; }`,
   `ff_state() { printf 'ff-state %s\\n' "$1"; }`,
+  // ff_at provider item version: the version an Item is at now (core's AtFact).
+  `ff_at() { ff_state "{\\"provider\\":\\"$(ff_json "$1")\\",\\"fact\\":\\"at\\",\\"item\\":\\"$(ff_json "$2")\\",\\"at\\":\\"$(ff_json "$3")\\"}"; }`,
 ].join("\n");
 
 // Fingerprints one path: a symlink by its target, a file by its sha256, a
