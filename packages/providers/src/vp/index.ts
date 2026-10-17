@@ -363,7 +363,7 @@ export const vp: Provider<"vp", VpItem, VpObserved, VpResolved, VpChange> = {
         item: d.item,
         from: current.version,
         to: current.version,
-        reason: `installed on Node ${node}`,
+        reason: `Node ${node} → ${nodeDefault}`,
         change: { kind: "reinstall", name: d.item, version: current.version },
       };
     });

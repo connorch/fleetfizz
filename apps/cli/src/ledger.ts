@@ -37,7 +37,7 @@ const Item = Schema.Struct({
   from: Schema.optionalKey(Schema.String),
   to: Schema.optionalKey(Schema.String),
   // Why it changes when the version or commit alone does not say
-  // ("never installed", "drift: ...", "installed on Node 22").
+  // ("never installed", "drift: ...", "Node 22 → 24").
   reason: Schema.optionalKey(Schema.String),
   // Planned to change, or failed.
   changes: Schema.Boolean,
