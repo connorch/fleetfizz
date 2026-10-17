@@ -34,7 +34,7 @@ const COMMENTS: Partial<Record<keyof FleetConfig, string>> = {
 };
 
 export interface Token {
-  kind: "key" | "string" | "comment" | "plain";
+  kind: "key" | "string" | "version" | "comment" | "plain";
   text: string;
 }
 
@@ -47,7 +47,11 @@ export function exampleTokens(): Token[] {
   const out: Token[] = [];
   const plain = (text: string) => out.push({ kind: "plain", text });
   const emit = (value: unknown, indent: string, comments?: Record<string, string>) => {
-    if (typeof value === "string") return out.push({ kind: "string", text: JSON.stringify(value) });
+    // A string that starts with a digit, or a range's ^ or ~ before one, is a version.
+    if (typeof value === "string") {
+      const kind = /^[\^~]?\d/.test(value) ? "version" : "string";
+      return out.push({ kind, text: JSON.stringify(value) });
+    }
     if (typeof value !== "object" || value === null) return plain(JSON.stringify(value));
     const entries = Array.isArray(value)
       ? value.map((v) => [undefined, v] as const)

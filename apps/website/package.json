@@ -15,6 +15,7 @@
     "@fleetfizz/brand-assets": "workspace:*",
     "@fleetfizz/config": "workspace:*",
     "@fleetfizz/ui": "workspace:*",
+    "@fleetfizz/video": "workspace:*",
     "@fontsource-variable/geist": "5.3.0",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@react-three/drei": "catalog:",

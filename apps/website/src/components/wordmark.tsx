@@ -19,13 +19,15 @@ export function Glyph({ className, ...props }: ComponentProps<"svg">) {
   );
 }
 
-// The logo's green: lime in the dark, and in the light a mid green that
-// reads as the brand on a light background (lime would wash out).
-const LOGO_GREEN = "text-[oklch(0.6_0.19_128)] dark:text-fizz";
-
 // The homepage brand on one line: "fleet", "fizz" in the brand color, then
-// the glyph.
-export function Wordmark({ className, ...props }: ComponentProps<"span">) {
+// the glyph. `onFizz` is for the light theme's lime backdrop, where the logo
+// green washes out: "fizz" and the glyph go to ink there, as in the poster.
+export function Wordmark({
+  className,
+  onFizz = false,
+  ...props
+}: ComponentProps<"span"> & { onFizz?: boolean }) {
+  const green = onFizz ? "text-fizz-foreground dark:text-fizz" : "text-logo";
   return (
     <span
       className={cn(
@@ -35,9 +37,9 @@ export function Wordmark({ className, ...props }: ComponentProps<"span">) {
       {...props}
     >
       <span>
-        fleet<span className={LOGO_GREEN}>fizz</span>
+        fleet<span className={green}>fizz</span>
       </span>
-      <Glyph className={LOGO_GREEN} />
+      <Glyph className={green} />
     </span>
   );
 }

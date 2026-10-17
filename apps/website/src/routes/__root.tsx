@@ -45,7 +45,7 @@ export const Route = createRootRoute({
     scripts: [{ children: themeInitScript }],
   }),
   notFoundComponent: () => (
-    <main className="mx-auto w-full max-w-5xl px-6 py-24">
+    <main className="mx-auto w-full max-w-6xl px-6 py-24">
       <h1 className="text-2xl font-semibold">404</h1>
       <p className="text-muted-foreground mt-2">There is no page here.</p>
     </main>

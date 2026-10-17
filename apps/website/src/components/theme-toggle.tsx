@@ -16,7 +16,7 @@ const subscribe = (onChange: () => void) => {
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
   return () => observer.disconnect();
 };
-const useDark = () => useSyncExternalStore(subscribe, isDark, () => true);
+export const useDark = () => useSyncExternalStore(subscribe, isDark, () => true);
 
 // Shows the theme a click would switch to: the sun in the dark, the moon in
 // the light.

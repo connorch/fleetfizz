@@ -7,14 +7,21 @@ import { useEffect, useRef, useState } from "react";
 
 // The landing page copy. Layout is the page's job.
 
-// The phases of a Ship, as CONTEXT.md names them. Questions belong to Plan.
+// Two of a Ship's phases, as CONTEXT.md names them, each word starting its
+// sentence. Plan, between them, is left off the page.
 export const PHASES = [
-  ["Check", "Read every Machine over Tailscale SSH. Change nothing."],
+  ["Check", "each machine's current configuration over Tailscale."],
   [
-    "Plan",
-    "Turn the config and each Machine's state into Steps. Every Question is asked on the Starting Machine before anything changes.",
+    "Apply",
+    "updates to vp, node, brew formulae and casks, and your projects, on the machines that need them.",
   ],
-  ["Apply", "Run the Steps on every Machine in parallel. Offline Machines are skipped."],
+] as const;
+
+// The commands a visitor runs, each with what it does.
+export const COMMANDS = [
+  ["fizz ship --dry-run", "check every Machine and print its plan; change nothing"],
+  ["fizz ship", "apply the plan everywhere, in parallel"],
+  ["fizz report", "print the full Ledger of the last Ship"],
 ] as const;
 
 // Not on the page yet; where it goes is still open.
