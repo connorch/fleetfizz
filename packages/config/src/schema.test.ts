@@ -64,7 +64,7 @@ describe("FleetConfig", () => {
   });
 
   it("rejects Globals the vp section manages elsewhere", () => {
-    for (const name of ["node", "vite-plus", "fleetfizz"]) {
+    for (const name of ["vp", "node", "vite-plus", "fleetfizz"]) {
       expect(ok({ machines: { a: {} }, vp: { globals: { [name]: "*" } } }), name).toBe(false);
     }
   });

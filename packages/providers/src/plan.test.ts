@@ -94,6 +94,7 @@ const plan = (over: {
   answers?: Readonly<Record<string, string>>;
   rebuild?: ReadonlyArray<string>;
   resolved?: PlanInput["resolved"];
+  config?: FleetConfig;
 }) =>
   planMachine({
     providers: PROVIDERS,
@@ -101,7 +102,7 @@ const plan = (over: {
     resolved: over.resolved ?? resolved,
     ctx: {
       machine: over.machine ?? MACBOOK,
-      config,
+      config: over.config ?? config,
       self: "0.2.0",
       rebuild: (a) => over.rebuild?.includes(a) ?? false,
       answer: (kind, subject) => over.answers?.[`${kind}:${subject}`],
@@ -172,6 +173,19 @@ describe("the vp Provider", () => {
       /^curl -fsSL https:\/\/vite\.plus \| bash && .* && command vp upgrade '1\.1\.0'$/,
     );
     expect(vp.steps[2]?.items).toEqual(["vercel", "inngest-cli", "skills", "fleetfizz"]);
+  });
+
+  it("bootstraps vp without the registry when any version will do", () => {
+    const vp = provider(
+      plan({
+        state: facts({ vp: null }),
+        config: { machines: config.machines },
+        resolved: { vp: {}, repos: {} },
+      }),
+      "vp",
+    );
+    expect(vp.decisions[0]).toMatchObject({ kind: "change", item: "vp", to: "latest" });
+    expect(vp.steps[0]?.run[0]).not.toContain("vp upgrade");
   });
 
   it("asks about a Global above its Range, and honors answers", () => {

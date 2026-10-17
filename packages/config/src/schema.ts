@@ -75,9 +75,10 @@ export type TrackedRepo = typeof TrackedRepo.Type;
 export const Global = Schema.Union([Range, Schema.Struct({ ...Targeting, range: Range })]);
 export type Global = typeof Global.Type;
 
-// Packages a Ship manages through other vp keys (or pins itself), so they
-// cannot be Globals too.
+// Packages a Ship manages through other vp keys (or pins itself), and the vp
+// Item's own name, so they cannot be Globals too.
 const NOT_GLOBALS: Readonly<Record<string, string>> = {
+  vp: "the vp Item is vp itself; set it with vp.version",
   node: "set Node with vp.node",
   "vite-plus": "set vp with vp.version",
   fleetfizz: "a Ship installs the fleetfizz that ships",
@@ -103,7 +104,10 @@ export const VpSection = Schema.Struct({
           const name = Object.keys(globals).find((n) => n in NOT_GLOBALS);
           return name === undefined || `"${name}" is not a Global: ${NOT_GLOBALS[name]}`;
         },
-        { title: "Globals", description: "npm packages other than node, vite-plus, and fleetfizz" },
+        {
+          title: "Globals",
+          description: "npm packages other than vp, node, vite-plus, and fleetfizz",
+        },
       ),
     ),
   ).annotateKey({

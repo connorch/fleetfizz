@@ -64,8 +64,8 @@ export interface VpObserved {
 type VpResolved = Readonly<Record<string, ReadonlyArray<string>>>;
 
 export type VpChange =
-  // vp's installer, then the resolved version.
-  | { readonly kind: "bootstrap"; readonly version: string }
+  // vp's installer, then the resolved version, if there is one.
+  | { readonly kind: "bootstrap"; readonly version?: string }
   | { readonly kind: "upgrade"; readonly version: string }
   | { readonly kind: "node"; readonly version: string }
   | { readonly kind: "global"; readonly name: string; readonly version: string }
@@ -145,6 +145,15 @@ const decideRanged = (
     bumpPath: item.bumpPath,
     ctx,
   });
+  // A bare Machine still gets the installer's newest vp when the registry
+  // cannot be read and any version will do.
+  if (
+    item.kind === "vp" &&
+    observed.vp === undefined &&
+    decision.kind === "fail" &&
+    (item.range === "*" || item.range === "latest")
+  )
+    return { kind: "change", item: item.name, to: "latest", change: { kind: "bootstrap" } };
   if (decision.kind !== "change") return decision;
   const version = decision.change;
   if (item.kind === "vp" && observed.vp === undefined)
@@ -275,7 +284,11 @@ export const vp: Provider<"vp", VpItem, VpObserved, VpResolved, VpChange> = {
             id: "vp:vp:install",
             items: ["vp"],
             doing: "installing",
-            run: [`${VP_INSTALL} && command vp upgrade ${quote(change.version)}`],
+            run: [
+              change.version === undefined
+                ? VP_INSTALL
+                : `${VP_INSTALL} && command vp upgrade ${quote(change.version)}`,
+            ],
           });
           break;
         case "upgrade":
