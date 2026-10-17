@@ -55,7 +55,7 @@ export interface ProviderPlan {
   readonly name: ProviderName;
   readonly rule: AnyProvider["rule"];
   readonly dependsOn: ReadonlyArray<ProviderName>;
-  readonly decisions: ReadonlyArray<Decision<unknown>>;
+  readonly decisions: ReadonlyArray<Decision<unknown, unknown>>;
   readonly steps: ReadonlyArray<Step>;
 }
 
@@ -78,9 +78,9 @@ export interface PlanInput {
 // Machine (or is held itself) changes nothing there; its changes and
 // Questions become skips. A dependency with no Items here holds nothing back.
 const hold = (
-  decisions: ReadonlyArray<Decision<unknown>>,
+  decisions: ReadonlyArray<Decision<unknown, unknown>>,
   by: ProviderName,
-): ReadonlyArray<Decision<unknown>> =>
+): ReadonlyArray<Decision<unknown, unknown>> =>
   decisions.map((d) =>
     d.kind === "change" || d.kind === "ask"
       ? {

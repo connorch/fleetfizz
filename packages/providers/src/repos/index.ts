@@ -180,11 +180,11 @@ const decideRepo = (
   observed: ReposObserved,
   resolved: ReposResolved,
   ctx: Context,
-): Decision<RepoChange> => {
+): Decision<RepoChange, RepoChange> => {
   const clone = observed.clones.get(repo.name);
   const record = observed.records.get(repo.name);
   const at = clone?.head === undefined ? {} : { at: short(clone.head) };
-  const fail = (reason: string): Decision<RepoChange> => ({
+  const fail = (reason: string): Decision<RepoChange, RepoChange> => ({
     kind: "fail",
     item: repo.name,
     ...at,
@@ -220,7 +220,11 @@ const decideRepo = (
       : clone.head !== commit
         ? `checked out at ${short(clone.head ?? "")}`
         : undefined;
-  if (reason === undefined) return { kind: "leave", item: repo.name, at: short(commit) };
+  const change = { item: repo, root, commit };
+  // An up-to-date clone is still reset and cleaned, with its Files rewritten,
+  // on every Ship (ADR 0002).
+  if (reason === undefined)
+    return { kind: "leave", item: repo.name, at: short(commit), upkeep: change };
   const from = record?.commit ?? clone?.head;
   return {
     kind: "change",
@@ -228,7 +232,7 @@ const decideRepo = (
     ...(from === undefined ? {} : { from: short(from) }),
     to: short(commit),
     reason,
-    change: { item: repo, root, commit },
+    change,
   };
 };
 
@@ -374,6 +378,10 @@ export const repos: Provider<"repos", RepoItem, ReposObserved, ReposResolved, Re
   },
   act: (decisions, ctx) =>
     decisions.flatMap((d) =>
-      d.kind === "change" ? [fetchStep(d.change), installStep(d.change, ctx)] : [],
+      d.kind === "change"
+        ? [fetchStep(d.change), installStep(d.change, ctx)]
+        : d.kind === "leave" && d.upkeep !== undefined
+          ? [fetchStep(d.upkeep)]
+          : [],
     ),
 };

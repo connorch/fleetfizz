@@ -284,13 +284,17 @@ describe("the repos Provider", () => {
     expect(repos.steps[0]?.run).toContain(`  git -C "$ff_d" reset --quiet --hard '${SKILLS_TIP}'`);
   });
 
-  it("leaves a repo whose record matches, and reinstalls on --rebuild", () => {
+  it("leaves a repo whose record matches, still resetting it, and reinstalls on --rebuild", () => {
     const state = facts({ repos: [skillsClone(SKILLS_TIP)], records: [skillsRecord(SKILLS_TIP)] });
-    expect(provider(plan({ state }), "repos").decisions[0]).toEqual({
+    const repos = provider(plan({ state }), "repos");
+    expect(repos.decisions[0]).toMatchObject({
       kind: "leave",
       item: "connorch-skills",
       at: "def5678",
     });
+    // A Managed Clone is reset on every Ship, without reinstalling.
+    expect(repos.steps.map((s) => s.id)).toContain("repos:connorch-skills:fetch");
+    expect(repos.steps.map((s) => s.id)).not.toContain("repos:connorch-skills:install");
     expect(
       provider(plan({ state, rebuild: ["repos:connorch-skills"] }), "repos").decisions[0],
     ).toMatchObject({ kind: "change", reason: "--rebuild" });

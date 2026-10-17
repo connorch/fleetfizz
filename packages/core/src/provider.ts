@@ -73,9 +73,17 @@ export interface Question {
 }
 
 // What a Ship does about one Item on one Machine. `at` is what the Machine
-// has now (a version, a commit), for the Ledger.
-export type Decision<Change> =
-  | { readonly kind: "leave"; readonly item: string; readonly at?: string }
+// has now (a version, a commit), for the Ledger. A "leave" may still carry
+// `upkeep` for `act`: work that keeps the Item as it is, such as a Managed
+// Clone's reset on every Ship, which the Ledger does not count as a change.
+// Decisions without upkeep (the default) fit any Provider.
+export type Decision<Change, Upkeep = never> =
+  | {
+      readonly kind: "leave";
+      readonly item: string;
+      readonly at?: string;
+      readonly upkeep?: Upkeep;
+    }
   | {
       readonly kind: "change";
       readonly item: string;
@@ -140,9 +148,9 @@ export interface Provider<
     readonly observed: Observed;
     readonly resolved: Resolved;
     readonly ctx: Context;
-  }): ReadonlyArray<Decision<Change>>;
+  }): ReadonlyArray<Decision<Change, Change>>;
   // The Steps for the decisions, in order. Never sees a held Provider.
-  act(decisions: ReadonlyArray<Decision<Change>>, ctx: Context): ReadonlyArray<Step>;
+  act(decisions: ReadonlyArray<Decision<Change, Change>>, ctx: Context): ReadonlyArray<Step>;
 }
 
 export type AnyProvider = Provider<ProviderName, Targeted, unknown, unknown, unknown>;

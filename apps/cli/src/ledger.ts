@@ -257,8 +257,6 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
           ? item
           : {
               ...item,
-              // Every Ship copies the config; that is not a change on its own.
-              changes: item.changes || id !== CONFIG_STEP,
               status: "running",
               doing: item.steps.find((step) => step.id === id)?.doing ?? "running",
               started: item.started ?? now,
