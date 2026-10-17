@@ -1,5 +1,5 @@
 import type { Ref } from "react";
-import { TAGLINE } from "../../brand";
+import { TAGLINE } from "@fleetfizz/brand-assets";
 import { PosterBrand, PosterLinks } from "../poster/poster-nav";
 import { Install } from "./content";
 import { Ledger } from "./ledger";

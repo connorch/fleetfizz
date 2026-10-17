@@ -10,7 +10,7 @@
     "test": "vp test run --config ../../vite.config.ts --dir . --passWithNoTests"
   },
   "devDependencies": {
-    "@fleetfizz/website": "workspace:*",
+    "@fleetfizz/brand-assets": "workspace:*",
     "@fontsource/jetbrains-mono": "5.3.0",
     "@resvg/resvg-js": "2.6.2",
     "@types/node": "catalog:",

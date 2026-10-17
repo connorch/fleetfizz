@@ -3,7 +3,7 @@ import "@fontsource-variable/jetbrains-mono";
 import { cn } from "@fleetfizz/ui/lib/utils";
 import { HeadContent, Outlet, Scripts, createRootRoute, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { INK, NAME, SITE_URL, TAGLINE } from "../brand";
+import { INK, NAME, SITE_URL, TAGLINE } from "@fleetfizz/brand-assets";
 import { SiteFooter } from "../components/site-footer";
 import { SiteNav } from "../components/site-nav";
 import { themeInitScript } from "../components/theme-toggle";

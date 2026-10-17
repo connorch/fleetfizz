@@ -4,9 +4,6 @@
   "private": true,
   "description": "fleetfizz.com",
   "type": "module",
-  "exports": {
-    "./brand": "./src/brand.ts"
-  },
   "scripts": {
     "dev": "vp dev",
     "build": "vp build",
@@ -15,6 +12,7 @@
     "test": "vp test run --config ../../vite.config.ts --dir . --passWithNoTests"
   },
   "dependencies": {
+    "@fleetfizz/brand-assets": "workspace:*",
     "@fleetfizz/config": "workspace:*",
     "@fleetfizz/ui": "workspace:*",
     "@fontsource-variable/geist": "5.3.0",

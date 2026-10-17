@@ -2,10 +2,12 @@ import { Resvg } from "@resvg/resvg-js";
 import { readFile } from "node:fs/promises";
 import { createElement as h } from "react";
 import satori, { type Font } from "satori";
-import { Cover, FONT, HEIGHT, WIDTH } from "./cover.ts";
+import { FONT } from "@fleetfizz/brand-assets";
+import { Cover, HEIGHT, WIDTH } from "./cover.ts";
 
 // React template -> SVG with satori -> PNG with resvg.
 
+// Satori needs a font file per weight it is asked for.
 const font = async (weight: NonNullable<Font["weight"]>): Promise<Font> => ({
   name: FONT,
   weight,

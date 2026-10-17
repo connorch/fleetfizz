@@ -5,7 +5,7 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
 import { cn } from "@fleetfizz/ui/lib/utils";
 import { type ComponentProps, Suspense, use } from "react";
-import { NAME } from "../../brand";
+import { NAME } from "@fleetfizz/brand-assets";
 import { DocsSearch } from "../../components/docs-search";
 import { GITHUB_URL, GithubLink } from "../../components/nav-buttons";
 import { ThemeToggle } from "../../components/theme-toggle";
