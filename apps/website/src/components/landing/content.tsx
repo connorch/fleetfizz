@@ -24,13 +24,6 @@ export const COMMANDS = [
   ["fizz report", "print the full Ledger of the last Ship"],
 ] as const;
 
-// Not on the page yet; where it goes is still open.
-export const NEEDS = [
-  ["Starting Machine", "tailscale with Tailscale SSH, gh logged in, vp"],
-  ["Every other Machine", "Tailscale SSH, git, curl, a shell"],
-  ["In the background", "Nothing. No agent, no daemon, no server."],
-] as const;
-
 const INSTALL = "vp install -g fleetfizz";
 
 // The install command with a copy button. The copy icon plays on the click,
