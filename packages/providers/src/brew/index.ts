@@ -41,9 +41,12 @@ const homebrew = <Name extends "brew" | "cask">(
   name: Name,
 ): Provider<Name, HomebrewItem, HomebrewObserved, void, HomebrewChange> => {
   const flag = name === "brew" ? "--formula" : "--cask";
-  // Prints each named Item's installed version as an AtFact.
+  // Prints each named Item's installed version as an AtFact. A tapped Cask
+  // (owner/tap/app) is listed by its token: `brew list --cask` looks names up
+  // in the Caskroom, which keys installs by token alone.
+  const lookup = name === "brew" ? '"$ff_i"' : '"${ff_i##*/}"';
   const report = (names: ReadonlyArray<string>) =>
-    `for ff_i in ${names.map(quote).join(" ")}; do ff_v=$(brew list --versions ${flag} "$ff_i" 2>/dev/null | awk '{print $NF}'); [ -z "$ff_v" ] || ff_at ${name} "$ff_i" "$ff_v"; done`;
+    `for ff_i in ${names.map(quote).join(" ")}; do ff_v=$(brew list --versions ${flag} ${lookup} 2>/dev/null | awk '{print $NF}'); [ -z "$ff_v" ] || ff_at ${name} "$ff_i" "$ff_v"; done`;
   // One Step for a batch, then the versions it reached. A batch with a
   // "latest" Item runs brew update first. The subshell exits with the brew
   // command's code, so the Step's result is that command's.
