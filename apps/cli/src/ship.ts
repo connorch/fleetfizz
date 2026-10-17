@@ -174,13 +174,16 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   const parsed = parseAnswers(flags.answers);
   if ("invalid" in parsed) return yield* Effect.fail(new ShipError(parsed.invalid));
   const given = parsed.answer;
-  // A bare repo name (the form before ADR 0010) would quietly match nothing.
+  // Only record Items rebuild; anything else, like a bare repo name (the form
+  // before ADR 0010), would quietly match nothing.
   const notAddress = flags.rebuild.find(
-    (r) => r !== "all" && !PROVIDERS.some((p) => p.name === parseAddress(r)?.provider),
+    (r) =>
+      r !== "all" &&
+      !PROVIDERS.some((p) => p.rule === "record" && p.name === parseAddress(r)?.provider),
   );
   if (notAddress !== undefined)
     return yield* Effect.fail(
-      new ShipError(`--rebuild ${notAddress}: expected provider:item (repos:<name>) or all`),
+      new ShipError(`--rebuild ${notAddress}: expected a record Item (repos:<name>) or all`),
     );
   const path = flags.config ?? configPath(process.env);
   const config = yield* loadConfig(path);

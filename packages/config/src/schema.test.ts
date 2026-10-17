@@ -69,6 +69,15 @@ describe("FleetConfig", () => {
     }
   });
 
+  it("takes only * or latest for a Formula or Cask, and no Formula named brew", () => {
+    expect(ok({ machines: { a: {} }, brew: { items: { gh: "*", tmux: "latest" } } })).toBe(true);
+    expect(ok({ machines: { a: {} }, cask: { items: { ghostty: { range: "latest" } } } })).toBe(
+      true,
+    );
+    expect(ok({ machines: { a: {} }, brew: { items: { gh: "^2.0.0" } } })).toBe(false);
+    expect(ok({ machines: { a: {} }, brew: { items: { brew: "*" } } })).toBe(false);
+  });
+
   it("rejects an unknown Provider in dependsOn", () => {
     expect(ok({ machines: { a: {} }, vp: { dependsOn: ["repos"] } })).toBe(true);
     expect(ok({ machines: { a: {} }, vp: { dependsOn: ["npm"] } })).toBe(false);

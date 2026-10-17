@@ -24,6 +24,16 @@ const EngineFact = Schema.Union([
 ]);
 const ProviderFact = Schema.Struct({ provider: Schema.String });
 
+// The version an Item is at now, printed by `ff_at` during a Check and after
+// an Apply Step, so the Ledger shows what a Step reached ("latest" -> 1.8.1).
+// A Provider Fact: the Check routes it to its Provider like any other.
+export const AtFact = Schema.Struct({
+  provider: Schema.String,
+  fact: Schema.Literal("at"),
+  item: Schema.String,
+  at: Schema.String,
+});
+
 const decodeEngineFact = Schema.decodeUnknownOption(EngineFact);
 const decodeProviderFact = Schema.decodeUnknownOption(ProviderFact);
 

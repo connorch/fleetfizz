@@ -1,8 +1,15 @@
 // Running one generated script on one Machine and folding its marker lines
 // into Ledger events. Check and Apply differ only in what they fold.
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 
-import { assembleState, type MachinePlan, type MachineState } from "@fleetfizz/core";
+import {
+  address,
+  assembleState,
+  AtFact,
+  type MachinePlan,
+  type MachineState,
+} from "@fleetfizz/core";
 import {
   END_STEP,
   parseLine,
@@ -13,6 +20,8 @@ import {
 } from "@fleetfizz/remote";
 
 import type { Ledger, Outcome } from "./ledger.ts";
+
+const decodeAt = Schema.decodeUnknownOption(AtFact);
 
 type Run =
   | { readonly kind: "ran"; readonly exitCode: number }
@@ -150,8 +159,16 @@ export const apply = Effect.fn("apply")(function* (
           case "text":
             if (line.text.trim() !== "") (current?.output ?? head).push(line.text.trimEnd());
             break;
-          case "state":
+          case "state": {
+            const at = decodeAt(line.fact);
+            if (at._tag === "Some")
+              yield* ledger.reached(
+                target.name,
+                address(at.value.provider, at.value.item),
+                at.value.at,
+              );
             break;
+          }
         }
       }),
     ledger,

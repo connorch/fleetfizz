@@ -31,8 +31,10 @@ export const Ref = Schema.NonEmptyString;
 export const isPin = (ref: string): boolean => /^[0-9a-f]{40}$/.test(ref);
 
 // The built-in Providers, each a top-level config key. Their order is only
-// the tie-break when dependsOn leaves two Providers unordered.
-export const PROVIDER_NAMES = ["vp", "repos"] as const;
+// the tie-break when dependsOn leaves two Providers unordered: packages come
+// before repos, whose array section cannot declare dependsOn, so an Install
+// Command can use a Formula installed in the same Ship.
+export const PROVIDER_NAMES = ["vp", "brew", "cask", "repos"] as const;
 export const ProviderName = Schema.Literals(PROVIDER_NAMES);
 export type ProviderName = typeof ProviderName.Type;
 
@@ -117,6 +119,48 @@ export const VpSection = Schema.Struct({
 });
 export type VpSection = typeof VpSection.Type;
 
+// A Formula's or Cask's Range. Homebrew installs only its newest version:
+// - "*": install when missing, never upgrade.
+// - "latest": brew update, then upgrade on every Ship.
+export const HomebrewRange = Schema.Literals(["*", "latest"]).annotate({
+  description:
+    '"*" (install when missing, never upgrade) or "latest" (brew update, then upgrade on every Ship)',
+});
+export type HomebrewRange = typeof HomebrewRange.Type;
+
+// Formula or Cask name -> Range, or { range, platforms?, machines? }. A
+// tapped name ("oven-sh/bun/bun") taps on install.
+const HomebrewItems = Schema.Record(
+  Schema.NonEmptyString,
+  Schema.Union([HomebrewRange, Schema.Struct({ ...Targeting, range: HomebrewRange })]),
+);
+
+// A brew or cask section; `noun` names its Items in their key description.
+const homebrewSection = (items: typeof HomebrewItems, noun: string) =>
+  Schema.Struct({
+    ...Targeting,
+    dependsOn: Schema.optionalKey(Schema.Array(ProviderName)).annotateKey({
+      description: "Providers whose Items must succeed on a Machine before this one changes there.",
+    }),
+    items: Schema.optionalKey(items).annotateKey({
+      description: `${noun}, each \`"*"\` or \`"latest"\`, or \`{ range, platforms?, machines? }\` to target one. A tapped name (\`owner/tap/name\`) taps on install.`,
+    }),
+  });
+
+// Formulae. Homebrew itself is the implicit `brew:brew` Item, so no Formula takes its name.
+export const BrewSection = homebrewSection(
+  HomebrewItems.check(
+    Schema.makeFilter((items) => !Object.hasOwn(items, "brew") || '"brew" is Homebrew itself', {
+      title: "Formulae",
+      description: "Formulae other than brew",
+    }),
+  ),
+  "Formulae",
+);
+
+// Casks, macOS only. Always after brew.
+export const CaskSection = homebrewSection(HomebrewItems, "Casks");
+
 export const DEFAULT_CLONE_ROOT = "~/.local/share/fleetfizz/clones";
 
 export const MachineSettings = Schema.Struct({
@@ -153,6 +197,12 @@ export const FleetConfig = Schema.Struct({
       "Each Tracked Repo is cloned on every targeted Machine and installed from its origin ref.",
   }),
   vp: Schema.optionalKey(VpSection).annotateKey({ description: "The vite-plus toolchain." }),
+  brew: Schema.optionalKey(BrewSection).annotateKey({
+    description: "Homebrew Formulae. Needs Homebrew on the Machine; a Ship never installs it.",
+  }),
+  cask: Schema.optionalKey(CaskSection).annotateKey({
+    description: "Homebrew Casks, macOS only. Needs Homebrew on the Machine.",
+  }),
 });
 export type FleetConfig = typeof FleetConfig.Type;
 

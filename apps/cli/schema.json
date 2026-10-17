@@ -212,7 +212,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["vp", "repos"]
+            "enum": ["vp", "brew", "cask", "repos"]
           },
           "allOf": [
             {
@@ -312,6 +312,270 @@
       "allOf": [
         {
           "description": "The vite-plus toolchain."
+        }
+      ]
+    },
+    "brew": {
+      "type": "object",
+      "properties": {
+        "platforms": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string",
+              "enum": ["darwin", "linux"]
+            }
+          ],
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["darwin", "linux"]
+          },
+          "allOf": [
+            {
+              "description": "`darwin`, `linux`, or both."
+            }
+          ]
+        },
+        "machines": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allOf": [
+            {
+              "description": "Machine names from `machines`."
+            }
+          ]
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["vp", "brew", "cask", "repos"]
+          },
+          "allOf": [
+            {
+              "description": "Providers whose Items must succeed on a Machine before this one changes there."
+            }
+          ]
+        },
+        "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["*", "latest"],
+                "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "platforms": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "enum": ["darwin", "linux"]
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": ["darwin", "linux"]
+                    },
+                    "allOf": [
+                      {
+                        "description": "`darwin`, `linux`, or both."
+                      }
+                    ]
+                  },
+                  "machines": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "allOf": [
+                      {
+                        "description": "Machine names from `machines`."
+                      }
+                    ]
+                  },
+                  "range": {
+                    "type": "string",
+                    "enum": ["*", "latest"],
+                    "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                  }
+                },
+                "required": ["range"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "allOf": [
+            {
+              "description": "Formulae, each `\"*\"` or `\"latest\"`, or `{ range, platforms?, machines? }` to target one. A tapped name (`owner/tap/name`) taps on install."
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "description": "Homebrew Formulae. Needs Homebrew on the Machine; a Ship never installs it."
+        }
+      ]
+    },
+    "cask": {
+      "type": "object",
+      "properties": {
+        "platforms": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string",
+              "enum": ["darwin", "linux"]
+            }
+          ],
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["darwin", "linux"]
+          },
+          "allOf": [
+            {
+              "description": "`darwin`, `linux`, or both."
+            }
+          ]
+        },
+        "machines": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allOf": [
+            {
+              "description": "Machine names from `machines`."
+            }
+          ]
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["vp", "brew", "cask", "repos"]
+          },
+          "allOf": [
+            {
+              "description": "Providers whose Items must succeed on a Machine before this one changes there."
+            }
+          ]
+        },
+        "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["*", "latest"],
+                "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "platforms": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "enum": ["darwin", "linux"]
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": ["darwin", "linux"]
+                    },
+                    "allOf": [
+                      {
+                        "description": "`darwin`, `linux`, or both."
+                      }
+                    ]
+                  },
+                  "machines": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "allOf": [
+                      {
+                        "description": "Machine names from `machines`."
+                      }
+                    ]
+                  },
+                  "range": {
+                    "type": "string",
+                    "enum": ["*", "latest"],
+                    "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                  }
+                },
+                "required": ["range"],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "allOf": [
+            {
+              "description": "Casks, each `\"*\"` or `\"latest\"`, or `{ range, platforms?, machines? }` to target one. A tapped name (`owner/tap/name`) taps on install."
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "description": "Homebrew Casks, macOS only. Needs Homebrew on the Machine."
         }
       ]
     }

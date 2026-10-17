@@ -33,5 +33,5 @@ export {
   type InstallInputs,
   type InstallRecord,
 } from "./record.ts";
-export { assembleState, emptyState, type MachineState } from "./state.ts";
+export { assembleState, AtFact, emptyState, type MachineState } from "./state.ts";
 export { targets, type MachineIdentity, type Targeting } from "./targeting.ts";

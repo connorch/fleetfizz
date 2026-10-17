@@ -73,6 +73,20 @@ describe("apply", () => {
     }),
   );
 
+  it.effect("takes the version a step reports it reached", () =>
+    Effect.gen(function* () {
+      const { skills } = yield* run(repoPlan(), [
+        stepLine(fetch),
+        doneLine(fetch, true),
+        stepLine(install),
+        `echo 'ff-state {"provider":"repos","fact":"at","item":"skills","at":"1f2e3d4"}'`,
+        doneLine(install, true),
+        doneLine(END_STEP, true),
+      ]);
+      expect(skills).toMatchObject({ status: "ok", to: "1f2e3d4", changes: true });
+    }),
+  );
+
   it.effect("keeps a failed step's output and exit code", () =>
     Effect.gen(function* () {
       const { outcome, skills } = yield* run(repoPlan(), [

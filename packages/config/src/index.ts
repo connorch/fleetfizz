@@ -12,8 +12,11 @@ export {
   SCHEMA_FILE,
 } from "./load.ts";
 export {
+  BrewSection,
+  CaskSection,
   DEFAULT_CLONE_ROOT,
   FleetConfig,
+  HomebrewRange,
   isPin,
   MachineSettings,
   Platform,
