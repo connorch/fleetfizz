@@ -112,7 +112,7 @@ export function FizzBackground({
       ref={ref}
       aria-hidden="true"
       className={cn(
-        "bg-fizz text-white [--bubble-emissive:0.4] [--bubble-rim:1.1] [--glow:var(--color-fizz)] [--scene-opacity:0.8] dark:bg-[oklch(0.12_0.015_130)] dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)] dark:[--scene-opacity:0.28]",
+        "bg-fizz text-white [--bubble-emissive:0.4] [--bubble-rim:1.1] [--glow:var(--color-fizz)] [--scene-opacity:0.8] dark:bg-background dark:text-fizz dark:[--bubble-emissive:0.7] dark:[--bubble-rim:1.6] dark:[--glow:oklch(0.48_0.17_125)] dark:[--scene-opacity:0.28]",
         className ?? "fixed inset-0 -z-10",
       )}
     >

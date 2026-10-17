@@ -1,4 +1,6 @@
+import "@fontsource-variable/geist";
 import "@fontsource-variable/jetbrains-mono";
+import { cn } from "@fleetfizz/ui/lib/utils";
 import { HeadContent, Outlet, Scripts, createRootRoute, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { INK, NAME, SITE_URL, TAGLINE } from "../brand";
@@ -52,13 +54,23 @@ export const Route = createRootRoute({
   component: RootLayout,
 });
 
+// Who draws the page's frame, from the deepest route that says (see
+// StaticDataRouteOption in router.tsx).
+const useChrome = () =>
+  useMatches({
+    select: (matches) => matches.findLast((m) => m.staticData.chrome)?.staticData.chrome,
+  });
+
+// The site is set in mono; the docs read in Geist. The font is on <body> so
+// what Fumadocs portals there (the search dialog) follows the page.
 function RootDocument({ children }: { children: ReactNode }) {
+  const chrome = useChrome();
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-svh flex flex-col antialiased">
+      <body className={cn("min-h-svh flex flex-col antialiased", chrome !== "docs" && "font-mono")}>
         {children}
         <Scripts />
       </body>
@@ -67,9 +79,7 @@ function RootDocument({ children }: { children: ReactNode }) {
 }
 
 function RootLayout() {
-  const chrome = useMatches({
-    select: (matches) => matches.findLast((m) => m.staticData.chrome)?.staticData.chrome,
-  });
+  const chrome = useChrome();
   return (
     <>
       {!chrome && <SiteNav />}

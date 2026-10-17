@@ -1,12 +1,13 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { DocsLayout } from "fumadocs-ui/layouts/docs";
-import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/docs/page";
+import { DocsLayout } from "fumadocs-ui/layouts/spacious";
+import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/layouts/spacious/page";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
-import { Suspense, use } from "react";
+import { cn } from "@fleetfizz/ui/lib/utils";
+import { type ComponentProps, Suspense, use } from "react";
 import { NAME } from "../../brand";
 import { DocsSearch } from "../../components/docs-search";
-import { GITHUB_URL } from "../../components/nav-buttons";
+import { GITHUB_URL, GithubLink } from "../../components/nav-buttons";
 import { ThemeToggle } from "../../components/theme-toggle";
 import { Wordmark } from "../../components/wordmark";
 import { docs, source } from "../../lib/source";
@@ -37,7 +38,8 @@ export const Route = createFileRoute("/docs/$")({
 });
 
 // The site's theme toggle stands in for Fumadocs' own, so the theme stays the
-// `dark` class the rest of the site reads and writes.
+// `dark` class the rest of the site reads and writes: in the sidebar on small
+// screens, and with the GitHub link at the panel's top right on large ones.
 function DocsRoute() {
   const { path } = Route.useLoaderData();
   return (
@@ -46,13 +48,22 @@ function DocsRoute() {
         tree={source.getPageTree()}
         nav={{ title: <Wordmark /> }}
         githubUrl={GITHUB_URL}
-        slots={{ themeSwitch: ThemeToggle }}
+        slots={{ themeSwitch: ThemeToggle, actions: DocsActions }}
       >
         <Suspense>
           <Content path={path} />
         </Suspense>
       </DocsLayout>
     </RootProvider>
+  );
+}
+
+function DocsActions({ className, ...props }: ComponentProps<"div">) {
+  return (
+    <div className={cn("flex items-center gap-0.5", className)} {...props}>
+      <GithubLink />
+      <ThemeToggle />
+    </div>
   );
 }
 
