@@ -328,10 +328,21 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
     }
   }
 
-  // The Lent Token, read before resolving so private repos resolve too.
-  // Without one, private repos fail and public repos still ship.
-  const lent = yield* readLentToken();
-  if (lent.token === undefined && lent.reason !== undefined && (config.repos ?? []).length > 0) {
+  // Every checked Machine's targeted Items, per Provider.
+  const targeted = providers.map((provider) => {
+    const items = new Map<string, Targeted>();
+    for (const { machine } of checked)
+      for (const item of targetedItems(provider, config, machine)) items.set(item.name, item);
+    return { provider, items: [...items.values()] };
+  });
+
+  // The Lent Token, only when a repo is targeted, read before resolving so
+  // private repos resolve too. Without one, private repos fail and public
+  // repos still ship.
+  const lent = targeted.some(({ provider, items }) => provider.name === "repos" && items.length > 0)
+    ? yield* readLentToken()
+    : { token: undefined };
+  if (lent.token === undefined && lent.reason !== undefined) {
     yield* ledger.note("info", `no gh token (${lent.reason}); private repos will fail`);
   }
 
@@ -339,15 +350,11 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   // Machine gets the same version or commit.
   const resolved: Partial<Record<ProviderName, unknown>> = Object.fromEntries(
     yield* Effect.forEach(
-      providers,
-      (provider) => {
-        const items = new Map<string, Targeted>();
-        for (const { machine } of checked)
-          for (const item of targetedItems(provider, config, machine)) items.set(item.name, item);
-        return provider
-          .resolve([...items.values()], lent.token === undefined ? {} : { token: lent.token })
-          .pipe(Effect.map((r) => [provider.name, r] as const));
-      },
+      targeted,
+      ({ provider, items }) =>
+        provider
+          .resolve(items, lent.token === undefined ? {} : { token: lent.token })
+          .pipe(Effect.map((r) => [provider.name, r] as const)),
       { concurrency: "unbounded" },
     ),
   );
