@@ -4,7 +4,7 @@ A Ship knew two hard-coded sections, `vp` and `repos`, and each had its own path
 
 A **Provider** is one kind of thing a Ship keeps in line on a Machine, with its own config section. An **Item** is one entry of a Provider on one Machine, written `provider:item` (`vp:node`, `repos:connorch-t3code`) and split on the first `:`, as mise writes `npm:prettier`. The Ledger, `--rebuild`, and `--answer` all use the same address.
 
-A Provider lists its Items (implicit ones too, like vp itself and the running fleetfizz), prints shell that observes them as `ff-state` Facts carrying its name, resolves what it needs once on the Starting Machine, decides each Item purely, and turns the decisions into Steps. A Decision is `leave`, `change`, `ask` (a Question), `skip`, or `fail`. Every Provider follows one of two rules:
+A Provider lists its Items (implicit ones too, like vp itself and the running fleetfizz), prints shell that observes them as `ff-state` Facts carrying its name, resolves what it needs once on the Starting Machine, decides each Item purely, and turns the decisions into Steps. A Decision is `leave`, `change`, `ask` (a Question), `skip`, or `fail`. A `leave` may still carry upkeep for its Steps: work that keeps the Item as it is, such as a Managed Clone's reset on every Ship (ADR 0002), which the Ledger does not count as a change. Every Provider follows one of two rules:
 
 - **range**: the tool reports its own version, and the Item is kept inside a Range (ADR 0006). Nothing is stored. vp, Node, and Globals.
 - **record**: the tool cannot say what is installed, so the Item is compared with its Install Record (commit, command, Files, Output fingerprints). Repos.

@@ -101,8 +101,8 @@ export type Decision<Change, Upkeep = never> =
   | { readonly kind: "skip"; readonly item: string; readonly at?: string; readonly reason: string }
   | { readonly kind: "fail"; readonly item: string; readonly at?: string; readonly reason: string };
 
-// One unit of change on one Machine, reported on its own. `run` is shell; its
-// last command's exit code is the Step's result.
+// One unit of work (a change, or upkeep) on one Machine, reported on its
+// own. `run` is shell; its last command's exit code is the Step's result.
 export interface Step {
   // `provider:item:what`, unique on the Machine.
   readonly id: string;

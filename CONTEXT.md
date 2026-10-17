@@ -57,7 +57,7 @@ The phase of a Ship that runs each Machine's Steps.
 _Avoid_: execute, deploy
 
 **Step**:
-One unit of change on one Machine (fetch a Tracked Repo, run its Install Command, install Globals) whose success is reported on its own.
+One unit of work on one Machine (fetch a Tracked Repo, run its Install Command, install Globals) whose success is reported on its own; most Steps change an Item, and some are upkeep that keeps one as it is.
 _Avoid_: task, action, job
 
 **Ledger**:
