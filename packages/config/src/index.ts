@@ -14,7 +14,6 @@ export {
 export {
   BrewSection,
   CaskSection,
-  CloneRoot,
   DEFAULT_CLONE_ROOT,
   FleetConfig,
   HomebrewRange,

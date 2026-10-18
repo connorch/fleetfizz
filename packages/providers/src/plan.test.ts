@@ -3,7 +3,13 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 
 import { FleetConfig } from "@fleetfizz/config";
-import { assembleState, planMachine, type MachineIdentity, type PlanInput } from "@fleetfizz/core";
+import {
+  assembleState,
+  machinesNamed,
+  planMachine,
+  type MachineIdentity,
+  type PlanInput,
+} from "@fleetfizz/core";
 
 import { PROVIDERS } from "./index.ts";
 
@@ -470,6 +476,14 @@ describe("Variants", () => {
       kind: "ask",
       question: { bump: { path: ["vp", "items", "vercel", 1, "range"], range: "^59.25.4" } },
     });
+  });
+
+  it("names every Machine a Variant or cloneRoot targets, for the unknown-Machine check", () => {
+    const repos = PROVIDERS.find((p) => p.name === "repos");
+    const vp = PROVIDERS.find((p) => p.name === "vp");
+    if (repos === undefined || vp === undefined) throw new Error("no repos or vp Provider");
+    expect(machinesNamed(repos, config)).toEqual(["connors-mac-studio"]);
+    expect(machinesNamed(vp, variants)).toEqual(["bluefin"]);
   });
 
   it("leaves out an Item with no Variant for the Machine", () => {

@@ -92,7 +92,7 @@ const withShorthand = <Fields extends Schema.Struct.Fields, Text extends string>
 
 // One definition, or a list of Variants: whole definitions, each with its own
 // Targeting. A Machine gets the first Variant that targets it (ADR 0014).
-export const variants = <S extends Schema.Top>(entry: S) =>
+const variants = <S extends Schema.Top>(entry: S) =>
   Schema.Union([entry, Schema.NonEmptyArray(entry)]);
 
 const dependsOn = Schema.optionalKey(Schema.Array(ProviderName)).annotateKey({
@@ -212,7 +212,7 @@ export const CaskSection = section({}, HomebrewItems, homebrewDescription("Casks
 export const DEFAULT_CLONE_ROOT = "~/.local/share/fleetfizz/clones";
 
 // Where a Machine keeps its Managed Clones: one path, or Variants of `{ path }`.
-export const CloneRoot = variants(
+const CloneRoot = variants(
   withShorthand(
     Schema.Struct({ ...Targeting, path: Schema.NonEmptyString }),
     Schema.NonEmptyString,
@@ -222,7 +222,6 @@ export const CloneRoot = variants(
     },
   ),
 );
-export type CloneRoot = typeof CloneRoot.Type;
 
 export const ReposSection = section(
   {
