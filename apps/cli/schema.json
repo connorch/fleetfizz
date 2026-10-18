@@ -29,6 +29,8 @@
         "type": "string",
         "minLength": 1
       },
+      "minItems": 1,
+      "uniqueItems": true,
       "allOf": [
         {
           "description": "The Fleet: each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet."
