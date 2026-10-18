@@ -19,12 +19,15 @@ export {
   type AnyProvider,
   type Context,
   type Decision,
+  type Definition,
+  type Listed,
+  type Named,
   type Provider,
   type Question,
   type QuestionKind,
   type Scope,
+  type Section,
   type Step,
-  type Targeted,
 } from "./provider.ts";
 export { decideRange, type RangeDecision } from "./range.ts";
 export {
@@ -34,4 +37,4 @@ export {
   type InstallRecord,
 } from "./record.ts";
 export { assembleState, AtFact, emptyState, type MachineState } from "./state.ts";
-export { targets, type MachineIdentity, type Targeting } from "./targeting.ts";
+export { targets, variantFor, type MachineIdentity, type Targeting } from "./targeting.ts";

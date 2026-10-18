@@ -7,7 +7,7 @@
 //
 //   connors-macbook-pro                                5m 07s  2 of 2 done
 //   ✓ done         vp:vp                    1.0.0 → 1.1.0       16.6s
-//   ✓ installed    repos:connorch-t3code  3f1a2b0 → 9e02bb1  4m 50s
+//   ✓ installed    repos:t3code  3f1a2b0 → 9e02bb1  4m 50s
 //
 //   1 updated, 1 up to date  in 5m 12s
 //

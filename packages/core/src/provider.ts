@@ -2,7 +2,7 @@
 // with its own config section. A Provider lists its Items, says how to observe
 // them, decides each one, and turns the decisions into Steps. The engine
 // (engine.ts) does everything that is the same for every Provider: Targeting,
-// dependsOn, Questions, and holding back dependents.
+// Variants, dependsOn, Questions, and holding back dependents.
 import type * as Effect from "effect/Effect";
 import type { ChildProcessSpawner } from "effect/process";
 
@@ -11,9 +11,30 @@ import type { FleetConfig, ProviderName } from "@fleetfizz/config";
 import { decideRange } from "./range.ts";
 import type { MachineIdentity, Targeting } from "./targeting.ts";
 
-// An Item: a name, unique within its Provider, and its own Targeting.
-export interface Targeted extends Targeting {
+// An Item: a name, unique within its Provider.
+export interface Named {
   readonly name: string;
+}
+
+// A Provider's config section.
+export type Section<Name extends ProviderName> = NonNullable<FleetConfig[Name]>;
+
+// One definition from a section's `items`: an entry, or one of its Variants.
+export type Definition<Name extends ProviderName> = NonNullable<
+  Section<Name>["items"]
+>[string] extends infer Entry
+  ? Entry extends ReadonlyArray<infer Variant>
+    ? Variant
+    : Entry
+  : never;
+
+// An Item a section lists, as one Machine gets it (ADR 0014).
+export interface Listed<D> {
+  readonly name: string;
+  // The Variant that targets the Machine, without its Targeting.
+  readonly def: Omit<D, keyof Targeting>;
+  // Where that Variant sits in config.jsonc, for edits like "bump".
+  readonly path: ReadonlyArray<string | number>;
 }
 
 // `provider:item`, how Items are written in the Ledger, --rebuild, and --answer.
@@ -71,7 +92,7 @@ export interface Question {
   // The choice taken when nobody can be asked (no terminal).
   readonly default: string;
   // Where a "bump" answer edits the config: the key path and its Range.
-  readonly bump?: { readonly path: ReadonlyArray<string>; readonly range: string };
+  readonly bump?: { readonly path: ReadonlyArray<string | number>; readonly range: string };
 }
 
 // What a Ship does about one Item on one Machine. `at` is what the Machine
@@ -120,7 +141,7 @@ export interface Step {
 // parameters are compared bivariantly.
 export interface Provider<
   Name extends ProviderName,
-  Item extends Targeted,
+  Item extends Named,
   Observed,
   Resolved,
   Change,
@@ -131,9 +152,14 @@ export interface Provider<
   readonly rule: "range" | "record";
   // Providers that always come first, whatever the config says.
   readonly dependsOn: ReadonlyArray<ProviderName>;
-  // Every Item of the section, before Targeting. `undefined` when the section
-  // is missing or does not target the Machine (only implicit Items remain).
-  items(section: FleetConfig[Name] | undefined): ReadonlyArray<Item>;
+  // Its Items on one Machine, in config order: its implicit Items, and the
+  // ones `section.items` lists that target the Machine (`listed`, Variant
+  // picked). `section` is undefined when it is missing or does not target
+  // the Machine, which leaves only implicit Items.
+  items(
+    section: Section<Name> | undefined,
+    listed: ReadonlyArray<Listed<Definition<Name>>>,
+  ): ReadonlyArray<Item>;
   // Shell for the Check: prints `ff-state` Facts with `"provider": name`.
   observe(items: ReadonlyArray<Item>, scope: Scope): string;
   // Folds this Provider's Facts and Install Records (keyed by Item) into what decide reads.
@@ -155,7 +181,7 @@ export interface Provider<
   act(decisions: ReadonlyArray<Decision<Change, Change>>, ctx: Context): ReadonlyArray<Step>;
 }
 
-export type AnyProvider = Provider<ProviderName, Targeted, unknown, unknown, unknown>;
+export type AnyProvider = Provider<ProviderName, Named, unknown, unknown, unknown>;
 
 // A "range" Question for an Item above its Range. Skipping is the default:
 // it changes nothing.
@@ -163,7 +189,7 @@ const rangeQuestion = (
   subject: string,
   installed: string,
   range: string,
-  bumpPath: ReadonlyArray<string>,
+  bumpPath: ReadonlyArray<string | number>,
 ): Question => ({
   kind: "range",
   subject,
@@ -186,7 +212,7 @@ export const decideRangeItem = (input: {
   readonly range: string;
   readonly installed: string | undefined;
   readonly available: ReadonlyArray<string>;
-  readonly bumpPath: ReadonlyArray<string>;
+  readonly bumpPath: ReadonlyArray<string | number>;
   readonly ctx: Context;
 }): Decision<string> => {
   const { item, range, installed, available } = input;

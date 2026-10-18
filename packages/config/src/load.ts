@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as jsonc from "jsonc-parser";
 
-import { FleetConfig, repoName, SELF_PACKAGE } from "./schema.ts";
+import { FleetConfig } from "./schema.ts";
 
 export const CONFIG_FILE = "config.jsonc";
 export const SCHEMA_FILE = "schema.json";
@@ -38,19 +38,47 @@ export class ConfigNotFound extends Schema.TaggedError<ConfigNotFound>()("Config
 
 const lineOf = (text: string, offset: number): number => text.slice(0, offset).split("\n").length;
 
-// Checks that the schema cannot express: cross-entry consistency.
-const semanticProblems = (config: FleetConfig): string[] => {
+// Keys an object repeats. The parser keeps the last one, so a repeated Item
+// name would silently drop the first definition.
+const repeatedKeys = (text: string): string[] => {
   const problems: string[] = [];
-  const seen = new Set<string>();
-  for (const repo of config.repos ?? []) {
-    const name = repoName(repo);
-    if (seen.has(name)) problems.push(`repos: duplicate name "${name}"`);
-    seen.add(name);
-  }
-  if (config.vp?.globals?.[SELF_PACKAGE] !== undefined) {
-    problems.push(`vp.globals: ${SELF_PACKAGE} is pinned by the running version; remove it`);
-  }
+  const visit = (node: jsonc.Node, path: ReadonlyArray<string | number>) => {
+    if (node.type === "array") node.children?.forEach((child, i) => visit(child, [...path, i]));
+    if (node.type !== "object") return;
+    const seen = new Set<string>();
+    for (const [key, value] of (node.children ?? []).map((property) => property.children ?? [])) {
+      if (key === undefined) continue;
+      const name = String(key.value);
+      if (seen.has(name))
+        problems.push(
+          `line ${lineOf(text, key.offset)}: "${name}" is repeated${path.length > 0 ? ` in ${path.join(".")}` : ""}`,
+        );
+      seen.add(name);
+      if (value !== undefined) visit(value, [...path, name]);
+    }
+  };
+  const tree = jsonc.parseTree(text, undefined, { allowTrailingComma: true });
+  if (tree !== undefined) visit(tree, []);
   return problems;
+};
+
+// What moved in a config written before ADR 0014, which no longer loads.
+const movedKeys = (parsed: unknown): string[] => {
+  if (typeof parsed !== "object" || parsed === null) return [];
+  const config: { machines?: unknown; repos?: unknown; vp?: unknown } = parsed;
+  return [
+    ...(typeof config.machines === "object" &&
+    config.machines !== null &&
+    !Array.isArray(config.machines)
+      ? ["machines is now a list of names, and machines.<name>.clones is repos.cloneRoot"]
+      : []),
+    ...(Array.isArray(config.repos)
+      ? ["repos is now { items: { <name>: { origin, ref, install } } }, keyed by each repo's name"]
+      : []),
+    ...(typeof config.vp === "object" && config.vp !== null && "globals" in config.vp
+      ? ["vp.globals is now vp.items"]
+      : []),
+  ];
 };
 
 // Parses and validates one config file. Unknown keys are errors, so a typo
@@ -66,14 +94,13 @@ export const parseConfig = Effect.fn("parseConfig")(function* (path: string, tex
       ),
     });
   }
-  const config = yield* Schema.decodeUnknownEffect(FleetConfig, { onExcessProperty: "error" })(
-    parsed,
-  ).pipe(
+  const moved = movedKeys(parsed);
+  if (moved.length > 0) return yield* new ConfigError({ path, problems: moved });
+  const repeated = repeatedKeys(text);
+  if (repeated.length > 0) return yield* new ConfigError({ path, problems: repeated });
+  return yield* Schema.decodeUnknownEffect(FleetConfig, { onExcessProperty: "error" })(parsed).pipe(
     Effect.mapError((error) => new ConfigError({ path, problems: [formatIssue(error.issue)] })),
   );
-  const problems = semanticProblems(config);
-  if (problems.length > 0) return yield* new ConfigError({ path, problems });
-  return config;
 });
 
 const formatIssue = SchemaIssue.makeFormatterDefault();

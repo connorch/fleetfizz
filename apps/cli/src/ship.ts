@@ -30,7 +30,6 @@ import {
   type Context,
   type MachinePlan,
   type MachineState,
-  type Targeted,
 } from "@fleetfizz/core";
 import { PROVIDERS } from "@fleetfizz/providers";
 import {
@@ -84,7 +83,7 @@ interface Planned extends Checked {
 const unknownMachines = (config: FleetConfig, tailnet: Tailnet, only: ReadonlyArray<string>) => {
   const known = new Set(tailnet.fleet.map((m) => m.name));
   const referenced = [
-    ...Object.keys(config.machines),
+    ...config.machines,
     ...PROVIDERS.flatMap((p) => machinesNamed(p, config)),
     ...only,
   ];
@@ -105,7 +104,7 @@ const unshippable = (
     return `unknown Machine: ${unknown.join(", ")} (the tailnet has: ${tailnet.fleet.map((m) => m.name).join(", ")})`;
   }
   // The Fleet is what the config lists; the Starting Machine must be in it.
-  const fleet = new Set(Object.keys(config.machines));
+  const fleet = new Set(config.machines);
   if (!fleet.has(tailnet.self.name)) {
     return `this Machine (${tailnet.self.name}) is not in machines in ${source}`;
   }
@@ -195,12 +194,12 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
 
   const problem = unshippable(config, tailnet, flags.only, path);
   if (problem !== undefined) return yield* Effect.fail(new ShipError(problem));
-  const fleet = new Set(Object.keys(config.machines));
+  const fleet = new Set(config.machines);
   // The Machine whose copy of the config this is: the Starting Machine's own
   // file, unless --config named another (staleCopies).
   const own = flags.config === undefined ? tailnet.self.name : undefined;
   // Config order, so the Ledger lists Machines the way the config does.
-  const order = Object.keys(config.machines);
+  const order = config.machines;
   const targetsList = tailnet.fleet
     .filter((m) => fleet.has(m.name) && (flags.only.length === 0 || flags.only.includes(m.name)))
     .toSorted((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
@@ -332,13 +331,12 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
     }
   }
 
-  // Every checked Machine's targeted Items, per Provider.
-  const targeted = providers.map((provider) => {
-    const items = new Map<string, Targeted>();
-    for (const { machine } of checked)
-      for (const item of targetedItems(provider, config, machine)) items.set(item.name, item);
-    return { provider, items: [...items.values()] };
-  });
+  // Every checked Machine's targeted Items, per Provider. Machines can get
+  // different Variants of one Item, so each Provider's resolve dedupes.
+  const targeted = providers.map((provider) => ({
+    provider,
+    items: checked.flatMap(({ machine }) => targetedItems(provider, config, machine)),
+  }));
 
   // The Lent Token, only when a repo is targeted, read before resolving so
   // private repos resolve too. Without one, private repos fail and public

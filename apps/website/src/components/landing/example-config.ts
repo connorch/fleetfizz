@@ -1,33 +1,33 @@
 import type { FleetConfig } from "@fleetfizz/config";
 
-// The config the landing page shows. Typed as the schema's FleetConfig, so a
-// schema change that this example no longer fits fails the typecheck, and
-// the test decodes it with the CLI's own parser for the runtime rules.
-export const EXAMPLE: FleetConfig = {
-  machines: {
-    "mac-studio": { clones: "/Volumes/Stack/clones" },
-    "macbook-pro": {},
-    homelab: {},
-  },
-  repos: [
-    {
-      origin: "connorch/t3code",
-      ref: "main",
-      platforms: ["darwin"],
-      install: "pnpm install && pnpm build",
-      outputs: ["~/Applications/T3 Code.app"],
+// The config the landing page shows. Typed as the config as written
+// (FleetConfig's Encoded side), so a schema change that this example no
+// longer fits fails the typecheck, and the test decodes it with the CLI's own
+// parser for the runtime rules.
+export const EXAMPLE: typeof FleetConfig.Encoded = {
+  machines: ["mac-studio", "macbook-pro", "homelab"],
+  repos: {
+    cloneRoot: [{ machines: ["mac-studio"], path: "/Volumes/Stack/clones" }],
+    items: {
+      t3code: {
+        origin: "connorch/t3code",
+        ref: "main",
+        platforms: ["darwin"],
+        install: "pnpm install && pnpm build",
+        outputs: ["~/Applications/T3 Code.app"],
+      },
+      dotfiles: { origin: "connorch/dotfiles", ref: "main", install: "./install.sh" },
     },
-    { origin: "connorch/dotfiles", ref: "main", install: "./install.sh" },
-  ],
+  },
   vp: {
     version: "1.1.0",
     node: "24.18.1",
-    globals: { vercel: "^59.25.4", wrangler: "^4.136.3" },
+    items: { vercel: "^59.25.4", wrangler: "^4.136.3" },
   },
 };
 
 // A comment above each top-level section.
-const COMMENTS: Partial<Record<keyof FleetConfig, string>> = {
+const COMMENTS: Partial<Record<keyof typeof FleetConfig.Encoded, string>> = {
   machines: "The Fleet: every Machine a Ship touches.",
   repos: "Tracked Repos, installed from origin on every Machine.",
   vp: "The vite-plus toolchain and its Globals.",

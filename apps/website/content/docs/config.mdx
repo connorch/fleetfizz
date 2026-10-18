@@ -8,24 +8,26 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
 ```jsonc title="config.jsonc"
 {
   "$schema": "./schema.json",
-  "machines": {
-    "connors-mac-studio": { "clones": "/Volumes/StudioStack SSD/fleetfizz/clones" },
-    "connors-macbook-pro": {},
-  },
-  "repos": [
-    {
-      "origin": "connorch/t3code",
-      "ref": "main",
-      "platforms": ["darwin"],
-      "install": "pnpm install && pnpm build",
-      "outputs": ["~/Applications/T3 Code.app"],
+  "machines": ["connors-mac-studio", "connors-macbook-pro"],
+  "repos": {
+    "cloneRoot": [
+      { "machines": ["connors-mac-studio"], "path": "/Volumes/StudioStack SSD/fleetfizz/clones" },
+    ],
+    "items": {
+      "t3code": {
+        "origin": "connorch/t3code",
+        "ref": "main",
+        "platforms": ["darwin"],
+        "install": "pnpm install && pnpm build",
+        "outputs": ["~/Applications/T3 Code.app"],
+      },
     },
-  ],
+  },
   "vp": {
     "version": "1.1.0",
     "node": "24.18.1",
     "pnpm": "^10",
-    "globals": {
+    "items": {
       "vercel": "^59.25.4",
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
     },
@@ -75,6 +77,23 @@ Repos run last, after vp and the Homebrew packages, so an Install Command can us
 
 ## Targeting
 
-`repos` entries, the `vp`, `brew`, and `cask` sections, and each Global or Homebrew package take two optional fields that narrow where they apply. They combine with AND, so a Global or package applies where both it and its section do, and an unset field means every one.
+Every section, each Item in its `items`, and each Variant take two optional fields that narrow where they apply. They combine with AND, so an Item applies where both it and its section do, and an unset field means every one.
 
 <include>../generated/config/targeting.md</include>
+
+## Variants
+
+When one Item needs a different definition on some Machines, write it as a list of Variants: whole entries, each with its own Targeting. A Machine gets the first Variant that targets it, and an Item with no Variant for a Machine is not targeted there. A bare value with no Targeting, last, covers every other Machine.
+
+```jsonc title="config.jsonc"
+{
+  "machines": ["connors-mac-studio", "bluefin"],
+  "vp": {
+    "items": {
+      "vercel": [{ "platforms": ["linux"], "range": "^60.0.0" }, "^59.25.4"],
+    },
+  },
+}
+```
+
+`repos.cloneRoot` takes Variants the same way: a path, or a list of `{ path, platforms?, machines? }`.

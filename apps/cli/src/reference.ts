@@ -12,7 +12,7 @@ import {
   BrewSection,
   CaskSection,
   FleetConfig,
-  MachineSettings,
+  ReposSection,
   Targeting,
   TrackedRepo,
   VpSection,
@@ -86,8 +86,8 @@ const help = (command: string) =>
 export const reference = Effect.gen(function* () {
   const commands = fizz.subcommands.flatMap((group) => group.commands);
   return {
-    "config/machines.md": section("machines", MachineSettings.fields),
-    "config/repos.md": section("repos", TrackedRepo.fields),
+    "config/machines.md": `${describe("machines", FleetConfig.fields.machines)}\n`,
+    "config/repos.md": `${section("repos", ReposSection.fields)}\nEach Tracked Repo in \`items\`:\n\n${fieldTable(TrackedRepo.fields)}\n`,
     "config/vp.md": section("vp", VpSection.fields),
     "config/brew.md": section("brew", BrewSection.fields),
     "config/cask.md": section("cask", CaskSection.fields),

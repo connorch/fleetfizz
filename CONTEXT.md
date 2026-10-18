@@ -61,18 +61,22 @@ One unit of work on one Machine (fetch a Tracked Repo, run its Install Command, 
 _Avoid_: task, action, job
 
 **Ledger**:
-The output of a Ship: one line per Machine with a summary of its items and, under it, one line per Item that changes, written `provider:item` (`vp:node`, `repos:connorch-t3code`), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
+The output of a Ship: one line per Machine with a summary of its items and, under it, one line per Item that changes, written `provider:item` (`vp:node`, `repos:t3code`), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
 _Avoid_: log
 
 ### Providers
 
 **Provider**:
-One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos, Formulae, Casks), with its own section of the config.
+One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos, Formulae, Casks, Shared Files), with its own section of the config.
 _Avoid_: kind, adapter, plugin, manager
 
 **Item**:
-One entry a Provider keeps in line on one Machine: vp, its mode, Node, a package manager, a Global, a Tracked Repo, a Formula, a Cask. Written `provider:item` (`vp:node`, `repos:connorch-t3code`).
+One entry a Provider keeps in line on one Machine: vp, its mode, Node, a package manager, a Global, a Tracked Repo, a Formula, a Cask, a Shared File. Written `provider:item` (`vp:node`, `repos:t3code`).
 _Avoid_: resource, dependency, package
+
+**Variant**:
+One of an Item's complete alternative definitions, each with its own Targeting. A Machine gets the first Variant that targets it; an Item with no Variant for a Machine is not targeted there.
+_Avoid_: override, profile, patch
 
 ### Tracked Repos
 
@@ -97,7 +101,7 @@ The shell command that installs a Tracked Repo from its Managed Clone.
 _Avoid_: build script, hook
 
 **Install Record**:
-For one Machine and one Item of a Provider that cannot report what it installed (a Tracked Repo): the commit, Managed Clone path, Install Command, Files, and Output fingerprints of the last successful install.
+For one Machine and one Item of a Provider that cannot report what it installed (a Tracked Repo): the commit, Managed Clone path, Install Command, Clone Files, and Output fingerprints of the last successful install.
 _Avoid_: lock, cache, receipt
 
 **Output**:
@@ -108,9 +112,9 @@ _Avoid_: artifact, build product
 An Output whose fingerprint no longer matches its Install Record, usually because someone installed the repo by hand. Drift makes the next Ship run the Install Command again.
 _Avoid_: stale, dirty
 
-**File**:
+**Clone File**:
 A gitignored file, declared in the config, that a Ship writes into a Managed Clone before its Install Command runs.
-_Avoid_: template, asset
+_Avoid_: template, asset, File
 
 ### The vp section
 
@@ -136,6 +140,12 @@ _Avoid_: brew package
 A Homebrew macOS app, an Item of the `cask` Provider. A Cask and a Formula can share a name (`ollama`).
 _Avoid_: app, brew app
 
+### Shared Files
+
+**Shared File**:
+A file or directory, from any path, that a Ship copies from the Starting Machine to every targeted Machine. An Item of the `files` Provider.
+_Avoid_: dotfile, synced file, mirror
+
 ### Secrets
 
 **Lent Token**:
@@ -148,7 +158,7 @@ _Avoid_: credential forwarding, shared token
 - Every **Ship** copies the **Starting Machine**'s **Config** to every reachable **Machine**, and installs its own version of fleetfizz there, so any **Machine** can be the next **Starting Machine**
 - No **Machine** changes until every **Question** from every **Machine** is answered
 - A **Machine** has one **Clone Root**, which holds one **Managed Clone** per targeted **Tracked Repo**
-- A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, a **File**, or an **Output** differs from it (**Drift**)
+- A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, a **Clone File**, or an **Output** differs from it (**Drift**)
 - The **Starting Machine** lends its **Lent Token** to each other **Machine** for the length of one **Ship**; **Install Commands** never see it
 - An offline **Machine** is skipped, never failed, and stays behind until the next **Ship**
 - A **Provider** can depend on other **Providers**. When an **Item** of a dependency fails on a **Machine**, its dependents are skipped there; a dependency the config does not target at that **Machine** does not hold them back
@@ -157,7 +167,7 @@ _Avoid_: credential forwarding, shared token
 ## Example dialogue
 
 > **Dev:** "I ran pnpm install:desktop:local in my own t3code checkout on the MacBook Pro. Does the next **Ship** put origin back?"
-> **Connor:** "Only if the app is one of t3code's **Outputs**. Then its fingerprint no longer matches the **Install Record**, that is **Drift**, and the **Ship** reinstalls. Without **Outputs**, the commit is unchanged, so ship with `--rebuild repos:connorch-t3code`."
+> **Connor:** "Only if the app is one of t3code's **Outputs**. Then its fingerprint no longer matches the **Install Record**, that is **Drift**, and the **Ship** reinstalls. Without **Outputs**, the commit is unchanged, so ship with `--rebuild repos:t3code`."
 
 > **Dev:** "Someone ran `vp update -g` and vercel is now 60.1.0, but the **Range** is `^59.25.4`."
 > **Connor:** "That's a **Question**. The **Ship** asks it on the **Starting Machine** before any **Machine** changes: bump the **Range**, skip it on that **Machine**, or downgrade."
@@ -168,4 +178,5 @@ _Avoid_: credential forwarding, shared token
 
 - "Ship" used to mean installing one repo's skills; it now covers every **Item** of every **Provider**.
 - "Managed Clone" used to mean only the skills repo's clone on a remote Machine; it now means any **Tracked Repo**'s clone on any **Machine**, the **Starting Machine** included.
+- "File" used to mean a file written into a Managed Clone; that is now a **Clone File**, and a **Shared File** is any path a Ship copies between Machines.
 - "working copy" is the developer's own checkout, where the config is read from. It is never a **Managed Clone**, and a **Ship** never installs from it.

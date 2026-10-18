@@ -1,55 +1,68 @@
 // The engine: pure. What is the same for every Provider - Targeting on
-// sections and Items, dependsOn, and holding back the dependents of a failed
-// Item - around each Provider's own decide and act.
+// sections and Items, picking Variants, dependsOn, and holding back the
+// dependents of a failed Item - around each Provider's own decide and act.
 import type { FleetConfig, ProviderName } from "@fleetfizz/config";
 
-import type { AnyProvider, Context, Decision, Step, Targeted } from "./provider.ts";
+import type { AnyProvider, Context, Decision, Listed, Named, Step } from "./provider.ts";
 import type { MachineState } from "./state.ts";
-import { targets, type MachineIdentity, type Targeting } from "./targeting.ts";
-
-type Section = NonNullable<FleetConfig[ProviderName]>;
-// A section that is an object (vp), not a list (repos), carries its own
-// Targeting and dependsOn.
-type ObjectSection = Exclude<Section, ReadonlyArray<unknown>>;
-const isObjectSection = (section: Section): section is ObjectSection => !Array.isArray(section);
-
-const sectionTargeting = (section: Section): Targeting => (isObjectSection(section) ? section : {});
+import { targets, variantFor, type MachineIdentity, type Targeting } from "./targeting.ts";
 
 // A Provider's dependencies: its own, then the config section's.
 export const dependenciesOf = (
   provider: AnyProvider,
   config: FleetConfig,
-): ReadonlyArray<ProviderName> => {
-  const section = config[provider.name];
-  const extra = section !== undefined && isObjectSection(section) ? (section.dependsOn ?? []) : [];
-  return [...new Set([...provider.dependsOn, ...extra])];
-};
+): ReadonlyArray<ProviderName> => [
+  ...new Set([...provider.dependsOn, ...(config[provider.name]?.dependsOn ?? [])]),
+];
 
-// The Provider's Items that target the Machine. A section that does not
-// target it leaves only the Provider's implicit Items.
+const withoutTargeting = <D extends Targeting>({
+  platforms: _platforms,
+  machines: _machines,
+  ...def
+}: D): Omit<D, keyof Targeting> => def;
+
+// The Provider's Items that target the Machine: its implicit Items, and each
+// listed Item's Variant for it. A section that does not target the Machine
+// leaves only the implicit Items.
 export const targetedItems = (
   provider: AnyProvider,
   config: FleetConfig,
   machine: MachineIdentity,
-): ReadonlyArray<Targeted> => {
+): ReadonlyArray<Named> => {
   const section = config[provider.name];
-  const scoped =
-    section !== undefined && targets(sectionTargeting(section), machine) ? section : undefined;
-  return provider.items(scoped).filter((item) => targets(item, machine));
+  if (section === undefined || !targets(section, machine)) return provider.items(undefined, []);
+  const listed = Object.entries(section.items ?? {}).flatMap(([name, entry]) => {
+    const chosen = variantFor(entry, machine);
+    if (chosen === undefined) return [];
+    const at = chosen.index === undefined ? [] : [chosen.index];
+    return [
+      {
+        name,
+        def: withoutTargeting(chosen.variant),
+        path: [provider.name, "items", name, ...at],
+      } satisfies Listed<typeof chosen.variant>,
+    ];
+  });
+  return provider.items(section, listed);
 };
 
-// Every Machine name a Provider's section and Items target, so a typo in the
-// config is caught before it silently targets nothing.
-export const machinesNamed = (
-  provider: AnyProvider,
-  config: FleetConfig,
-): ReadonlyArray<string> => {
-  const section = config[provider.name];
-  return [
-    ...(section === undefined ? [] : (sectionTargeting(section).machines ?? [])),
-    ...provider.items(section).flatMap((item) => item.machines ?? []),
-  ];
+// Every Machine name a Targeting names anywhere in `value`: a `machines`
+// list of names, at any depth.
+const machineNames = (value: unknown): ReadonlyArray<string> => {
+  if (Array.isArray(value)) return value.flatMap(machineNames);
+  if (typeof value !== "object" || value === null) return [];
+  return Object.entries(value).flatMap(([key, v]) =>
+    key === "machines" && Array.isArray(v) && v.every((name) => typeof name === "string")
+      ? v
+      : machineNames(v),
+  );
 };
+
+// Every Machine name a Provider's section names: on the section, its Items
+// and their Variants, and settings such as `repos.cloneRoot`. A typo in the
+// config is caught before it silently targets nothing.
+export const machinesNamed = (provider: AnyProvider, config: FleetConfig): ReadonlyArray<string> =>
+  machineNames(config[provider.name]);
 
 export interface ProviderPlan {
   readonly name: ProviderName;

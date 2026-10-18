@@ -1,7 +1,7 @@
 // The read-only Check script: one ssh per Machine, printing ff-state Facts.
 // The engine's Facts (home, records, config, end) around each Provider's own.
 import { CONFIG_FILE } from "@fleetfizz/config";
-import type { AnyProvider, Scope, Targeted } from "@fleetfizz/core";
+import type { AnyProvider, Named, Scope } from "@fleetfizz/core";
 
 import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 
@@ -10,7 +10,7 @@ export interface CheckInput {
   // In run order, each with its Items that target this Machine.
   readonly providers: ReadonlyArray<{
     readonly provider: AnyProvider;
-    readonly items: ReadonlyArray<Targeted>;
+    readonly items: ReadonlyArray<Named>;
   }>;
 }
 
