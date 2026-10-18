@@ -20,7 +20,7 @@ const above = (found: string, path: ReadonlyArray<string | number>, range: strin
 describe("askQuestions", () => {
   it.effect("asks once per subject, but bumps each Variant's Range to its own newest", () =>
     Effect.gen(function* () {
-      const { ledger } = yield* makeLedger({
+      const { ledger, store } = yield* makeLedger({
         from: "studio",
         dryRun: false,
         machines: ["studio", "macbook", "bluefin"],
@@ -44,6 +44,9 @@ describe("askQuestions", () => {
         { path: linux, range: "^10.0.0", newest: "11.0.0" },
         { path: other, range: "^1.0.0", newest: "2.3.0" },
       ]);
+      expect(store.get().state.notes[0]?.text).toBe(
+        "vp:vercel 11.0.0 on bluefin is above ^10.0.0; 2.1.0 on studio, 2.3.0 on macbook is above ^1.0.0",
+      );
     }),
   );
 });

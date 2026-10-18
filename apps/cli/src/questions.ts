@@ -88,8 +88,14 @@ export const askQuestions = Effect.fn("askQuestions")(function* (input: {
         ? []
         : [{ path: first.path, range: first.range, newest: newestOf(list.map((b) => b.found)) }];
     });
-    const where = group.map((a) => `${a.question.found} on ${a.machine}`).join(", ");
-    yield* input.ledger.note("ask", `${question.subject} ${where} ${question.problem}`);
+    // Machines on different Variants can be wrong in different ways ("is above ^1", "is above ^10").
+    const where = [...Map.groupBy(group, (a) => a.question.problem)]
+      .map(
+        ([problem, list]) =>
+          `${list.map((a) => `${a.question.found} on ${a.machine}`).join(", ")} ${problem}`,
+      )
+      .join("; ");
+    yield* input.ledger.note("ask", `${question.subject} ${where}`);
     if (input.dryRun) {
       yield* input.ledger.note("answer", "not asked (dry run)");
       continue;

@@ -10,3 +10,4 @@ Every config section now has the same shape: `platforms`, `machines`, `dependsOn
 - Breaking: `vp.globals` is now `vp.items`.
 - Any Item can be a list of Variants, whole entries each with its own Targeting, and a Machine gets the first that targets it: `"vercel": [{ "platforms": ["linux"], "range": "^60" }, "^59.25.4"]`.
 - A key repeated in the config is an error instead of silently replacing the first.
+- Upgrade every Machine, then ship first from the Machine whose config is newest: the first Ship cannot read the old-shape copies elsewhere, so it overwrites them without the usual newer-config Question.
