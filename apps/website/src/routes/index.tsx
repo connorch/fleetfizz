@@ -29,12 +29,14 @@ function Home() {
         {/* Two rhythms, measured to what shows (the loop's frame has ~30px of
             air on top and ~16px under its labels). Check and Apply and the
             loop read as one opening, about 120px apart. The text-heavy
-            sections under it are bigger blocks and get about 176px. */}
-        <div className="mx-auto w-full max-w-6xl px-6 pt-28 pb-44">
+            sections under it are bigger blocks and get about 176px. A phone
+            scrolls a narrow column, so below md both shrink by about a third,
+            and the loop, a two by two grid there, runs to the screen's edges. */}
+        <div className="mx-auto w-full max-w-6xl px-6 pt-16 pb-28 md:pt-28 md:pb-44">
           <Phases />
-          <FallInLine className="mt-24 mb-40" />
+          <FallInLine className="mt-14 mb-24 max-md:-mx-6 md:mt-24 md:mb-40" />
           <OneConfig />
-          <OneCommand className="mt-44" />
+          <OneCommand className="mt-28 md:mt-44" />
         </div>
       </div>
     </main>

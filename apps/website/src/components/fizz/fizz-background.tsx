@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useReducedMotion } from "../../lib/use-reduced-motion";
+import { useReducedMotion } from "../../lib/use-media-query";
 import type { Palette } from "./bubbles";
 
 // The scene is client-only: the prerendered page is the plain fizz backdrop,

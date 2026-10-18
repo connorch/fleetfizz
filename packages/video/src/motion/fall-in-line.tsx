@@ -17,8 +17,9 @@ import {
 // Then the next machine ships. The last frame leads into the first, so it
 // loops.
 //
-// Drawn on a 960 x 240 stage and rendered at 2x. Colors are baked into the
-// video, so there is one render per site theme.
+// Drawn on two stages, each rendered at 2x: a wide strip for desktops, and a
+// two by two grid for phones, where the strip's labels are too small to read.
+// Colors are baked into the video, so there is one render per site theme.
 
 const THEMES = ["dark", "light"] as const;
 type Theme = (typeof THEMES)[number];
@@ -48,23 +49,12 @@ const PALETTE: Record<Theme, Palette> = {
   },
 };
 
-const WIDTH = 960;
-const HEIGHT = 240;
 const SCALE = 2;
 const FPS = 30;
-
-// The floor the machines stand on, and where the line ends on each side. The
-// stage is cropped close: the highest drift and the ping's halo reach about
-// 10px from the top, and the labels end about 14px from the bottom, so the
-// page can space it like any other block.
-const FLOOR = 154;
-const LEFT = 50;
-const RIGHT = 910;
 
 type Kind = "laptop" | "studio" | "server" | "mini";
 interface Machine {
   readonly name: string;
-  readonly x: number;
   readonly kind: Kind;
   // The status light, relative to the machine's base.
   readonly light: readonly [number, number];
@@ -73,14 +63,69 @@ interface Machine {
 }
 
 const MACHINES = [
-  { name: "macbook-pro", x: 150, kind: "laptop", light: [46, -84], drift: { y: -26, rotate: -5 } },
-  { name: "mac-studio", x: 380, kind: "studio", light: [40, -16], drift: { y: -18, rotate: 6 } },
-  { name: "homelab", x: 600, kind: "server", light: [30, -97], drift: { y: -12, rotate: 5 } },
-  { name: "mac-mini", x: 820, kind: "mini", light: [44, -15], drift: { y: -14, rotate: -7 } },
+  { name: "macbook-pro", kind: "laptop", light: [46, -84], drift: { y: -26, rotate: -5 } },
+  { name: "mac-studio", kind: "studio", light: [40, -16], drift: { y: -18, rotate: 6 } },
+  { name: "homelab", kind: "server", light: [30, -97], drift: { y: -12, rotate: 5 } },
+  { name: "mac-mini", kind: "mini", light: [44, -15], drift: { y: -14, rotate: -7 } },
 ] as const satisfies ReadonlyArray<Machine>;
+type Name = (typeof MACHINES)[number]["name"];
+
+type Point = readonly [number, number];
+type Line = ReadonlyArray<Point>;
+
+// A stage: where each machine stands (its center, on its floor), and the line
+// they fall onto, as points along it. A stage is cropped close: the highest
+// drift and the ping's halo reach about 10px from the top, and the labels end
+// about 14px from the bottom, so the page can space it like any other block.
+interface Stage {
+  readonly width: number;
+  readonly height: number;
+  readonly at: Record<Name, Point>;
+  readonly line: Line;
+}
+
+const STAGES = {
+  // One floor, the four in a row.
+  wide: {
+    width: 960,
+    height: 240,
+    at: {
+      "macbook-pro": [150, 154],
+      "mac-studio": [380, 154],
+      homelab: [600, 154],
+      "mac-mini": [820, 154],
+    },
+    line: [
+      [50, 154],
+      [910, 154],
+    ],
+  },
+  // Two floors of two. The line runs along the top floor, turns down the right
+  // side, and back along the bottom one.
+  grid: {
+    width: 440,
+    height: 463,
+    at: {
+      "macbook-pro": [110, 142],
+      "mac-studio": [330, 142],
+      homelab: [110, 377],
+      "mac-mini": [330, 377],
+    },
+    line: rounded(
+      [
+        [20, 142],
+        [420, 142],
+        [420, 377],
+        [20, 377],
+      ],
+      18,
+    ),
+  },
+} as const satisfies Record<string, Stage>;
+type Shape = keyof typeof STAGES;
 
 interface Round {
-  readonly from: (typeof MACHINES)[number]["name"];
+  readonly from: Name;
   readonly tool: string;
   readonly before: string;
   readonly after: string;
@@ -126,7 +171,7 @@ const behind = (round: Round, i: number): Label => ({
   synced: false,
 });
 
-function FallInLine({ theme }: { theme: Theme }) {
+function FallInLine({ theme, shape }: { theme: Theme; shape: Shape }) {
   const { fps } = useVideoConfig();
   return (
     <>
@@ -142,6 +187,7 @@ function FallInLine({ theme }: { theme: Theme }) {
             round={round}
             i={i}
             start={result(all.at(i - 1) ?? round, (i || all.length) - 1)}
+            stage={STAGES[shape]}
             c={PALETTE[theme]}
           />
         </Sequence>
@@ -163,18 +209,40 @@ function offLine(t: number, at: number, fps: number) {
 }
 
 // One round: `start` is every machine's label going in.
-function Ship({ round, i, start, c }: { round: Round; i: number; start: Label; c: Palette }) {
+function Ship({
+  round,
+  i,
+  start,
+  stage,
+  c,
+}: {
+  round: Round;
+  i: number;
+  start: Label;
+  stage: Stage;
+  c: Palette;
+}) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
+  const { line } = stage;
   const origin = MACHINES.find((m) => m.name === round.from) ?? MACHINES[0];
+  const [ox, oy] = stage.at[origin.name];
   const [lx, ly] = origin.light;
+  // How far along the line the spark leaves from, and how long the line is.
+  const leaves = along(line, stage.at[origin.name]);
+  const length = lengthOf(line);
   const flash = interpolate(t, [PING - 0.24, PING, PING + 0.4], [1, 2.2, 1], clamp);
   const halo = interpolate(t, [PING - 0.12, PING, PING + 0.56], [0, 0.6, 1], clamp);
   const haloOpacity = interpolate(t, [PING - 0.12, PING, PING + 0.56], [0, 0.9, 0], clamp);
   const color = (label: Label) => (label.synced ? c.fizz : c.drift);
   return (
-    <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width="100%" height="100%" fontFamily={FONT}>
+    <svg
+      viewBox={`0 0 ${stage.width} ${stage.height}`}
+      width="100%"
+      height="100%"
+      fontFamily={FONT}
+    >
       <defs>
         <radialGradient id="halo">
           <stop offset="0" stopColor={c.fizz} stopOpacity={0.55} />
@@ -184,28 +252,25 @@ function Ship({ round, i, start, c }: { round: Round; i: number; start: Label; c
           <feGaussianBlur stdDeviation="3" />
         </filter>
       </defs>
-      <line
-        x1={LEFT}
-        y1={FLOOR + 1}
-        x2={RIGHT}
-        y2={FLOOR + 1}
-        stroke={c.fizz}
-        strokeWidth={2}
-        opacity={interpolate(t, [0, LINE_FADE], [0.75, 0], clamp)}
-      />
-      <circle
-        cx={origin.x + lx}
-        cy={FLOOR + ly}
-        r={46 * halo}
-        fill="url(#halo)"
-        opacity={haloOpacity}
-      />
-      {[LEFT, RIGHT].map((end) => (
-        <Side key={end} origin={origin.x} end={end} t={t} fizz={c.fizz} />
-      ))}
+      {/* The line sits a pixel under the floor, so the machines stand on it. */}
+      <g transform="translate(0 1)">
+        <polyline
+          points={svgPoints(line)}
+          fill="none"
+          stroke={c.fizz}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          opacity={interpolate(t, [0, LINE_FADE], [0.75, 0], clamp)}
+        />
+        {[0, length].map((end, side) => (
+          <Side key={end} line={line} side={side} from={leaves} end={end} t={t} fizz={c.fizz} />
+        ))}
+      </g>
+      <circle cx={ox + lx} cy={oy + ly} r={46 * halo} fill="url(#halo)" opacity={haloOpacity} />
       {MACHINES.map((m) => {
         const ships = m === origin;
-        const arrival = PING + Math.abs(m.x - origin.x) / SPEED;
+        const [x, floor] = stage.at[m.name];
+        const arrival = PING + Math.abs(along(line, stage.at[m.name]) - leaves) / SPEED;
         const off = ships ? 0 : offLine(t, arrival, fps);
         // The label it is swapping from and to, and when that swap starts.
         const [from, to, at] = ships
@@ -216,7 +281,7 @@ function Ship({ round, i, start, c }: { round: Round; i: number; start: Label; c
         const swap = interpolate(t, [at, at + SWAP], [0, 1], clamp);
         const [dx, dy] = m.light;
         return (
-          <g key={m.name} transform={`translate(${m.x} ${FLOOR})`}>
+          <g key={m.name} transform={`translate(${x} ${floor})`}>
             <g transform={`translate(0 ${m.drift.y * off}) rotate(${m.drift.rotate * off})`}>
               <Body kind={m.kind} c={c} />
               <circle
@@ -244,14 +309,31 @@ function Ship({ round, i, start, c }: { round: Round; i: number; start: Label; c
   );
 }
 
-// One side of the floor: the line drawn out from the shipping machine, and the
-// spark at its tip, a bright head with a tail that fades out behind it.
-function Side({ origin, end, t, fizz }: { origin: number; end: number; t: number; fizz: string }) {
-  const length = Math.abs(end - origin);
+// One way along the line, toward `end`: the line drawn out from the shipping
+// machine, and the spark at its tip, a bright head with a tail that fades out
+// behind it. Positions are distances along the line.
+function Side({
+  line,
+  side,
+  from,
+  end,
+  t,
+  fizz,
+}: {
+  line: Line;
+  side: number;
+  from: number;
+  end: number;
+  t: number;
+  fizz: string;
+}) {
+  const length = Math.abs(end - from);
   const run = Math.min(Math.max(SPEED * (t - PING), 0), length);
-  const dir = Math.sign(end - origin);
-  const tip = origin + dir * run;
-  const tail = origin + dir * Math.max(run - 44, 0);
+  const dir = Math.sign(end - from);
+  const tip = from + dir * run;
+  const tail = from + dir * Math.max(run - 44, 0);
+  const [head] = slice(line, tip, tip);
+  const [back] = slice(line, tail, tail);
   // The spark fades in as it leaves and out as it reaches the line's end.
   const spark =
     run > 0 && run < length
@@ -260,46 +342,109 @@ function Side({ origin, end, t, fizz }: { origin: number; end: number; t: number
           interpolate(run, [length - 30, length], [1, 0], clamp),
         )
       : 0;
-  const gradient = `tail-${end}`;
+  const gradient = `tail-${side}`;
   return (
     <g>
-      <line
-        x1={origin}
-        y1={FLOOR + 1}
-        x2={tip}
-        y2={FLOOR + 1}
+      <polyline
+        points={svgPoints(slice(line, Math.min(from, tip), Math.max(from, tip)))}
+        fill="none"
         stroke={fizz}
         strokeWidth={2}
+        strokeLinejoin="round"
         opacity={0.75}
       />
-      {spark > 0 ? (
+      {spark > 0 && head && back ? (
         <g opacity={spark}>
           <linearGradient
             id={gradient}
             gradientUnits="userSpaceOnUse"
-            x1={tail}
-            y1={0}
-            x2={tip}
-            y2={0}
+            x1={back[0]}
+            y1={back[1]}
+            x2={head[0]}
+            y2={head[1]}
           >
             <stop offset="0" stopColor={fizz} stopOpacity={0} />
             <stop offset="1" stopColor={fizz} stopOpacity={0.9} />
           </linearGradient>
-          <line
-            x1={tail}
-            y1={FLOOR + 1}
-            x2={tip}
-            y2={FLOOR + 1}
+          <polyline
+            points={svgPoints(slice(line, Math.min(tail, tip), Math.max(tail, tip)))}
+            fill="none"
             stroke={`url(#${gradient})`}
             strokeWidth={3.5}
             strokeLinecap="round"
+            strokeLinejoin="round"
           />
-          <circle cx={tip} cy={FLOOR + 1} r={7} fill={fizz} opacity={0.6} filter="url(#glow)" />
-          <circle cx={tip} cy={FLOOR + 1} r={3.2} fill={fizz} />
+          <circle cx={head[0]} cy={head[1]} r={7} fill={fizz} opacity={0.6} filter="url(#glow)" />
+          <circle cx={head[0]} cy={head[1]} r={3.2} fill={fizz} />
         </g>
       ) : null}
     </g>
   );
+}
+
+const svgPoints = (points: Line) => points.map(([x, y]) => `${x},${y}`).join(" ");
+
+// How far along the line each of its points is.
+function stops(line: Line) {
+  let run = 0;
+  return line.map(([x, y], i) => {
+    const [px, py] = line[i - 1] ?? [x, y];
+    return (run += Math.hypot(x - px, y - py));
+  });
+}
+
+const lengthOf = (line: Line) => stops(line).at(-1) ?? 0;
+
+// The stretch of the line from distance a to distance b along it, a <= b.
+function slice(line: Line, a: number, b: number): Point[] {
+  const at = stops(line);
+  const point = (s: number): Point => {
+    const i = at.findIndex((d) => d >= s);
+    const [x1, y1] = line.at(i) ?? [0, 0];
+    const [x0, y0] = line[i - 1] ?? [x1, y1];
+    const f = i > 0 ? (s - (at[i - 1] ?? 0)) / ((at[i] ?? 0) - (at[i - 1] ?? 0)) : 1;
+    return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f];
+  };
+  return [point(a), ...line.filter((_, i) => (at[i] ?? 0) > a && (at[i] ?? 0) < b), point(b)];
+}
+
+// How far along the line its closest point to p is.
+function along(line: Line, [px, py]: Point) {
+  const at = stops(line);
+  let best = { gap: Infinity, s: 0 };
+  line.forEach(([x1, y1], i) => {
+    const [x0, y0] = line[i - 1] ?? [x1, y1];
+    const length = (at[i] ?? 0) - (at[i - 1] ?? 0);
+    const f = length
+      ? Math.min(Math.max(((px - x0) * (x1 - x0) + (py - y0) * (y1 - y0)) / length ** 2, 0), 1)
+      : 0;
+    const gap = Math.hypot(x0 + (x1 - x0) * f - px, y0 + (y1 - y0) * f - py);
+    if (gap < best.gap) best = { gap, s: (at[i - 1] ?? 0) + f * length };
+  });
+  return best.s;
+}
+
+// The points with each inner corner rounded off to radius r, as short steps
+// along a curve, so distances along the line stay sums of straight steps.
+function rounded(points: Line, r: number): Point[] {
+  const toward = ([x, y]: Point, [tx, ty]: Point): Point => {
+    const d = Math.hypot(tx - x, ty - y);
+    return [x + ((tx - x) * r) / d, y + ((ty - y) * r) / d];
+  };
+  return points.flatMap((p, i) => {
+    const prev = points[i - 1];
+    const next = points[i + 1];
+    if (!prev || !next) return [p];
+    const [ax, ay] = toward(p, prev);
+    const [bx, by] = toward(p, next);
+    const [cx, cy] = p;
+    // A quadratic curve from a to b, bent by the corner.
+    return Array.from({ length: 9 }, (_, k): Point => {
+      const u = k / 8;
+      const [w0, w1, w2] = [(1 - u) ** 2, 2 * u * (1 - u), u ** 2];
+      return [w0 * ax + w1 * cx + w2 * bx, w0 * ay + w1 * cy + w2 * by];
+    });
+  });
 }
 
 function Caption({ c, name }: { c: Palette; name: string }) {
@@ -400,12 +545,14 @@ function Body({ kind, c }: { kind: Kind; c: Palette }) {
   }
 }
 
-export const fallInLine = THEMES.map((theme) => ({
-  id: `fall-in-line-${theme}`,
-  component: FallInLine,
-  defaultProps: { theme },
-  durationInFrames: ROUNDS.length * ROUND * FPS,
-  fps: FPS,
-  width: WIDTH * SCALE,
-  height: HEIGHT * SCALE,
-}));
+export const fallInLine = (Object.keys(STAGES) as Shape[]).flatMap((shape) =>
+  THEMES.map((theme) => ({
+    id: `fall-in-line-${shape}-${theme}`,
+    component: FallInLine,
+    defaultProps: { theme, shape },
+    durationInFrames: ROUNDS.length * ROUND * FPS,
+    fps: FPS,
+    width: STAGES[shape].width * SCALE,
+    height: STAGES[shape].height * SCALE,
+  })),
+);

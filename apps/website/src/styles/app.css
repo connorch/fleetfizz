@@ -34,6 +34,12 @@
   cursor: pointer;
 }
 
+/* Inline code in the docs is often a long path, which breaks anywhere rather
+   than run off a phone's screen. */
+.prose :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
 /* A code block's title is a file name, so it is mono like the code. */
 figure:has(pre) figcaption {
   @apply font-mono;
