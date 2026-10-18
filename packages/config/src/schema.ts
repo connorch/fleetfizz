@@ -246,12 +246,15 @@ export const FleetConfig = Schema.Struct({
   shippedFrom: Schema.optionalKey(Schema.NonEmptyString),
   shippedTo: Schema.optionalKey(Schema.Record(Schema.NonEmptyString, Schema.String)),
   // Every name must exist on the tailnet, and the Starting Machine must be one of them.
-  machines: Schema.NonEmptyArray(Schema.NonEmptyString)
+  machines: Schema.Array(Schema.NonEmptyString)
     .check(
-      Schema.makeFilter((machines) => new Set(machines).size === machines.length, {
-        title: "Fleet",
-        description: "each Machine once",
-      }),
+      Schema.makeFilter(
+        (machines) =>
+          machines.length === 0
+            ? "list at least one Machine"
+            : new Set(machines).size === machines.length || "list each Machine once",
+        { title: "Fleet", description: "at least one Machine, each once" },
+      ),
     )
     .annotateKey({
       description:

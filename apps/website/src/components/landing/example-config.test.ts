@@ -17,7 +17,9 @@ it("the example reads as it did by hand", () => {
       "machines": ["mac-studio", "macbook-pro", "homelab"],
       // Tracked Repos, installed from origin on every Machine.
       "repos": {
-        "cloneRoot": [{ "machines": ["mac-studio"], "path": "/Volumes/Stack/clones" }],
+        "cloneRoot": [
+          { "machines": ["mac-studio"], "path": "/Volumes/Stack/clones" }
+        ],
         "items": {
           "t3code": {
             "origin": "connorch/t3code",
@@ -26,7 +28,11 @@ it("the example reads as it did by hand", () => {
             "install": "pnpm install && pnpm build",
             "outputs": ["~/Applications/T3 Code.app"]
           },
-          "dotfiles": { "origin": "connorch/dotfiles", "ref": "main", "install": "./install.sh" }
+          "dotfiles": {
+            "origin": "connorch/dotfiles",
+            "ref": "main",
+            "install": "./install.sh"
+          }
         }
       },
       // The vite-plus toolchain and its Globals.
