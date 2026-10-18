@@ -16,7 +16,10 @@ export function SiteNav() {
         <nav className="-mr-1.5 flex items-center gap-1 text-sm">
           <DocsLink />
           <GithubLink />
-          <span className="text-muted-foreground px-2 font-mono text-xs">v{version}</span>
+          {/* Dropped on the narrowest phones, where the row would overflow. */}
+          <span className="text-muted-foreground hidden px-2 font-mono text-xs sm:inline">
+            v{version}
+          </span>
           <ThemeToggle />
         </nav>
       </div>
