@@ -31,7 +31,7 @@ function Home() {
             loop read as one opening, about 120px apart. The text-heavy
             sections under it are bigger blocks and get about 176px. A phone
             scrolls a narrow column, so below md both shrink by about a third,
-            and the loop, a 4:1 strip, runs to the screen's edges. */}
+            and the loop, a two by two grid there, runs to the screen's edges. */}
         <div className="mx-auto w-full max-w-6xl px-6 pt-16 pb-28 md:pt-28 md:pb-44">
           <Phases />
           <FallInLine className="mt-14 mb-24 max-md:-mx-6 md:mt-24 md:mb-40" />
