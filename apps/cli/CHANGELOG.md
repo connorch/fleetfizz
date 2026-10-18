@@ -1,5 +1,28 @@
 # fleetfizz
 
+## 0.6.0
+
+### Minor Changes
+
+- [#28](https://github.com/connorch/fleetfizz/pull/28) [`3c93763`](https://github.com/connorch/fleetfizz/commit/3c93763526790834ab4f6a6ed1984e793e93d368) Thanks [@connorch](https://github.com/connorch)! - New `brew` and `cask` Providers keep Homebrew Formulae and Casks on every Machine: `"brew": { "items": { "gh": "*", "oven-sh/bun/bun": "latest" } }`. `"*"` installs when missing; `"latest"` runs `brew update`, then upgrades on every Ship, and the Ledger shows the version it reached. A Ship never installs Homebrew itself: `brew:brew` fails on a Machine without it.
+
+- [#29](https://github.com/connorch/fleetfizz/pull/29) [`83d1593`](https://github.com/connorch/fleetfizz/commit/83d1593ba35ef2f51b3f6072a743592205883ee8) Thanks [@connorch](https://github.com/connorch)! - The `vp` section keeps package managers' defaults beside Node: `"vp": { "pnpm": "^10", "yarn": "^4" }`, for `npm`, `pnpm`, `yarn`, and `bun`. These need vp in managed mode, so a Machine in system-first mode gets a Question: switch every tool to managed mode, or skip its Node and package-manager defaults (the default without a terminal). `--answer mode=managed` switches in advance. A Global can no longer be named after a package manager or `mode`.
+
+- [#27](https://github.com/connorch/fleetfizz/pull/27) [`3bb02f6`](https://github.com/connorch/fleetfizz/commit/3bb02f6958f569ebce2c022a4fdef3ed8bb80194) Thanks [@connorch](https://github.com/connorch)! - vp and Tracked Repos are now Providers in one engine, and every Item is written `provider:item` (`vp:node`, `repos:connorch-t3code`) in the Ledger, `fizz report`, and flags.
+  
+  - Breaking: `--rebuild` takes an address, `--rebuild repos:<name>`, or `all`.
+  - `--answer kind=choice` answers Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`), or one of them with `kind:subject=choice` (`range:vp:vercel=bump`). `--bump`, `--enforce`, and `--overwrite-config` still work as shorthands.
+  - A Global can have its own Targeting: `{ "range": "^4", "machines": ["connors-mac-studio"] }`.
+  - A repo's branch is resolved to one commit on the Starting Machine, so every Machine installs the same commit in one Ship, and a dry run shows the new commit.
+  - When vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+  - Install Records move to `records/<provider>/<item>.json`; the old files are still read, and the next install moves them.
+
+- [#21](https://github.com/connorch/fleetfizz/pull/21) [`c67a63c`](https://github.com/connorch/fleetfizz/commit/c67a63c2b2363a0f992c8022d5795057c655783e) Thanks [@connorch](https://github.com/connorch)! - When another Machine holds a newer config, `fizz ship` can use it: the Question now offers `use the config on <machine>`, which writes that config here and starts the Ship over from it, next to overwrite and stop.
+
+### Patch Changes
+
+- [#30](https://github.com/connorch/fleetfizz/pull/30) [`7f30417`](https://github.com/connorch/fleetfizz/commit/7f304171d8874dab0f0d3f422f86a3ea5e1d7270) Thanks [@connorch](https://github.com/connorch)! - `schema.json` describes every config field, so editors show what a field does on hover, and `fizz ship --help` names the value each flag takes (`--only machine`, `--rebuild item`, `--config path`).
+
 ## 0.5.2
 
 ### Patch Changes
