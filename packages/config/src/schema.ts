@@ -84,9 +84,10 @@ const withShorthand = <Fields extends Schema.Struct.Fields, Text extends string>
     readonly encode: (entry: Schema.Struct<Fields>["Type"]) => Text;
   },
 ) =>
+  // The object first, so encoding writes the full entry and keeps its Targeting.
   Schema.Union([
-    value.pipe(Schema.decodeTo(Schema.toType(entry), SchemaTransformation.transform(shorthand))),
     entry,
+    value.pipe(Schema.decodeTo(Schema.toType(entry), SchemaTransformation.transform(shorthand))),
   ]);
 
 // One definition, or a list of Variants: whole definitions, each with its own

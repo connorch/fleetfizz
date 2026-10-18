@@ -93,10 +93,6 @@
             {
               "anyOf": [
                 {
-                  "type": "string",
-                  "minLength": 1
-                },
-                {
                   "type": "object",
                   "properties": {
                     "platforms": {
@@ -144,6 +140,10 @@
                   },
                   "required": ["path"],
                   "additionalProperties": false
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
                 }
               ]
             },
@@ -152,10 +152,6 @@
               "prefixItems": [
                 {
                   "anyOf": [
-                    {
-                      "type": "string",
-                      "minLength": 1
-                    },
                     {
                       "type": "object",
                       "properties": {
@@ -204,6 +200,10 @@
                       },
                       "required": ["path"],
                       "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1
                     }
                   ]
                 }
@@ -211,10 +211,6 @@
               "minItems": 1,
               "items": {
                 "anyOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
                   {
                     "type": "object",
                     "properties": {
@@ -263,6 +259,10 @@
                     },
                     "required": ["path"],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
                   }
                 ]
               }
@@ -722,10 +722,6 @@
               {
                 "anyOf": [
                   {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
                     "type": "object",
                     "properties": {
                       "platforms": {
@@ -773,6 +769,10 @@
                     },
                     "required": ["range"],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
                   }
                 ]
               },
@@ -781,10 +781,6 @@
                 "prefixItems": [
                   {
                     "anyOf": [
-                      {
-                        "type": "string",
-                        "minLength": 1
-                      },
                       {
                         "type": "object",
                         "properties": {
@@ -833,6 +829,10 @@
                         },
                         "required": ["range"],
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "string",
+                        "minLength": 1
                       }
                     ]
                   }
@@ -840,10 +840,6 @@
                 "minItems": 1,
                 "items": {
                   "anyOf": [
-                    {
-                      "type": "string",
-                      "minLength": 1
-                    },
                     {
                       "type": "object",
                       "properties": {
@@ -892,6 +888,10 @@
                       },
                       "required": ["range"],
                       "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1
                     }
                   ]
                 }
@@ -976,11 +976,6 @@
               {
                 "anyOf": [
                   {
-                    "type": "string",
-                    "enum": ["*", "latest"],
-                    "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-                  },
-                  {
                     "type": "object",
                     "properties": {
                       "platforms": {
@@ -1029,6 +1024,11 @@
                     },
                     "required": ["range"],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["*", "latest"],
+                    "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                   }
                 ]
               },
@@ -1037,11 +1037,6 @@
                 "prefixItems": [
                   {
                     "anyOf": [
-                      {
-                        "type": "string",
-                        "enum": ["*", "latest"],
-                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-                      },
                       {
                         "type": "object",
                         "properties": {
@@ -1091,6 +1086,11 @@
                         },
                         "required": ["range"],
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["*", "latest"],
+                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
                     ]
                   }
@@ -1098,11 +1098,6 @@
                 "minItems": 1,
                 "items": {
                   "anyOf": [
-                    {
-                      "type": "string",
-                      "enum": ["*", "latest"],
-                      "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-                    },
                     {
                       "type": "object",
                       "properties": {
@@ -1152,6 +1147,11 @@
                       },
                       "required": ["range"],
                       "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["*", "latest"],
+                      "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                     }
                   ]
                 }
@@ -1236,11 +1236,6 @@
               {
                 "anyOf": [
                   {
-                    "type": "string",
-                    "enum": ["*", "latest"],
-                    "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-                  },
-                  {
                     "type": "object",
                     "properties": {
                       "platforms": {
@@ -1289,6 +1284,11 @@
                     },
                     "required": ["range"],
                     "additionalProperties": false
+                  },
+                  {
+                    "type": "string",
+                    "enum": ["*", "latest"],
+                    "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                   }
                 ]
               },
@@ -1297,11 +1297,6 @@
                 "prefixItems": [
                   {
                     "anyOf": [
-                      {
-                        "type": "string",
-                        "enum": ["*", "latest"],
-                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-                      },
                       {
                         "type": "object",
                         "properties": {
@@ -1351,6 +1346,11 @@
                         },
                         "required": ["range"],
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["*", "latest"],
+                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
                     ]
                   }
@@ -1358,11 +1358,6 @@
                 "minItems": 1,
                 "items": {
                   "anyOf": [
-                    {
-                      "type": "string",
-                      "enum": ["*", "latest"],
-                      "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-                    },
                     {
                       "type": "object",
                       "properties": {
@@ -1412,6 +1407,11 @@
                       },
                       "required": ["range"],
                       "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["*", "latest"],
+                      "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                     }
                   ]
                 }

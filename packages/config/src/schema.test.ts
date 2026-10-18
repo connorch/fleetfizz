@@ -73,6 +73,15 @@ describe("FleetConfig", () => {
     expect(decoded.brew?.items).toEqual({ gh: { range: "*" } });
   });
 
+  it("encodes a targeted entry with its Targeting", () => {
+    const written = {
+      machines: ["a"],
+      vp: { items: { wrangler: { range: "^4.0.0", machines: ["a"] } } },
+    } as const;
+    const decoded = Schema.decodeSync(FleetConfig)(written);
+    expect(Schema.encodeSync(FleetConfig)(decoded)).toEqual(written);
+  });
+
   it("rejects an empty Variant list", () => {
     expect(ok({ machines: ["a"], vp: { items: { vercel: [] } } })).toBe(false);
   });

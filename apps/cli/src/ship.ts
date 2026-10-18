@@ -407,15 +407,17 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
       dryRun: flags.dryRun,
     });
     let progressed = false;
-    for (const { question, newest, answer: choice } of answered) {
+    for (const { question, bumps, answer: choice } of answered) {
       const key = `${question.kind}:${question.subject}`;
       progressed ||= !decided.has(key);
       decided.set(key, choice);
-      if (choice !== "bump" || question.bump === undefined) continue;
-      changing = true;
-      const range = yield* bumpConfig(path, question.bump.path, newest);
-      progressed ||= range !== question.bump.range;
-      cfg = yield* loadConfig(path);
+      if (choice !== "bump") continue;
+      for (const bump of bumps) {
+        changing = true;
+        const range = yield* bumpConfig(path, bump.path, bump.newest);
+        progressed ||= range !== bump.range;
+      }
+      if (bumps.length > 0) cfg = yield* loadConfig(path);
     }
     if (!progressed) break;
     planned = planAll(cfg, answer);
