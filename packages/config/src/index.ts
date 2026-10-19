@@ -1,5 +1,13 @@
 // @fleetfizz/config: the FleetConfig Schema and loading of config.jsonc.
-export { bumpConfig, bumpedRange, BumpError, bumpText } from "./bump.ts";
+export { addedRange, bumpConfig, bumpedRange, BumpError, bumpText } from "./bump.ts";
+export {
+  type EditResult,
+  insertAt,
+  type JsonPath,
+  removeAt,
+  saveConfig,
+  targetingLists,
+} from "./edit.ts";
 export { fleetConfigJsonSchema } from "./jsonSchema.ts";
 export {
   CONFIG_FILE,
@@ -20,6 +28,7 @@ export {
   HomebrewRange,
   isPin,
   PACKAGE_MANAGERS,
+  PROVIDER_NAMES,
   type PackageManager,
   Platform,
   ProviderName,

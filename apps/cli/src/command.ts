@@ -6,6 +6,9 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
 import packageJson from "../package.json" with { type: "json" };
+import { addFile, addGlobal, addHomebrew, addMachines, addRepo } from "./configAdd.tsx";
+import { editConfig, printPath, removeItem } from "./configEdit.tsx";
+import { showConfig } from "./configView.tsx";
 import { KEEP, logs } from "./log.ts";
 import { report } from "./report.tsx";
 import { ship } from "./ship.ts";
@@ -122,8 +125,224 @@ const logsCommand = Command.make("logs", {
   ),
 );
 
+// `fizz config` and its subcommands share --config, before or after the
+// subcommand's name.
+const configFlags = {
+  config: Flag.String("config").pipe(
+    Flag.optional,
+    Flag.withMetavar("path"),
+    Flag.withDescription("The config file. Default: `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`."),
+  ),
+};
+
+// --platform and --machine, the Targeting an added Item gets.
+const targetingFlags = {
+  platform: Flag.Literals("platform", ["darwin", "linux"]).pipe(
+    Flag.atLeast(0),
+    Flag.withDescription("Only Machines on this Platform. Repeat the flag for both."),
+  ),
+  machine: Flag.String("machine").pipe(
+    Flag.atLeast(0),
+    Flag.withMetavar("machine"),
+    Flag.withDescription("Only this Machine. Repeat the flag for more."),
+  ),
+};
+
+const latestFlag = Flag.Boolean("latest").pipe(
+  Flag.withDefault(false),
+  Flag.withDescription(
+    'Upgrade it on every Ship (`"latest"`) instead of installing it once (`"*"`).',
+  ),
+);
+
+const configCommand = Command.make("config").pipe(
+  Command.withSharedFlags(configFlags),
+  Command.withDescription(
+    "Show the config: each Provider's Items and the Machines they target, and when a Ship last reached each Machine.",
+  ),
+  Command.withHandler((flags) =>
+    showConfig({ config: Option.getOrUndefined(flags.config) }).pipe(printProblems),
+  ),
+);
+
+// The --config given to `fizz config`, for its subcommands.
+const configFile = Effect.map(configCommand, (flags) => Option.getOrUndefined(flags.config));
+
+const homebrewCommand = (provider: "brew" | "cask") =>
+  Command.make(provider, {
+    name: Argument.String("name").pipe(
+      Argument.withDescription(
+        provider === "brew"
+          ? "The Formula, or a tapped name (`owner/tap/name`)."
+          : "The Cask, or a tapped name.",
+      ),
+    ),
+    latest: latestFlag,
+    ...targetingFlags,
+  }).pipe(
+    Command.withDescription(provider === "brew" ? "Add a Formula." : "Add a Cask."),
+    Command.withHandler((flags) =>
+      Effect.flatMap(configFile, (config) =>
+        addHomebrew({
+          config,
+          provider,
+          name: flags.name,
+          latest: flags.latest,
+          targeting: { platforms: flags.platform, machines: flags.machine },
+        }),
+      ).pipe(printProblems),
+    ),
+  );
+
+const addCommand = Command.make("add").pipe(
+  Command.withDescription("Add an Item or a Machine to the config, then validate and save it."),
+  Command.withSubcommands([
+    Command.make("machines", {
+      names: Argument.String("name").pipe(
+        Argument.variadic(),
+        Argument.withDescription("Machine names. Without any, pick from the tailnet."),
+      ),
+    }).pipe(
+      Command.withDescription("Add Machines from the tailnet to the Fleet."),
+      Command.withHandler((flags) =>
+        Effect.flatMap(configFile, (config) => addMachines({ config, names: flags.names })).pipe(
+          printProblems,
+        ),
+      ),
+    ),
+    Command.make("vp", {
+      spec: Argument.String("package").pipe(
+        Argument.withDescription(
+          "An npm package, with a Range (`vercel@^59`) or without one: then `^` the version installed here, or the newest published.",
+        ),
+      ),
+      ...targetingFlags,
+    }).pipe(
+      Command.withDescription("Add a Global."),
+      Command.withHandler((flags) =>
+        Effect.flatMap(configFile, (config) =>
+          addGlobal({
+            config,
+            spec: flags.spec,
+            targeting: { platforms: flags.platform, machines: flags.machine },
+          }),
+        ).pipe(printProblems),
+      ),
+    ),
+    homebrewCommand("brew"),
+    homebrewCommand("cask"),
+    Command.make("repos", {
+      origin: Argument.String("origin").pipe(Argument.withDescription("The GitHub `owner/repo`.")),
+      name: Flag.String("name").pipe(
+        Flag.optional,
+        Flag.withDescription("The Item's name. Default: the repo's name."),
+      ),
+      ref: Flag.String("ref").pipe(
+        Flag.optional,
+        Flag.withDescription(
+          "A branch or a full commit SHA. Default: the origin's default branch.",
+        ),
+      ),
+      install: Flag.String("install").pipe(
+        Flag.optional,
+        Flag.withDescription("The Install Command. Asked for when missing."),
+      ),
+      output: Flag.String("output").pipe(
+        Flag.atLeast(0),
+        Flag.withMetavar("path"),
+        Flag.withDescription(
+          "A path outside the clone the Install Command produces. Repeat the flag for more.",
+        ),
+      ),
+      ...targetingFlags,
+    }).pipe(
+      Command.withDescription("Add a Tracked Repo."),
+      Command.withHandler((flags) =>
+        Effect.flatMap(configFile, (config) =>
+          addRepo({
+            config,
+            origin: flags.origin,
+            name: Option.getOrUndefined(flags.name),
+            ref: Option.getOrUndefined(flags.ref),
+            install: Option.getOrUndefined(flags.install),
+            outputs: flags.output,
+            targeting: { platforms: flags.platform, machines: flags.machine },
+          }),
+        ).pipe(printProblems),
+      ),
+    ),
+    Command.make("files", {
+      path: Argument.String("path").pipe(
+        Argument.withDescription("A file or directory on this Machine."),
+      ),
+      name: Flag.String("name").pipe(
+        Flag.optional,
+        Flag.withDescription(
+          "The Item's name. Default: the last part of the path, without a leading dot.",
+        ),
+      ),
+      exclude: Flag.String("exclude").pipe(
+        Flag.atLeast(0),
+        Flag.withMetavar("glob"),
+        Flag.withDescription(
+          "A glob inside a directory that is not copied. Repeat the flag for more.",
+        ),
+      ),
+      ...targetingFlags,
+    }).pipe(
+      Command.withDescription("Add a Shared File."),
+      Command.withHandler((flags) =>
+        Effect.flatMap(configFile, (config) =>
+          addFile({
+            config,
+            path: flags.path,
+            name: Option.getOrUndefined(flags.name),
+            exclude: flags.exclude,
+            targeting: { platforms: flags.platform, machines: flags.machine },
+          }),
+        ).pipe(printProblems),
+      ),
+    ),
+  ]),
+);
+
+const removeCommand = Command.make("remove", {
+  address: Argument.String("item").pipe(
+    Argument.withDescription(
+      "`provider:item` (`brew:tmux`, `vp:node`), or `machines:<name>` to take a Machine out of the Fleet.",
+    ),
+  ),
+}).pipe(
+  Command.withDescription(
+    "Remove an Item or a Machine from the config. A Ship never uninstalls what it removes.",
+  ),
+  Command.withHandler((flags) =>
+    Effect.flatMap(configFile, (config) => removeItem({ config, address: flags.address })).pipe(
+      printProblems,
+    ),
+  ),
+);
+
+const editCommand = Command.make("edit").pipe(
+  Command.withDescription(
+    "Edit the config in `$VISUAL` or `$EDITOR`. It is saved only when it loads.",
+  ),
+  Command.withHandler(() =>
+    Effect.flatMap(configFile, (config) => editConfig({ config })).pipe(printProblems),
+  ),
+);
+
+const pathCommand = Command.make("path").pipe(
+  Command.withDescription("Print the config's path."),
+  Command.withHandler(() => Effect.flatMap(configFile, (config) => printPath({ config }))),
+);
+
+const configTree = configCommand.pipe(
+  Command.withSubcommands([addCommand, removeCommand, editCommand, pathCommand]),
+);
+
 // The package is fleetfizz; the command is fizz.
 export const fizz = Command.make("fizz").pipe(
   Command.withDescription("Keep every Machine on your tailnet in line with one config."),
-  Command.withSubcommands([shipCommand, reportCommand, logsCommand]),
+  Command.withSubcommands([shipCommand, reportCommand, logsCommand, configTree]),
 );

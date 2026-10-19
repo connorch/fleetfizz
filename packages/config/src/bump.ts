@@ -22,6 +22,17 @@ export class BumpError extends Schema.TaggedError<BumpError>()("BumpError", {
 export const bumpedRange = (current: string, installed: string): string =>
   semver.valid(current) !== null ? installed : `^${installed}`;
 
+// The Range `fizz config add vp` writes when none is given: a caret of the
+// version installed on this Machine, else of the newest stable version
+// published. Undefined when there is neither.
+export const addedRange = (
+  installed: string | undefined,
+  published: ReadonlyArray<string>,
+): string | undefined => {
+  const version = installed ?? semver.maxSatisfying([...published], "*") ?? undefined;
+  return version === undefined ? undefined : `^${version}`;
+};
+
 export const bumpText = (
   text: string,
   path: ReadonlyArray<string | number>,
