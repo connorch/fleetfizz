@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.8.1
+
+### Patch Changes
+
+- [#42](https://github.com/connorch/fleetfizz/pull/42) [`a0a5c05`](https://github.com/connorch/fleetfizz/commit/a0a5c05a56132ab833fb34f7e5c6ca3bae8517ef) Thanks [@connorch](https://github.com/connorch)! - A running item in the live Ledger leads with a spinner instead of `▸`. Printed output (a pipe, the final Ledger, `fizz report`) keeps the `▸`.
+
 ## 0.8.0
 
 ### Minor Changes
