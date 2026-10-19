@@ -49,7 +49,7 @@ The phase of a Ship that turns the config and checked state into Steps and Quest
 _Avoid_: diff, preview
 
 **Question**:
-A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config, vp in system-first mode). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
+A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config, vp in system-first mode, a Shared File with Drift). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
 _Avoid_: conflict, prompt (a prompt is how a Question is asked)
 
 **Apply**:
@@ -105,7 +105,7 @@ The shell command that installs a Tracked Repo from its Managed Clone.
 _Avoid_: build script, hook
 
 **Install Record**:
-For one Machine and one Item of a Provider that cannot report what it installed (a Tracked Repo): the commit, Managed Clone path, Install Command, and Output fingerprints of the last successful install.
+For one Machine and one Item of a Provider that cannot report what it installed: for a Tracked Repo, the commit, Managed Clone path, Install Command, and Output fingerprints of the last successful install; for a Shared File, the fingerprint and time of the last copy a Ship wrote there.
 _Avoid_: lock, cache, receipt
 
 **Output**:
@@ -113,7 +113,7 @@ A path outside the Managed Clone that a Tracked Repo's Install Command produces,
 _Avoid_: artifact, build product
 
 **Drift**:
-An Output whose fingerprint no longer matches its Install Record, usually because someone installed the repo by hand. Drift makes the next Ship run the Install Command again.
+An Item whose current state no longer matches its Install Record, usually because someone changed it by hand on that Machine. A Tracked Repo's Drift is an Output that no longer matches, and it makes the next Ship run the Install Command again; a Shared File's Drift is an edit made there, and the Ship asks a Question before overwriting it.
 _Avoid_: stale, dirty
 
 ### The vp section
@@ -143,7 +143,7 @@ _Avoid_: app, brew app
 ### Shared Files
 
 **Shared File**:
-A file or directory, from any path, that a Ship copies from the Starting Machine to every targeted Machine. An Item of the `files` Provider.
+A file or directory, from any path, that a Ship copies from the Starting Machine to every targeted Machine, with its mode bits. A directory is mirrored: what the Starting Machine no longer has is deleted on the target too, except the paths the Item excludes. An Item of the `files` Provider.
 _Avoid_: dotfile, synced file, mirror
 
 ### Secrets
@@ -163,6 +163,8 @@ _Avoid_: credential forwarding, shared token
 - An offline **Machine** is skipped, never failed, and stays behind until the next **Ship**
 - A **Provider** can depend on other **Providers**. When an **Item** of a dependency fails on a **Machine**, its dependents are skipped there; a dependency the config does not target at that **Machine** does not hold them back
 - Removing an **Item** from the **Config** never uninstalls it
+- A **Ship** never overwrites a **Shared File** without a **Question** when the target has **Drift**, or when the target got a newer copy from another **Ship** than the **Starting Machine** has
+- A **Shared File**'s contents leave a remote **Machine** only when a **Question**'s answer pulls that **Machine**'s copy to the **Starting Machine**: when the **Starting Machine** has none, or instead of overwriting it
 
 ## Example dialogue
 

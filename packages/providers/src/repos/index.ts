@@ -1,7 +1,7 @@
 // The repos Provider: each Tracked Repo as a Managed Clone at its ref,
 // installed with its Install Command. Kept matching an Install Record on the
-// Machine (ADR 0004): a new commit, a moved clone, a changed command or Clone
-// Files, or Drift in an Output reinstalls.
+// Machine (ADR 0004): a new commit, a moved clone, a changed command, or
+// Drift in an Output reinstalls.
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";

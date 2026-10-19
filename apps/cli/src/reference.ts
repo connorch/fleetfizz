@@ -11,8 +11,10 @@ import * as TestConsole from "effect/testing/TestConsole";
 import {
   BrewSection,
   CaskSection,
+  FilesSection,
   FleetConfig,
   ReposSection,
+  SharedFile,
   Targeting,
   TrackedRepo,
   VpSection,
@@ -102,6 +104,7 @@ export const reference = Effect.gen(function* () {
     "config/vp.md": section("vp", VpSection.fields),
     "config/brew.md": section("brew", BrewSection.fields),
     "config/cask.md": section("cask", CaskSection.fields),
+    "config/files.md": `${section("files", FilesSection.fields)}\nEach Shared File in \`items\`:\n\n${fieldTable(SharedFile.fields)}\n`,
     "config/targeting.md": `${table(
       ["Field", "Description"],
       Object.entries(Targeting).map(([name, field]) => [`\`${name}\``, describe(name, field)]),

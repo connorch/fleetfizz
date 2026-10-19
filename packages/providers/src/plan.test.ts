@@ -608,8 +608,8 @@ describe("the brew and cask Providers", () => {
       expect.objectContaining({ kind: "change", item: "jq", to: "latest" }),
       expect.objectContaining({ kind: "change", item: "oven-sh/bun/bun", to: "latest" }),
     ]);
-    // Packages come before repos, so an Install Command can use them.
-    expect(result.providers.map((p) => p.name)).toEqual(["vp", "brew", "cask", "repos"]);
+    // Shared Files and packages come before repos, so an Install Command can use them.
+    expect(result.providers.map((p) => p.name)).toEqual(["files", "vp", "brew", "cask", "repos"]);
     const steps = result.providers
       .filter((p) => p.name === "brew" || p.name === "cask")
       .flatMap((p) => p.steps.map((s) => [s.id, s.items, s.run.join("").includes("brew update")]));

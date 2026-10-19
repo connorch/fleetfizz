@@ -12,6 +12,7 @@ export {
 export {
   address,
   decideRangeItem,
+  Hidden,
   isQuestionKind,
   orderProviders,
   parseAddress,

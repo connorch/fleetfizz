@@ -30,7 +30,9 @@ const run = (plan: MachinePlan) =>
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const handle = yield* spawner.spawn(
       ChildProcess.make("/bin/sh", ["-c", applyScript(plan)], {
-        stdin: Stream.encodeText(Stream.make(`${applyStdin(undefined, "{}", "{}").join("\n")}\n`)),
+        stdin: Stream.encodeText(
+          Stream.make(`${applyStdin(undefined, "{}", "{}", plan).join("\n")}\n`),
+        ),
         stdout: "pipe",
         stderr: "pipe",
         env: { XDG_CONFIG_HOME: yield* fs.makeTempDirectoryScoped() },
