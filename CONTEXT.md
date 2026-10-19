@@ -101,7 +101,7 @@ The shell command that installs a Tracked Repo from its Managed Clone.
 _Avoid_: build script, hook
 
 **Install Record**:
-For one Machine and one Item of a Provider that cannot report what it installed (a Tracked Repo): the commit, Managed Clone path, Install Command, Clone Files, and Output fingerprints of the last successful install.
+For one Machine and one Item of a Provider that cannot report what it installed (a Tracked Repo): the commit, Managed Clone path, Install Command, and Output fingerprints of the last successful install.
 _Avoid_: lock, cache, receipt
 
 **Output**:
@@ -111,10 +111,6 @@ _Avoid_: artifact, build product
 **Drift**:
 An Output whose fingerprint no longer matches its Install Record, usually because someone installed the repo by hand. Drift makes the next Ship run the Install Command again.
 _Avoid_: stale, dirty
-
-**Clone File**:
-A gitignored file, declared in the config, that a Ship writes into a Managed Clone before its Install Command runs.
-_Avoid_: template, asset, File
 
 ### The vp section
 
@@ -158,7 +154,7 @@ _Avoid_: credential forwarding, shared token
 - Every **Ship** copies the **Starting Machine**'s **Config** to every reachable **Machine**, and installs its own version of fleetfizz there, so any **Machine** can be the next **Starting Machine**
 - No **Machine** changes until every **Question** from every **Machine** is answered
 - A **Machine** has one **Clone Root**, which holds one **Managed Clone** per targeted **Tracked Repo**
-- A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, a **Clone File**, or an **Output** differs from it (**Drift**)
+- A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, or an **Output** differs from it (**Drift**)
 - The **Starting Machine** lends its **Lent Token** to each other **Machine** for the length of one **Ship**; **Install Commands** never see it
 - An offline **Machine** is skipped, never failed, and stays behind until the next **Ship**
 - A **Provider** can depend on other **Providers**. When an **Item** of a dependency fails on a **Machine**, its dependents are skipped there; a dependency the config does not target at that **Machine** does not hold them back
@@ -178,5 +174,5 @@ _Avoid_: credential forwarding, shared token
 
 - "Ship" used to mean installing one repo's skills; it now covers every **Item** of every **Provider**.
 - "Managed Clone" used to mean only the skills repo's clone on a remote Machine; it now means any **Tracked Repo**'s clone on any **Machine**, the **Starting Machine** included.
-- "File" used to mean a file written into a Managed Clone; that is now a **Clone File**, and a **Shared File** is any path a Ship copies between Machines.
+- "File" used to mean a file written into a Managed Clone. The **Install Command** writes those now, and a **Shared File** is any path a Ship copies between Machines.
 - "working copy" is the developer's own checkout, where the config is read from. It is never a **Managed Clone**, and a **Ship** never installs from it.

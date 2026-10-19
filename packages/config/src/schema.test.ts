@@ -28,7 +28,6 @@ describe("FleetConfig", () => {
               install: "cargo build --release",
               platforms: ["darwin"],
               outputs: ["~/.local/share/psychopomp"],
-              files: { ".env": "A=1\n" },
             },
           },
         },

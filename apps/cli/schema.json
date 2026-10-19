@@ -364,21 +364,6 @@
                         "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
                       }
                     ]
-                  },
-                  "files": {
-                    "type": "object",
-                    "propertyNames": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "allOf": [
-                      {
-                        "description": "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets."
-                      }
-                    ]
                   }
                 },
                 "required": ["origin", "ref", "install"],
@@ -467,21 +452,6 @@
                             "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
                           }
                         ]
-                      },
-                      "files": {
-                        "type": "object",
-                        "propertyNames": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "additionalProperties": {
-                          "type": "string"
-                        },
-                        "allOf": [
-                          {
-                            "description": "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets."
-                          }
-                        ]
                       }
                     },
                     "required": ["origin", "ref", "install"],
@@ -567,21 +537,6 @@
                       "allOf": [
                         {
                           "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
-                        }
-                      ]
-                    },
-                    "files": {
-                      "type": "object",
-                      "propertyNames": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "additionalProperties": {
-                        "type": "string"
-                      },
-                      "allOf": [
-                        {
-                          "description": "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets."
                         }
                       ]
                     }
