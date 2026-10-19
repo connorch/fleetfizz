@@ -2,7 +2,7 @@ import { cn } from "@fleetfizz/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { CodeBlock, PAPER, SYNTAX } from "./code-block";
 import { ConfigExample } from "./config-example";
-import { COMMANDS, PHASES } from "./content";
+import { COMMANDS, PHASES, WHY } from "./content";
 
 // The landing page sections below the fold. Spacing between them is the
 // page's job.
@@ -53,6 +53,24 @@ export function OneCommand({ className }: { className?: string }) {
           ))}
         </code>
       </CodeBlock>
+    </section>
+  );
+}
+
+// Why fleetfizz exists: "Why?" in big type, the paragraph beside it, the pair
+// centered on the page. Below md the paragraph drops under the word.
+export function Why({ className }: { className?: string }) {
+  return (
+    <section
+      className={cn(
+        "flex flex-col items-center gap-3 text-center md:flex-row md:items-baseline md:justify-center md:gap-9 md:text-left",
+        className,
+      )}
+    >
+      <h2 className="text-[clamp(3.5rem,11vw,9rem)] leading-[0.9] font-bold tracking-[-0.02em]">
+        Why<span className="text-logo">?</span>
+      </h2>
+      <p className="max-w-[40ch] text-lg/relaxed text-foreground/75">{WHY}</p>
     </section>
   );
 }
