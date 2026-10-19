@@ -58,7 +58,7 @@ import {
 
 import { readConfigRecord, writeConfigRecord } from "./configRecord.ts";
 import { showDiff } from "./diff.ts";
-import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
+import { anyFailed, type LedgerState, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
 import { openShipLog, parseShipId, shipId } from "./log.ts";
 import { apply, check } from "./machine.ts";
@@ -250,13 +250,19 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   );
 }, Effect.scoped);
 
+// Where a pass's end state goes: printed as the Ledger, live while it runs
+// (a Ship), or handed to `fizz status`, which shows nothing while it runs and
+// draws the state itself.
+export type Show = "ledger" | ((state: LedgerState) => void);
+
 // One pass of a Ship from the config at hand. "adopted" means it stopped
 // before any change because the person picked a Stale Config, now written here.
-const shipPass = Effect.fn("shipPass")(function* (
+export const shipPass = Effect.fn("shipPass")(function* (
   flags: ShipFlags,
   tailnet: Tailnet,
   hidden: Set<string>,
   id: string,
+  show: Show = "ledger",
 ) {
   const fs = yield* FileSystem.FileSystem;
   const parsed = parseAnswers(flags.answers);
@@ -300,15 +306,17 @@ const shipPass = Effect.fn("shipPass")(function* (
   yield* Effect.logInfo(
     `${flags.dryRun ? "dry run, " : ""}targets: ${targetsList.map((m) => m.name).join(", ")}`,
   );
-  yield* Console.log(`${flags.dryRun ? "dry run, " : ""}${count} from ${tailnet.self.name}`);
+  const quiet = show !== "ledger";
+  if (!quiet)
+    yield* Console.log(`${flags.dryRun ? "dry run, " : ""}${count} from ${tailnet.self.name}`);
   const color = colorful();
   const { ledger, store } = yield* makeLedger({
     from: tailnet.self.name,
     dryRun: flags.dryRun,
     machines: targetsList.map((m) => m.name),
-    print: (note) => Console.log(noteText(note, color)),
+    print: (note) => (quiet ? Effect.void : Console.log(noteText(note, color))),
   });
-  const redraw = canRedraw();
+  const redraw = !quiet && canRedraw();
 
   // Runs however the Ship ends (done, failed, or interrupted), after the live
   // view is erased (finalizers run in reverse): saves the report once anything
@@ -321,6 +329,7 @@ const shipPass = Effect.fn("shipPass")(function* (
   const finish = Effect.fn("finish")(function* () {
     const state = yield* ledger.end;
     if (adopted) return;
+    if (show !== "ledger") return show(state);
     const saved =
       changing &&
       (yield* saveReport(state).pipe(

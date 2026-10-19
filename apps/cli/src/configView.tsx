@@ -256,7 +256,10 @@ export const showConfig = Effect.fn("showConfig")(function* (flags: {
       path,
       config,
       tailnet,
-      footer: [shippedLine(record, config.machines, sha, now)],
+      footer: [
+        shippedLine(record, config.machines, sha, now),
+        "fizz status for where each Machine stands.",
+      ],
     }),
   );
 });

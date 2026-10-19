@@ -1,6 +1,6 @@
 ---
 title: Commands
-description: fizz ship, fizz report, fizz logs, and fizz config.
+description: fizz ship, fizz status, fizz report, fizz logs, and fizz config.
 ---
 
 ## fizz ship
@@ -18,6 +18,12 @@ Without a terminal, a Question is never waited on: the answer is skip. Piped to 
 ### A different config elsewhere
 
 If another Machine's config was edited there, was never written by a Ship, or was shipped there more recently than this one last reached it, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
+
+## fizz status
+
+<include>../generated/commands/status.md</include>
+
+Each Machine is a column, numbered as the list at the top numbers them: `✓` in line, `↑` the next Ship changes it, `?` the next Ship asks a Question about it, `✗` it fails, `–` skipped, `·` not targeted there, and `○` the Machine was not checked (offline, or no Tailscale SSH). Under the grid, each Machine lists what differs there and why. It plans exactly as `fizz ship --dry-run` does, so it agrees with the next Ship; it never asks a Question and writes no Ship Log.
 
 ## fizz report
 

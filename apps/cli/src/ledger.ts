@@ -47,6 +47,8 @@ const Item = Schema.Struct({
   doing: Schema.optionalKey(Schema.String),
   // Why it failed or was skipped.
   detail: Schema.optionalKey(Schema.String),
+  // Skipped because it is a Question a dry run does not ask.
+  asked: Schema.optionalKey(Schema.Boolean),
   output: Schema.optionalKey(Schema.Array(Schema.String)),
   // The Apply Steps that move this Item, in order, and what each is doing.
   steps: Schema.Array(Schema.Struct({ id: Schema.String, doing: Schema.String })),
@@ -183,6 +185,7 @@ export const itemsOf = (p: MachinePlan, config: ConfigChange): Item[] => [
             changes: false,
             status: "skipped",
             detail: d.question.problem,
+            asked: true,
           };
       }
     }),
