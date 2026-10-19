@@ -41,6 +41,7 @@ import {
   type Context,
   type MachinePlan,
   type MachineState,
+  type Question,
 } from "@fleetfizz/core";
 import { PROVIDERS } from "@fleetfizz/providers";
 import {
@@ -56,6 +57,7 @@ import {
 } from "@fleetfizz/remote";
 
 import { readConfigRecord, writeConfigRecord } from "./configRecord.ts";
+import { showDiff } from "./diff.ts";
 import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
 import { openShipLog, parseShipId, shipId } from "./log.ts";
@@ -535,6 +537,38 @@ const shipPass = Effect.fn("shipPass")(function* (
   const decided = new Map<string, string>();
   const answer: Context["answer"] = (kind, subject) =>
     decided.get(`${kind}:${subject}`) ?? given(kind, subject);
+  // A diff choice: its Provider writes the two sides into an owner-only
+  // temporary directory, removed after, and git shows them with the Ledger
+  // set aside. Only failures and what git cannot show (paths and modes) are
+  // noted, never contents.
+  const diff = (question: Question, choice: string) =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const at = parseAddress(question.subject);
+        const provider = providers.find((p) => p.name === at?.provider);
+        if (at === undefined || provider === undefined) return;
+        const dir = yield* fs.makeTempDirectoryScoped({ prefix: "fleetfizz-diff-" });
+        const sides = yield* (
+          provider.diff?.(at.item, choice, resolved[provider.name], dir) ??
+            Effect.succeed(undefined)
+        );
+        if (sides === undefined) return;
+        if ("error" in sides)
+          return yield* ledger.note("info", `${question.subject}: ${sides.error}`);
+        const code = yield* live.aside(showDiff(dir, sides));
+        if (code > 1)
+          yield* ledger.note("info", `${question.subject}: git diff exited with ${code}`);
+        if (sides.notShown.length > 0)
+          yield* ledger.note(
+            "info",
+            `${question.subject}: also differs, not shown by git: ${sides.notShown.join(", ")}`,
+          );
+      }),
+    ).pipe(
+      Effect.catch((e) =>
+        ledger.note("info", `${question.subject}: could not show the diff: ${e.message}`),
+      ),
+    );
   let planned = planAll(cfg, answer);
   for (;;) {
     const asked: Asked[] = planned.flatMap((g) =>
@@ -549,6 +583,7 @@ const shipPass = Effect.fn("shipPass")(function* (
       answer,
       ledger,
       ask: live.ask,
+      diff,
       dryRun: flags.dryRun,
     });
     let progressed = false;

@@ -63,11 +63,13 @@ const newestOf = (found: ReadonlyArray<string>): string =>
 
 // Notes each Question, then answers it: in advance, live, or by its default.
 // A dry run only notes them.
-export const askQuestions = Effect.fn("askQuestions")(function* (input: {
+export const askQuestions = Effect.fn("askQuestions")(function* <R>(input: {
   readonly asked: ReadonlyArray<Asked>;
   readonly answer: Context["answer"];
   readonly ledger: Ledger;
   readonly ask: Live["ask"];
+  // Shows a Question's diff choice, then the Question is asked again.
+  readonly diff: (question: Question, choice: string) => Effect.Effect<void, never, R>;
   readonly dryRun: boolean;
 }) {
   const groups = Map.groupBy(input.asked, (a) => `${a.question.kind}:${a.question.subject}`);
@@ -112,9 +114,18 @@ export const askQuestions = Effect.fn("askQuestions")(function* (input: {
           ? `bump the config to ${bumps.map((b) => bumpedRange(b.range, b.newest)).join(" and ")}`
           : c.title,
     }));
-    const answer =
-      input.answer(question.kind, question.subject) ??
-      (input.ask === undefined ? question.default : yield* input.ask(choices));
+    // Diff choices come last, so the first answer stays where the cursor starts.
+    const diffs = [
+      ...new Map(group.flatMap((a) => a.question.diffs ?? []).map((c) => [c.value, c])).values(),
+    ];
+    const isDiff = (value: string) => diffs.some((d) => d.value === value);
+    let answer = input.answer(question.kind, question.subject);
+    while (answer === undefined) {
+      const picked =
+        input.ask === undefined ? question.default : yield* input.ask([...choices, ...diffs]);
+      if (isDiff(picked)) yield* input.diff(question, picked);
+      else answer = picked;
+    }
     yield* input.ledger.note("answer", choices.find((c) => c.value === answer)?.title ?? answer);
     answered.push({ question, machines: group.map((a) => a.machine), bumps, answer });
   }

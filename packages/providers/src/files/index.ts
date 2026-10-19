@@ -370,6 +370,8 @@ const copiesOf = (
 
 // The answer that pulls a Machine's copy to the Starting Machine.
 const PULL = "pull:";
+// The choice that shows the diff from a Machine's copy to the Starting Machine's.
+const DIFF = "diff:";
 
 // Why a Ship should ask before overwriting `current` on this Machine, if it
 // should (ADR 0016).
@@ -418,6 +420,16 @@ const fileQuestion = (
     { value: "skip", title: "skip on these Machines (leave as is, shown as skipped)" },
   ],
   default: "skip",
+  ...(pull === undefined || !pull.openssl
+    ? {}
+    : {
+        diffs: [
+          {
+            value: `${DIFF}${pull.machine}`,
+            title: `view the diff from ${pull.machine}'s copy to this Machine's`,
+          },
+        ],
+      }),
 });
 
 // For an Item the Starting Machine lacks: pull one of the other Machines'
@@ -649,11 +661,73 @@ const copyStep = (change: FileChange): Step => {
   };
 };
 
-// Pulls `machine`'s copy of an Item to the Starting Machine (ADR 0016). The
-// copy is encrypted there with a one-time key sent on stdin, so what comes
-// back on stdout (which session recording would capture) is ciphertext, and
-// the Starting Machine decrypts it as it writes, with the record that
-// Machine has, so the next Ship sees one copy on both.
+// Fetches `rels`, files of `copy`, from its Machine. Each is encrypted there
+// with a one-time key sent on stdin, so what comes back on stdout (which
+// session recording would capture) is ciphertext, decrypted by whatever
+// writes it on the Starting Machine with the returned key. Never logged.
+type Fetched =
+  | { readonly key: Hidden; readonly contents: ReadonlyMap<string, Hidden> }
+  | { readonly error: string };
+const fetchFiles = (copy: Copy, rels: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const key = [...globalThis.crypto.getRandomValues(new Uint8Array(32))]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const contents = new Map<number, Hidden>();
+    let finished = false;
+    const code = yield* runScript(
+      { name: copy.machine, local: false },
+      [
+        // The Check's PATH, which found openssl there.
+        prelude,
+        `IFS= read -r FF_KEY || FF_KEY=""`,
+        "export FF_KEY",
+        `ff_p=${quotePath(copy.item.path)}`,
+        ...rels.map(
+          (rel, n) =>
+            `ff_c=$(openssl enc ${CIPHER} -pass env:FF_KEY -in ${at(rel)}) || exit 1; printf 'ff-file ${n} %s\\n' "$ff_c"`,
+        ),
+        `printf 'ff-pulled\\n'`,
+      ].join("\n"),
+      [key],
+      (line) =>
+        Effect.sync(() => {
+          const match = /^ff-file (\d+) (.*)$/.exec(line);
+          if (match !== null) contents.set(Number(match[1]), new Hidden(match[2] ?? ""));
+          else if (line === "ff-pulled") finished = true;
+        }),
+    );
+    const fetched: Fetched =
+      !finished || contents.size !== rels.length
+        ? {
+            error:
+              code === SSH_UNREACHABLE
+                ? `could not reach ${copy.machine}`
+                : `could not read its copy on ${copy.machine}`,
+          }
+        : {
+            key: new Hidden(key),
+            contents: new Map(rels.map((rel, n) => [rel, contents.get(n) ?? new Hidden("")])),
+          };
+    return fetched;
+  });
+
+// Runs `step` on the Starting Machine; true when it finished.
+const runHere = (from: string, step: Step) =>
+  Effect.gen(function* () {
+    let ok = false;
+    yield* runScript({ name: from, local: true }, stepScript(step), stepStdin(step), (line) =>
+      Effect.sync(() => {
+        const parsed = parseLine(line);
+        if (parsed.kind === "done" && parsed.done.id === step.id) ok = parsed.done.ok;
+      }),
+    );
+    return ok;
+  });
+
+// Pulls `machine`'s copy of an Item to the Starting Machine (ADR 0016),
+// encrypted on the way (fetchFiles), with the record that Machine has, so
+// the next Ship sees one copy on both.
 const pull = (
   name: string,
   machine: string,
@@ -668,64 +742,142 @@ const pull = (
     const copy = resolved.copies.get(name)?.find((c) => c.machine === machine);
     if (source === undefined || copy === undefined || source.kind === "unreadable")
       return { error: `cannot pull ${machine}'s copy here` };
-    const key = [...globalThis.crypto.getRandomValues(new Uint8Array(32))]
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-    const rels = [...copy.entries].flatMap(([rel, entry]) => (entry.startsWith("f ") ? [rel] : []));
-    const contents = new Map<number, Hidden>();
-    let finished = false;
-    const code = yield* runScript(
-      { name: machine, local: false },
-      [
-        // The Check's PATH, which found openssl there.
-        prelude,
-        `IFS= read -r FF_KEY || FF_KEY=""`,
-        "export FF_KEY",
-        `ff_p=${quotePath(copy.item.path)}`,
-        ...rels.map(
-          (rel, n) =>
-            `ff_c=$(openssl enc ${CIPHER} -pass env:FF_KEY -in ${at(rel)}) || exit 1; printf 'ff-file ${n} %s\\n' "$ff_c"`,
-        ),
-        `printf 'ff-pulled\\n'`,
-      ].join("\n"),
-      [key],
-      // Never logged: these lines are the copy.
-      (line) =>
-        Effect.sync(() => {
-          const match = /^ff-file (\d+) (.*)$/.exec(line);
-          if (match !== null) contents.set(Number(match[1]), new Hidden(match[2] ?? ""));
-          else if (line === "ff-pulled") finished = true;
-        }),
+    const fetched = yield* fetchFiles(
+      copy,
+      [...copy.entries].flatMap(([rel, entry]) => (entry.startsWith("f ") ? [rel] : [])),
     );
-    if (!finished || contents.size !== rels.length)
-      return {
-        error:
-          code === SSH_UNREACHABLE
-            ? `could not reach ${machine}`
-            : `could not read its copy on ${machine}`,
-      };
+    if ("error" in fetched) return fetched;
     const step = copyStep({
       item: source.item,
       entries: copy.entries,
       ...(source.kind === "present" ? { current: source.entries } : {}),
-      contents: new Map(rels.map((rel, n) => [rel, contents.get(n) ?? new Hidden("")])),
+      contents: fetched.contents,
       at: copy.record?.at ?? resolved.at,
-      key: new Hidden(key),
+      key: fetched.key,
     });
-    let written = false;
-    yield* runScript(
-      { name: resolved.from, local: true },
-      stepScript(step),
-      stepStdin(step),
-      (line) =>
-        Effect.sync(() => {
-          const parsed = parseLine(line);
-          if (parsed.kind === "done" && parsed.done.id === step.id) written = parsed.done.ok;
-        }),
-    );
-    return written
+    return (yield* runHere(resolved.from, step))
       ? { done: `pulled ${short(copy.entries)} from ${machine}` }
       : { error: `could not write ${machine}'s copy on ${resolved.from}` };
+  }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
+
+// One side of a diff: a Machine's copy, its files' contents (base64, or
+// encrypted with `key` when fetched from another Machine).
+export interface DiffSide {
+  readonly machine: string;
+  readonly entries: Entries;
+  readonly contents: ReadonlyMap<string, Hidden>;
+  readonly key?: Hidden;
+}
+
+// The paths whose entries differ between two copies.
+const differing = (a: Entries, b: Entries): ReadonlyArray<string> =>
+  [...new Set([...a.keys(), ...b.keys()])].filter((rel) => a.get(rel) !== b.get(rel)).toSorted();
+
+// What differs that `git diff` of the two sides leaves out: directories
+// (git lists files, so an empty one is invisible) and a file's mode when its
+// owner's executable bit, the only one git shows, is the same. Paths and
+// modes only, which the Check logs anyway.
+export const notShownByGit = (name: string, old: DiffSide, now: DiffSide): string[] =>
+  differing(old.entries, now.entries).flatMap((rel) => {
+    const a = old.entries.get(rel);
+    const b = now.entries.get(rel);
+    const path = rel === "." ? name : `${name}/${rel}`;
+    const mode = (entry: string) => entry.split(" ")[1] ?? "";
+    const executable = (entry: string) => (Number.parseInt(mode(entry), 8) & 0o100) !== 0;
+    if (a?.startsWith("d ") === true && b?.startsWith("d ") === true)
+      return [`${path}/ mode ${mode(a)} → ${mode(b)}`];
+    if (a?.startsWith("d ") === true) return [`${path}/ only on ${old.machine}`];
+    if (b?.startsWith("d ") === true) return [`${path}/ only on ${now.machine}`];
+    if (
+      a?.startsWith("f ") === true &&
+      b?.startsWith("f ") === true &&
+      mode(a) !== mode(b) &&
+      executable(a) === executable(b)
+    )
+      return [`${path} mode ${mode(a)} → ${mode(b)}`];
+    return [];
+  });
+
+// Writes each side's version of the paths that differ at
+// `<dir>/<machine>/<item>`, files with their modes and links as links, so
+// `git diff --no-index old new` shows exactly what differs. A directory is
+// written only to hold what differs: git compares files.
+export const diffStep = (input: {
+  readonly name: string;
+  readonly dir: string;
+  readonly old: DiffSide;
+  readonly new: DiffSide;
+}): Step => {
+  const rels = differing(input.old.entries, input.new.entries);
+  const inputs: Hidden[] = [];
+  const side = (s: DiffSide): string[] => {
+    const decode =
+      s.key === undefined
+        ? "base64 -d"
+        : `FF_KEY="$ff_input_${inputs.push(s.key) - 1}" openssl enc -d ${CIPHER} -pass env:FF_KEY`;
+    return [
+      `ff_p=${quote(`${input.dir}/${s.machine}/${input.name}`)}`,
+      kindOf(s.entries) === "a directory" ? `mkdir -p "$ff_p"` : `mkdir -p "$(dirname "$ff_p")"`,
+      ...rels.flatMap((rel) => {
+        const entry = s.entries.get(rel);
+        if (entry?.startsWith("l "))
+          return [
+            `mkdir -p "$(dirname ${at(rel)})"`,
+            `ln -s -- ${quote(entry.slice(2))} ${at(rel)}`,
+          ];
+        if (!entry?.startsWith("f ")) return [];
+        const n = inputs.push(s.contents.get(rel) ?? new Hidden("")) - 1;
+        return [
+          `mkdir -p "$(dirname ${at(rel)})"`,
+          `printf '%s' "$ff_input_${n}" | ${decode} > ${at(rel)}`,
+          `chmod ${entry.split(" ")[1] ?? ""} ${at(rel)}`,
+        ];
+      }),
+    ];
+  };
+  const run = [...side(input.old), ...side(input.new)];
+  return {
+    id: `files:${input.name}:diff`,
+    items: [input.name],
+    doing: "diffing",
+    run: ["(", "  set -e", ...run.map((l) => `  ${l}`), ")"],
+    input: inputs,
+  };
+};
+
+// The two sides of the diff from `machine`'s copy of an Item to the Starting
+// Machine's, written under `dir`. Only the files that differ cross, as in a
+// pull (fetchFiles); the Starting Machine's come from the copy it read.
+const diff = (
+  name: string,
+  machine: string,
+  resolved: FilesResolved,
+  dir: string,
+): Effect.Effect<
+  | { readonly old: string; readonly new: string; readonly notShown: ReadonlyArray<string> }
+  | { readonly error: string },
+  never,
+  ChildProcessSpawner.ChildProcessSpawner
+> =>
+  Effect.gen(function* () {
+    const source = resolved.sources.get(name);
+    const copy = resolved.copies.get(name)?.find((c) => c.machine === machine);
+    if (source?.kind !== "present" || copy === undefined)
+      return { error: `cannot diff ${machine}'s copy here` };
+    const fetched = yield* fetchFiles(
+      copy,
+      differing(copy.entries, source.entries).filter(
+        (rel) => copy.entries.get(rel)?.startsWith("f ") === true,
+      ),
+    );
+    if ("error" in fetched) return fetched;
+    const sides = {
+      old: { machine, entries: copy.entries, contents: fetched.contents, key: fetched.key },
+      new: { machine: resolved.from, entries: source.entries, contents: source.contents },
+    };
+    return (yield* runHere(resolved.from, diffStep({ name, dir, ...sides })))
+      ? { old: machine, new: resolved.from, notShown: notShownByGit(name, sides.old, sides.new) }
+      : { error: `could not write the diff on ${resolved.from}` };
   }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
 
 // The record alone, for a Machine that already has the copy.
@@ -791,4 +943,6 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
     ),
   adopt: (item, answer, resolved) =>
     answer.startsWith(PULL) ? pull(item, answer.slice(PULL.length), resolved) : undefined,
+  diff: (item, choice, resolved, dir) =>
+    choice.startsWith(DIFF) ? diff(item, choice.slice(DIFF.length), resolved, dir) : undefined,
 };
