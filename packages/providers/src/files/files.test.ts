@@ -407,7 +407,7 @@ describe("the files Provider copies", () => {
       yield* sh('cd "$HOME" && mkdir -p src && printf a > src/a && printf h > src/.hidden', home);
       const { check, planFor } = yield* shipFrom(home, config);
       const plan = planFor(yield* check());
-      const out = yield* sh(applyScript(plan), home, applyStdin(undefined, "{}", "{}", plan));
+      const out = yield* sh(applyScript(plan, "{}"), home, applyStdin(undefined, "{}", "{}", plan));
       expect(out).toContain('ff-done {"id":"files:k:copy","ok":true}');
       expect(yield* fs.readFileString(`${home}/dst/a`)).toBe("a");
       expect(yield* fs.exists(`${home}/dst/.hidden`)).toBe(false);
