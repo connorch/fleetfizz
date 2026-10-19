@@ -1,22 +1,72 @@
 ---
 title: Getting started
-description: Install fleetfizz, describe your Fleet, and ship.
+description: Set up Tailscale SSH, install fleetfizz, and run your first Ship.
 ---
 
-fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node and package-manager defaults, global packages at semver ranges), Homebrew Formulae and Casks, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
+This guide takes two or more macOS or Linux Machines to a first Ship. Pick one Machine to ship from; the first Ship sets up fleetfizz on the others.
 
-## Install
+## 1. Turn on Tailscale SSH everywhere
 
-Install fleetfizz as a vp Global on the Machine you will ship from, and make the config directory:
+fleetfizz reaches every Machine with `tailscale ssh`, so every Machine must be on the same tailnet with Tailscale SSH on.
+
+On a Mac, use the open-source `tailscaled` from [Homebrew](https://brew.sh). The Tailscale app can connect to other Machines but cannot accept Tailscale SSH, so quit and remove it first if you have it.
+
+```sh
+brew install --formula tailscale
+sudo brew services start tailscale
+sudo tailscale up --ssh
+```
+
+On Linux:
+
+```sh
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up --ssh
+```
+
+Then, in the Tailscale admin console under **Access controls**, change the `ssh` rule's `action` from `check` to `accept`. With `check`, Tailscale asks you to sign in in a browser, and a Ship waits on that prompt.
+
+```json
+"ssh": [
+  {
+    "action": "accept",
+    "src": ["autogroup:member"],
+    "dst": ["autogroup:self"],
+    "users": ["autogroup:nonroot", "root"]
+  }
+]
+```
+
+From the Machine you will ship from, check each other Machine. It should print `ok` with no prompt:
+
+```sh
+tailscale ssh connors-macbook-pro echo ok
+```
+
+## 2. Install what fleetfizz needs
+
+Every Machine needs `git` and `curl`. macOS has both.
+
+If your config will list Homebrew packages (`brew` or `cask`) for a Linux Machine, install Homebrew there too. A Ship never installs Homebrew itself.
+
+The Machine you ship from also needs:
+
+- **vp**, to install fleetfizz: `curl -fsSL https://vite.plus | bash`. The first Ship installs vp on the other Machines.
+- **gh**, logged in with `gh auth login`, if any Tracked Repo is private. The Ship lends its token to each Machine for that Ship only, so the repo can clone. Without it, private repos fail and everything else still ships.
+
+## 3. Install fleetfizz
+
+On the Machine you will ship from:
 
 ```sh
 vp install -g fleetfizz
-mkdir -p ~/.config/fleetfizz
 ```
 
-## Describe your Fleet
+## 4. Write the config
 
-Write `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`). Every Machine is named by its tailnet name, and the Machine you ship from must be listed:
+Find each Machine's name with `tailscale status`. A Machine is named by the first part of its tailnet name, so `connors-macbook-pro.tail1234.ts.net` is `connors-macbook-pro`.
+
+Create `~/.config/fleetfizz/config.jsonc` and list every Machine, the one you ship from included:
 
 ```jsonc title="config.jsonc"
 {
@@ -30,21 +80,22 @@ Write `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/config.
 }
 ```
 
-[Config](/docs/config) covers every field.
+This keeps vp, Node, and the `vercel` CLI in line. [Config](/docs/config) covers Tracked Repos, Homebrew, and every other field.
 
-## Ship
+## 5. Ship
+
+See what would change, without changing anything:
 
 ```sh
-fizz ship --dry-run   # check every Machine and print its plan; change nothing
-fizz ship             # apply the plan everywhere, in parallel
+fizz ship --dry-run
 ```
 
-The Ledger lists each Machine and, under it, what changes there. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included.
+Then ship:
 
-Every Ship copies the config to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship.
+```sh
+fizz ship
+```
 
-## Requirements
+The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. If the Ship asks a Question, such as whether to switch a Machine's vp to managed mode, answer it before anything changes.
 
-The Machine you ship from needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in. Its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere.
-
-A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none.
+After the first Ship, every Machine has fleetfizz and the config, so you can ship from any of them. To add a Machine later, turn on Tailscale SSH there and add it to `machines`.
