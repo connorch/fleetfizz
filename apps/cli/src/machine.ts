@@ -41,12 +41,19 @@ const runOn = Effect.fn("runOn")(function* (
 ) {
   // The first plain line, which is tailscale's reason when ssh fails.
   let first: string | undefined;
+  // Any line at all means the script is running there.
+  let connected = false;
   yield* Effect.logDebug(`script:\n${script}`);
   const started = yield* Clock.currentTimeMillis;
   const run: Run = yield* runScript(target, script, secrets, (line) => {
     const parsed = parseLine(line);
     if (parsed.kind === "text" && first === undefined && line.trim() !== "") first = line.trim();
-    return Effect.logDebug(`> ${line}`).pipe(Effect.andThen(onLine(parsed)));
+    const connect = connected ? Effect.void : ledger.connected(target.name);
+    connected = true;
+    return Effect.logDebug(`> ${line}`).pipe(
+      Effect.andThen(connect),
+      Effect.andThen(onLine(parsed)),
+    );
   }).pipe(
     Effect.map((exitCode) => ({ kind: "ran", exitCode }) as const),
     Effect.catch((e) =>
