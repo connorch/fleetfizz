@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.9.0
+
+### Minor Changes
+
+- [#46](https://github.com/connorch/fleetfizz/pull/46) [`ab01420`](https://github.com/connorch/fleetfizz/commit/ab01420d6a1bcd07ac8f75776a1f57316be899c4) Thanks [@connorch](https://github.com/connorch)! - Every Ship writes a Ship Log on the Machine that started it: every Machine's scripts and every line they printed, the Ship's decisions, and full errors. The Ship ends by printing its id, and `fizz logs` prints a Ship Log from any Machine, over Tailscale SSH when another Machine started that Ship.
+
 ## 0.8.1
 
 ### Patch Changes
