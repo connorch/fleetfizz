@@ -155,14 +155,16 @@ export const readFacts = Effect.fn("readFacts")(function* () {
   const ssh = Schema.decodeOption(Prefs)(prefs.stdout);
   const brew = yield* runLocal("brew", ["--version"]);
   const gh = yield* runLocal("gh", ["auth", "status"]);
+  // The App Store app often has no `tailscale` on PATH, but is still installed.
+  const app = process.platform === "darwin" && (yield* fs.exists("/Applications/Tailscale.app"));
   return {
     platform: process.platform,
     vp: vp.code === 0 ? version : undefined,
     tailscale:
-      status.code === 127
+      status.code === 127 && !app
         ? undefined
         : {
-            app: process.platform === "darwin" && (yield* fs.exists("/Applications/Tailscale.app")),
+            app,
             state: state._tag === "Some" ? state.value.BackendState : undefined,
             ssh: ssh._tag === "Some" && ssh.value.RunSSH === true,
           },
