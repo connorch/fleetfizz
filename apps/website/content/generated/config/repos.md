@@ -14,4 +14,3 @@ Each Tracked Repo in `items`:
 | `ref` | A branch, or a full 40-character commit SHA to pin it. Required. |
 | `install` | The Install Command, run in a login shell inside the Managed Clone. Required. |
 | `outputs` | Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls. |
-| `files` | Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets. |

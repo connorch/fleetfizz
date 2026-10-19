@@ -335,7 +335,6 @@ describe("the repos Provider", () => {
       commit,
       path: `${ROOT}/skills`,
       install: "pnpm install",
-      files: {},
       outputs: {},
     },
   });

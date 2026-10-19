@@ -66,10 +66,6 @@ export const TrackedRepo = Schema.Struct({
     description:
       "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls.",
   }),
-  files: Schema.optionalKey(Schema.Record(Schema.NonEmptyString, Schema.String)).annotateKey({
-    description:
-      "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets.",
-  }),
 });
 export type TrackedRepo = typeof TrackedRepo.Type;
 

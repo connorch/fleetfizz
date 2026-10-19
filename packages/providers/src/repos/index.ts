@@ -52,7 +52,6 @@ const InstallRecordSchema = Schema.Struct({
   commit: Schema.String,
   path: Schema.String,
   install: Schema.String,
-  files: Schema.Record(Schema.String, Schema.String),
   outputs: Schema.Record(Schema.String, Schema.String),
 });
 const decodeRecord = Schema.decodeUnknownOption(InstallRecordSchema);
@@ -101,9 +100,6 @@ const expandHome = (path: string, home: string): string =>
   path === "~" ? home : path.startsWith("~/") ? `${home}${path.slice(1)}` : path;
 
 const jsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
-const jsonRecord = Schema.encodeSync(
-  Schema.fromJsonString(Schema.Record(Schema.String, Schema.String)),
-);
 
 // `git ls-remote` for one branch. The Lent Token reaches git through the
 // environment, never argv.
@@ -213,7 +209,6 @@ const decideRepo = (
       commit,
       path: expandHome(`${root}/${repo.name}`, ctx.home),
       install: repo.install,
-      files: repo.files ?? {},
       outputs: Object.fromEntries((repo.outputs ?? []).map((o) => [o, outputs?.get(o)])),
     },
     ctx.rebuild(address("repos", repo.name)),
@@ -226,8 +221,7 @@ const decideRepo = (
         ? `checked out at ${short(clone.head ?? "")}`
         : undefined;
   const change = { item: repo, root, commit };
-  // An up-to-date clone is still reset and cleaned, with its Clone Files rewritten,
-  // on every Ship (ADR 0002).
+  // An up-to-date clone is still reset and cleaned on every Ship (ADR 0002).
   if (reason === undefined)
     return { kind: "leave", item: repo.name, at: short(commit), upkeep: change };
   const from = record?.commit ?? clone?.head;
@@ -242,7 +236,7 @@ const decideRepo = (
 };
 
 // Brings the Managed Clone to the commit: clone when missing, check the
-// origin, reset, clean, and write the Clone Files. One `set -e` subshell.
+// origin, reset, and clean. One `set -e` subshell.
 const fetchStep = ({ item, root, commit }: RepoChange): Step => {
   const url = originUrl(item.origin);
   const sync = isPin(item.ref)
@@ -256,10 +250,6 @@ const fetchStep = ({ item, root, commit }: RepoChange): Step => {
         // The commit resolved for this Ship, not origin's tip now.
         `git -C "$ff_d" reset --quiet --hard ${quote(commit)}`,
       ];
-  const files = Object.entries(item.files ?? {}).flatMap(([path, content]) => [
-    `mkdir -p "$(dirname "$ff_d"/${quote(path)})"`,
-    `printf '%s' ${quote(content)} > "$ff_d"/${quote(path)}`,
-  ]);
   return {
     id: `repos:${item.name}:fetch`,
     items: [item.name],
@@ -272,7 +262,7 @@ const fetchStep = ({ item, root, commit }: RepoChange): Step => {
       "  set -e",
       `  if [ ! -d "$ff_d/.git" ]; then ff_git clone --quiet ${quote(url)} "$ff_d"; fi`,
       `  if [ "$(git -C "$ff_d" remote get-url origin)" != ${quote(url)} ]; then echo "origin is $(git -C "$ff_d" remote get-url origin), expected ${url}"; exit 1; fi`,
-      ...[...sync, `git -C "$ff_d" clean --quiet -fd`, ...files].map((l) => `  ${l}`),
+      ...[...sync, `git -C "$ff_d" clean --quiet -fd`].map((l) => `  ${l}`),
       ")",
     ],
   };
@@ -298,7 +288,7 @@ const installStep = ({ item, root }: RepoChange, ctx: Context): Step => {
         `ff_fpv=$(ff_fp ${quotePath(o)}); if [ -n "$ff_fpv" ]; then ff_outs="$ff_outs,\\"$(ff_json ${quote(o)})\\":\\"$(ff_json "$ff_fpv")\\""; fi`,
     ),
     `mkdir -p ${recordDir("repos")}`,
-    `printf '%s\\n' "{\\"commit\\":\\"$ff_after\\",\\"path\\":\\"$(ff_json "$ff_d")\\",\\"install\\":$(ff_lit ${quote(jsonString(item.install))}),\\"files\\":$(ff_lit ${quote(jsonRecord(item.files ?? {}))}),\\"outputs\\":{\${ff_outs#,}}}" > ${tmp}`,
+    `printf '%s\\n' "{\\"commit\\":\\"$ff_after\\",\\"path\\":\\"$(ff_json "$ff_d")\\",\\"install\\":$(ff_lit ${quote(jsonString(item.install))}),\\"outputs\\":{\${ff_outs#,}}}" > ${tmp}`,
     `mv -f ${tmp} ${recordFile("repos", item.name)}`,
     // The record from before Providers, now superseded.
     `rm -f ${quotePath(RECORDS_DIR)}/${quote(`${item.name}.json`)}`,

@@ -6,7 +6,6 @@ const record: InstallRecord = {
   commit: "9e02bb1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   path: "/Volumes/StudioStack SSD/fleetfizz/clones/connorch-t3code",
   install: "pnpm install --frozen-lockfile",
-  files: { ".env": "A=1\n" },
   outputs: { "/Applications/T3 Code (Alpha).app": "sha256:abc" },
 };
 const same: InstallInputs = { ...record };
@@ -34,13 +33,6 @@ describe("decideInstall", () => {
     expect(decideInstall(record, { ...same, install: "make" }, false)).toEqual({
       run: true,
       reason: "install command changed",
-    });
-  });
-
-  it("runs when a File changed", () => {
-    expect(decideInstall(record, { ...same, files: { ".env": "A=2\n" } }, false)).toEqual({
-      run: true,
-      reason: "files changed",
     });
   });
 
