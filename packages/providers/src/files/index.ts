@@ -121,7 +121,9 @@ const short = (entries: Entries): string =>
 const recordEntries = (record: FileRecord): Entries => new Map(Object.entries(record.entries));
 
 const kindOf = (entries: Entries): string =>
-  ({ f: "a file", d: "a directory", l: "a symlink" })[entries.get(".")?.[0] ?? ""] ?? "missing";
+  ({ f: "a file", d: "a directory", l: "a symlink", "?": "something it cannot copy" })[
+    entries.get(".")?.[0] ?? ""
+  ] ?? "missing";
 
 const depth = (rel: string): number => (rel === "." ? 0 : rel.split("/").length);
 
@@ -143,10 +145,12 @@ const SHELL_FNS = [
   // ff_entry item rel abs
   `ff_entry() {`,
   `  if [ -L "$3" ]; then ff_e="l $(readlink "$3")"; ff_s=0`,
-  // One this user cannot read is "?": its contents are unknown, never absent.
+  // One this user cannot read, or that is no file, directory or link (a
+  // socket, a FIFO), is "?": unknown, never absent, so it is never replaced
+  // unasked.
   `  elif [ -d "$3" ]; then if [ -r "$3" ] && [ -x "$3" ]; then ff_e="d $(ff_mode "$3")"; else ff_e="?"; fi; ff_s=0`,
   `  elif [ -f "$3" ]; then if [ -r "$3" ]; then ff_e="f $(ff_mode "$3") $(ff_sha < "$3")"; ff_s=$(wc -c < "$3" | tr -d " "); else ff_e="?"; ff_s=0; fi`,
-  `  else return 0; fi`,
+  `  else ff_e="?"; ff_s=0; fi`,
   `  ff_state "{\\"provider\\":\\"files\\",\\"fact\\":\\"entry\\",\\"item\\":\\"$(ff_json "$1")\\",\\"path\\":\\"$(ff_json "$2")\\",\\"entry\\":\\"$(ff_json "$ff_e")\\",\\"size\\":$ff_s}"`,
   `}`,
 ].join("\n");
@@ -260,7 +264,7 @@ const resolveSources = Effect.fn("resolveSources")(function* (
     if (unreadable !== undefined) {
       sources.set(item.name, {
         kind: "unreadable",
-        reason: `cannot read ${unreadable === "." ? item.path : unreadable} here`,
+        reason: `cannot read or copy ${unreadable === "." ? item.path : unreadable} here`,
       });
       continue;
     }

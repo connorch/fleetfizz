@@ -157,6 +157,10 @@ describe("the files Provider decides", () => {
     expect(kinds(decide({ state: state({ ".": "f 600 ccc" }), resolved: source() }))).toEqual([
       ["fail", "a file here, a directory on studio"],
     ]);
+    // A socket or FIFO there is never replaced.
+    expect(kinds(decide({ state: state({ ".": "?" }), resolved: source() }))).toEqual([
+      ["fail", "something it cannot copy here, a directory on studio"],
+    ]);
   });
 });
 
@@ -341,7 +345,9 @@ describe("the files Provider copies", () => {
       yield* sh('cd "$HOME" && mkdir -p src && printf a > src/a && chmod 000 src/a', home);
       const { check, planFor } = yield* shipFrom(home, config);
       const decision = planFor(yield* check()).providers[0]?.decisions[0];
-      expect(decision?.kind === "fail" && decision.reason).toBe("studio: cannot read a here");
+      expect(decision?.kind === "fail" && decision.reason).toBe(
+        "studio: cannot read or copy a here",
+      );
       yield* sh('chmod 600 "$HOME/src/a"', home);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
