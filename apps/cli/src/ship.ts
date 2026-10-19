@@ -435,7 +435,7 @@ const shipPass = Effect.fn("shipPass")(function* (
                 mergeReached([base, choice.reached]),
                 DateTime.formatIso(yield* DateTime.now),
                 [own],
-                config.machines,
+                choice.config.machines,
               ),
             }),
           );
