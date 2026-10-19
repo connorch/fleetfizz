@@ -18,7 +18,8 @@ export interface Facts {
         // The macOS app (from the App Store or tailscale.com), which cannot
         // accept Tailscale SSH, unlike Homebrew's tailscaled.
         readonly app: boolean;
-        // `BackendState` from `tailscale status --json`: "Running" once logged in.
+        // `BackendState` from `tailscale status --json`: "Running" once logged
+        // in. undefined when the CLI cannot reach tailscaled.
         readonly state: string | undefined;
         // `RunSSH` from `tailscale debug prefs`.
         readonly ssh: boolean;
@@ -73,26 +74,37 @@ export const checksOf = (facts: Facts): ReadonlyArray<Check> => {
               fix: SERVICE_MACOS,
             },
           ]
-        : ts.state !== "Running"
+        : ts.state === undefined
           ? [
               {
                 ok: false,
                 required: true,
-                text: `Tailscale is not connected (${ts.state ?? "unknown"})`,
-                fix: "sudo tailscale up",
+                text: "Tailscale is installed, but tailscaled is not running",
+                fix: darwin
+                  ? "sudo brew services start tailscale && sudo tailscale up"
+                  : "sudo systemctl enable --now tailscaled && sudo tailscale up",
               },
             ]
-          : [
-              { ok: true, required: true, text: "Tailscale, connected" },
-              ts.ssh
-                ? { ok: true, required: true, text: "Tailscale SSH is on" }
-                : {
-                    ok: false,
-                    required: true,
-                    text: "Tailscale SSH is off",
-                    fix: "sudo tailscale set --ssh",
-                  },
-            ];
+          : ts.state !== "Running"
+            ? [
+                {
+                  ok: false,
+                  required: true,
+                  text: `Tailscale is not connected (${ts.state})`,
+                  fix: "sudo tailscale up",
+                },
+              ]
+            : [
+                { ok: true, required: true, text: "Tailscale, connected" },
+                ts.ssh
+                  ? { ok: true, required: true, text: "Tailscale SSH is on" }
+                  : {
+                      ok: false,
+                      required: true,
+                      text: "Tailscale SSH is off",
+                      fix: "sudo tailscale set --ssh",
+                    },
+              ];
   // The Mac's Tailscale fix installs tailscaled with Homebrew.
   const brewForTailscale = darwin && (ts === undefined || (ts.app && !ts.ssh));
   const brew: ReadonlyArray<Check> = !darwin

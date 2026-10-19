@@ -82,6 +82,9 @@ describe("checksOf", () => {
     expect(
       failing({ ...ready, tailscale: { app: false, state: "NeedsLogin", ssh: false } }),
     ).toEqual([{ required: true, fix: "sudo tailscale up" }]);
+    expect(failing({ ...ready, tailscale: { app: false, state: undefined, ssh: false } })).toEqual([
+      { required: true, fix: "sudo brew services start tailscale && sudo tailscale up" },
+    ]);
   });
 
   it("requires Homebrew first when the Mac's Tailscale fix needs it", () => {
