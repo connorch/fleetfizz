@@ -23,7 +23,7 @@ export const PHASES = [
   ["Check", "each machine's current configuration over Tailscale."],
   [
     "Apply",
-    "updates to vp, node, brew formulae and casks, and your projects, on the machines that need them.",
+    "updates to vp, node, brew formulae and casks, shared files, and your projects, on the machines that need them.",
   ],
 ] as const;
 

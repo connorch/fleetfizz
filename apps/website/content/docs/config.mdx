@@ -79,13 +79,13 @@ Repos run last, after Shared Files, vp, and the Homebrew packages, so an Install
 
 <include>../generated/config/cask.md</include>
 
-`brew` and `cask` need Homebrew on the Machine; a Ship never installs it, and `brew:brew` fails on a Machine without it. Homebrew installs only a package's newest version, so a Range there is only `"*"` (install when missing) or `"latest"` (run `brew update`, then upgrade on every Ship). A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
+`brew` and `cask` need Homebrew on every Machine they target; a Ship never installs it, and `brew:brew` fails on a Machine without it. Casks fail on Linux, so in a Fleet with Linux Machines, give `cask` (and `brew`, if Linux has no Homebrew) `"platforms": ["darwin"]`. Homebrew installs only a package's newest version, so a Range there is only `"*"` (install when missing) or `"latest"` (run `brew update`, then upgrade on every Ship). A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
 
 ## files
 
 <include>../generated/config/files.md</include>
 
-A Ship reads each Shared File on the Machine it runs from and copies it, with its mode bits, to every targeted Machine. A directory is mirrored: what the Starting Machine no longer has is deleted there too, except excluded paths. A symlink is copied as a link. One over 10 MB fails.
+A Ship reads each Shared File on the Machine it runs from and copies it, with its mode bits, to every targeted Machine. A directory is mirrored: what the Starting Machine no longer has is deleted there too, except excluded paths. A symlink is copied as a link. A Shared File over 10 MB in total fails.
 
 Each Machine keeps a record of the last copy a Ship wrote there. Before overwriting, a Ship asks (`--answer file=overwrite` or `skip`; skip is the default) when the copy there was edited since, when no Ship wrote it, or when it came from a newer Ship that missed the Starting Machine. The Question can also keep that Machine's copy instead, and an Item the Starting Machine lacks asks which Machine to take it from: the Ship pulls the copy here, encrypted with `openssl` on the way, then starts over. Contents travel only on the ssh session's stdin, so they never appear in a script, the Ledger, or the Ship Log.
 
