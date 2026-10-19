@@ -1,11 +1,11 @@
 # Shared Files: copied from the Starting Machine, kept by Install Records
 
-Some files need to be the same on every Machine but belong to no repo: Karabiner's config, the wovn and claude-router configs (which hold secrets). The `files` Provider copies each one from the Starting Machine to every targeted Machine, the way a Ship already copies the Config (ADR 0008), with the contents kept out of argv, the Config, and every log.
+Some files need to be the same on every Machine but belong to no repo: Karabiner's config, the vaut and claude-router configs (which hold secrets). The `files` Provider copies each one from the Starting Machine to every targeted Machine, the way a Ship already copies the Config (ADR 0008), with the contents kept out of argv, the Config, and every log.
 
 ```jsonc
 "files": {
   "items": {
-    "wovn": "~/.config/wovn",
+    "vaut": "~/.config/vaut",
     "karabiner": { "path": "~/.config/karabiner", "exclude": ["automatic_backups"] },
     "ghostty": [
       { "platforms": ["darwin"], "path": "~/Library/Application Support/com.mitchellh.ghostty" },
@@ -24,7 +24,7 @@ Some files need to be the same on every Machine but belong to no repo: Karabiner
 - **Not on the Starting Machine:** a Ship asks which other Machine's copy to pull, one choice per distinct copy (Machines that hold the same one are listed together), or skip, the default. Nothing is deleted. An Item that has no Variant for the Starting Machine is skipped, with "ship from a Machine it targets"; relaying it between targets would make a second source of truth.
 - **A pull** runs once every Question is answered, before anything else changes, and the Ship then starts over from the Check, as when a Stale Config is adopted. The Starting Machine sends a one-time key on stdin; the other Machine encrypts each file with `openssl enc -aes-256-cbc -pbkdf2` (the key in its environment, never argv) and prints the ciphertext, and the Starting Machine decrypts it with its own `openssl` as it writes, with that Machine's record, so the next Ship sees one copy on both. A remote's contents leave it only this way: what it prints is what session recording captures, so it is never plaintext. A Machine without `openssl` is not offered as a source, nor is any when the Starting Machine lacks it, and the skip says which needs it; push needs no `openssl` anywhere. A copy over the size limit is never offered.
 - **A diff** can be viewed from a Question about overwriting a copy: the diff from that Machine's copy to the Starting Machine's, after which the Question is asked again. It is never an answer, so `--answer` cannot pick it and a Ship without a terminal never offers it. Only the files that differ cross, encrypted as in a pull, so it needs `openssl` on both Machines. The Starting Machine writes both sides into an owner-only temporary directory, runs `git diff --no-index` on the terminal itself with the live Ledger set aside (the user's own pager and colors), and removes the directory after. What git cannot show, a directory only one side has or a mode change that leaves the executable bit alone, is noted in the Ledger by path and mode.
-- **Contents travel only on stdin.** The Starting Machine reads them during the Ship and sends them, base64, on the Apply's stdin after the Config, only to Machines that change. The plan holds them in a value that every log prints as `[hidden]`. The target writes each file to a temporary file beside it, created owner-only before any byte lands, then sets its mode and renames it into place. The Ledger shows a short fingerprint (`files:wovn a1b2c3d → 9f8e7d6`). An Item over 10 MB after excludes fails rather than stream.
+- **Contents travel only on stdin.** The Starting Machine reads them during the Ship and sends them, base64, on the Apply's stdin after the Config, only to Machines that change. The plan holds them in a value that every log prints as `[hidden]`. The target writes each file to a temporary file beside it, created owner-only before any byte lands, then sets its mode and renames it into place. The Ledger shows a short fingerprint (`files:vaut a1b2c3d → 9f8e7d6`). An Item over 10 MB after excludes fails rather than stream.
 - **`files` runs first** and depends on nothing, so an Install Command can read a Shared File copied in the same Ship.
 
 ## Considered Options

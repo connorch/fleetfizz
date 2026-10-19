@@ -55,7 +55,7 @@ mkdir -p ~/.config/fleetfizz
   // Shared Files: copied from the Machine you ship from. A directory is mirrored.
   "files": {
     "items": {
-      "wovn": "~/.config/wovn",
+      "vaut": "~/.config/vaut",
       "karabiner": { "path": "~/.config/karabiner", "exclude": ["automatic_backups"] },
     },
   },
