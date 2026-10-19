@@ -55,13 +55,26 @@ describe("the files Provider decides", () => {
     ["config.json", "f 600 aaa"],
   ]);
   const theirs = { ".": "d 700", "config.json": "f 600 bbb" };
-  const source = (record?: { at: string; entries: Record<string, string> }): FilesResolved => ({
+  const item = { name: "wovn", path: "~/.config/wovn", exclude: [] };
+  const copy = (machine: string, entries: Readonly<Record<string, string>>, openssl = true) => ({
+    machine,
+    item,
+    entries: new Map(Object.entries(entries)),
+    openssl,
+  });
+  const source = (
+    record?: { at: string; entries: Record<string, string> },
+    copies: FilesResolved["copies"] = new Map([["wovn", [copy("macbook", theirs)]]]),
+  ): FilesResolved => ({
     from: "studio",
     at: "2026-10-20T10:00:00.000Z",
+    copies,
+    openssl: true,
     sources: new Map([
       [
         "wovn",
         {
+          item,
           kind: "present",
           entries: ours,
           ...(record === undefined ? {} : { record }),
@@ -112,8 +125,14 @@ describe("the files Provider decides", () => {
     expect(kinds(decide({ state: state(theirs, shipped), resolved: source(shipped) }))).toEqual([
       ["ask", "was edited there (config.json)"],
     ]);
-    expect(kinds(decide({ state: state(theirs), resolved: source() }))).toEqual([
-      ["ask", "differs, and no Ship wrote it"],
+    const first = decide({ state: state(theirs), resolved: source() });
+    expect(kinds(first)).toEqual([["ask", "differs, and no Ship wrote it"]]);
+    // Keeping the MacBook's copy means pulling it to the Studio.
+    const d = first.decisions[0];
+    expect(d?.kind === "ask" && d.question.choices.map((c) => c.value)).toEqual([
+      "overwrite",
+      "pull:macbook",
+      "skip",
     ]);
     // A Ship from elsewhere reached the MacBook after the Studio's last copy.
     const newer = { at: "2026-10-12T09:30:00.000Z", entries: theirs };
@@ -146,7 +165,9 @@ describe("the files Provider decides", () => {
     const missing: FilesResolved = {
       from: "studio",
       at: "",
-      sources: new Map([["wovn", { kind: "missing" }]]),
+      sources: new Map([["wovn", { item, kind: "missing" }]]),
+      copies: new Map(),
+      openssl: true,
     };
     expect(kinds(decide({ state: state(undefined), resolved: missing }))).toEqual([
       ["skip", "not on studio"],
@@ -161,6 +182,67 @@ describe("the files Provider decides", () => {
     expect(kinds(decide({ state: state({ ".": "?" }), resolved: source() }))).toEqual([
       ["fail", "something it cannot copy here, a directory on studio"],
     ]);
+  });
+});
+
+describe("the files Provider pulls", () => {
+  const item = { name: "wovn", path: "~/.config/wovn", exclude: [] };
+  const entries = { ".": "d 700", "config.json": "f 600 bbb" };
+  const copy = (machine: string, openssl = true) => ({
+    machine,
+    item,
+    entries: new Map(Object.entries(entries)),
+    openssl,
+  });
+  const missing = (
+    copies: ReadonlyArray<ReturnType<typeof copy>>,
+    openssl = true,
+  ): FilesResolved => ({
+    from: "studio",
+    at: "",
+    sources: new Map([["wovn", { item, kind: "missing" }]]),
+    copies: new Map([["wovn", copies]]),
+    openssl,
+  });
+  const there = assembleState([
+    ...Object.entries(entries).map(([path, entry]) => ({
+      provider: "files",
+      fact: "entry",
+      item: "wovn",
+      path,
+      entry,
+      size: 1,
+    })),
+    { fact: "end" },
+  ]);
+  const only = (plan: ReturnType<typeof decide>) => plan.decisions[0];
+
+  it("offers each other copy of an Item the Starting Machine lacks, one choice per copy", () => {
+    const d = only(decide({ state: there, resolved: missing([copy("macbook"), copy("bluefin")]) }));
+    expect(d?.kind === "ask" && d.question.problem).toBe("is not on studio");
+    expect(d?.kind === "ask" && d.question.choices.map((c) => c.value)).toEqual([
+      "pull:macbook",
+      "skip",
+    ]);
+    expect(d?.kind === "ask" && d.question.choices[0]?.title).toMatch(/from macbook, bluefin$/);
+    expect(
+      only(decide({ state: there, resolved: missing([copy("macbook")]), answer: "pull:macbook" })),
+    ).toMatchObject({ kind: "skip", reason: "pulling it from macbook" });
+  });
+
+  it("says which Machines need openssl before a copy can be pulled from them", () => {
+    expect(
+      only(decide({ state: there, resolved: missing([copy("macbook", false)]) })),
+    ).toMatchObject({
+      kind: "skip",
+      reason: "not on studio; install openssl on macbook to pull it",
+    });
+    expect(
+      only(decide({ state: there, resolved: missing([copy("macbook")], false) })),
+    ).toMatchObject({
+      kind: "skip",
+      reason: "not on studio; install openssl on studio to pull it",
+    });
   });
 });
 
@@ -191,6 +273,7 @@ describe("the files Provider copies", () => {
     const resolved = yield* provider
       .resolve(targetedItems(files, config, MACBOOK), {
         starting: { machine: STUDIO, config, items: targetedItems(files, config, STUDIO) },
+        checked: [],
       })
       .pipe(Effect.ensuring(Effect.sync(() => Object.assign(process.env, env))));
 

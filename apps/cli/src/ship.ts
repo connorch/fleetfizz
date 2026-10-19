@@ -428,6 +428,15 @@ const shipPass = Effect.fn("shipPass")(function* (
               config,
               items: targetedItems(provider, config, self),
             },
+            checked: checked.map(({ machine, state }) => {
+              const identity = { name: machine.name, platform: machine.platform };
+              return {
+                machine: identity,
+                items: targetedItems(provider, config, identity),
+                facts: state.facts[provider.name] ?? [],
+                records: state.records[provider.name] ?? {},
+              };
+            }),
           })
           .pipe(Effect.map((r) => [provider.name, r] as const)),
       { concurrency: "unbounded" },
@@ -493,6 +502,31 @@ const shipPass = Effect.fn("shipPass")(function* (
     }
     if (!progressed) break;
     planned = planAll(cfg, answer);
+  }
+
+  // An answer that changes this Machine first (pulling a Shared File's copy
+  // here) runs now, and the Ship starts over from it, as when a Stale Config
+  // is adopted. A dry run only notes the answer, never asked anyway.
+  const adopting = [...decided].flatMap(([key, choice]) => {
+    const subject = key.slice(key.indexOf(":") + 1);
+    const at = parseAddress(subject);
+    const provider = providers.find((p) => p.name === at?.provider);
+    const run =
+      at === undefined || provider === undefined
+        ? undefined
+        : provider.adopt?.(at.item, choice, resolved[provider.name]);
+    return run === undefined ? [] : [{ subject, run }];
+  });
+  if (adopting.length > 0 && !flags.dryRun) {
+    for (const { subject, run } of adopting) {
+      changing = true;
+      const result = yield* run;
+      if ("error" in result)
+        return yield* Effect.fail(new ShipError(`${subject}: ${result.error}`));
+      yield* ledger.note("info", `${subject}: ${result.done}; starting over`);
+    }
+    adopted = true;
+    return "adopted" as const;
   }
 
   for (const { machine, plan: p } of planned) yield* ledger.plan(machine.name, p);

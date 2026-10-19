@@ -100,7 +100,12 @@ export const askQuestions = Effect.fn("askQuestions")(function* (input: {
       yield* input.ledger.note("answer", "not asked (dry run)");
       continue;
     }
-    const choices = question.choices.map((c) => ({
+    // Machines can offer different choices (pull this Machine's copy), so
+    // the group offers each one once, in the order first seen.
+    const offered = [
+      ...new Map(group.flatMap((a) => a.question.choices).map((c) => [c.value, c])).values(),
+    ];
+    const choices = offered.map((c) => ({
       value: c.value,
       title:
         c.value === "bump" && bumps.length > 0

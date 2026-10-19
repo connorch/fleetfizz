@@ -7,12 +7,14 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Hash from "effect/Hash";
 import * as Schema from "effect/Schema";
+import type { ChildProcessSpawner } from "effect/process";
 
 import type { SharedFile } from "@fleetfizz/config";
 import {
   address,
   assembleState,
   Hidden,
+  type Checked,
   type Context,
   type Decision,
   type Provider,
@@ -24,11 +26,15 @@ import {
 import {
   checkScript,
   parseLine,
+  prelude,
   quote,
   quotePath,
   recordDir,
   recordFile,
   runScript,
+  SSH_UNREACHABLE,
+  stepScript,
+  stepStdin,
 } from "@fleetfizz/remote";
 
 // A Shared File on one Machine, named by its key in `files.items`.
@@ -47,13 +53,17 @@ const ALWAYS_EXCLUDED = [".DS_Store", "._*"];
 // An Item larger than this fails rather than stream over stdin.
 export const SIZE_LIMIT = 10 * 1024 * 1024;
 
-const FileFact = Schema.Struct({
-  fact: Schema.Literal("entry"),
-  item: Schema.String,
-  path: Schema.String,
-  entry: Schema.String,
-  size: Schema.Number,
-});
+const FileFact = Schema.Union([
+  Schema.Struct({
+    fact: Schema.Literal("entry"),
+    item: Schema.String,
+    path: Schema.String,
+    entry: Schema.String,
+    size: Schema.Number,
+  }),
+  // Whether the Machine can encrypt a copy for a pull.
+  Schema.Struct({ fact: Schema.Literal("openssl"), present: Schema.Boolean }),
+]);
 const decodeFact = Schema.decodeUnknownOption(FileFact);
 
 const FileRecord = Schema.Struct({
@@ -75,10 +85,11 @@ export interface FilesObserved {
   readonly items: ReadonlyMap<string, Observed>;
   // A record that does not decode counts as none.
   readonly records: ReadonlyMap<string, FileRecord>;
+  readonly openssl: boolean;
 }
 
-// The Starting Machine's copy of one Item.
-type Source =
+// The Starting Machine's copy of one Item, at its own Variant's path.
+type Source = { readonly item: FileItem } & (
   | { readonly kind: "missing" }
   | { readonly kind: "unreadable"; readonly reason: string }
   | {
@@ -87,7 +98,17 @@ type Source =
       readonly record?: FileRecord;
       // Each file entry's contents, base64.
       readonly contents: ReadonlyMap<string, Hidden>;
-    };
+    }
+);
+
+// Another checked Machine's copy of an Item, which a Ship can pull.
+interface Copy {
+  readonly machine: string;
+  readonly item: FileItem;
+  readonly entries: Entries;
+  readonly record?: FileRecord;
+  readonly openssl: boolean;
+}
 
 export interface FilesResolved {
   // The Starting Machine.
@@ -96,6 +117,10 @@ export interface FilesResolved {
   readonly at: string;
   // By Item. An Item the Starting Machine has no Variant for is absent.
   readonly sources: ReadonlyMap<string, Source>;
+  // By Item, every other checked Machine that has it within the size limit.
+  readonly copies: ReadonlyMap<string, ReadonlyArray<Copy>>;
+  // The Starting Machine has openssl, which a pull decrypts with.
+  readonly openssl: boolean;
 }
 
 export interface FileChange {
@@ -105,6 +130,8 @@ export interface FileChange {
   readonly current?: Entries;
   readonly contents: ReadonlyMap<string, Hidden>;
   readonly at: string;
+  // For a pulled copy: the key `contents` are encrypted with.
+  readonly key?: Hidden;
 }
 
 // Entries as one string, so two copies are the same exactly when theirs are.
@@ -168,6 +195,8 @@ const observe = (items: ReadonlyArray<FileItem>): string => {
   if (items.length === 0) return "";
   return [
     SHELL_FNS,
+    `if command -v openssl >/dev/null 2>&1; then ff_o=true; else ff_o=false; fi`,
+    `ff_state "{\\"provider\\":\\"files\\",\\"fact\\":\\"openssl\\",\\"present\\":$ff_o}"`,
     ...items.flatMap((item) => {
       const name = quote(item.name);
       return [
@@ -189,10 +218,15 @@ const parse = (
   records: Readonly<Record<string, unknown>>,
 ): FilesObserved => {
   const items = new Map<string, { entries: Map<string, string>; size: number }>();
+  let openssl = false;
   for (const raw of facts) {
     const fact = decodeFact(raw);
     if (fact._tag === "None") continue;
     const f = fact.value;
+    if (f.fact === "openssl") {
+      openssl = f.present;
+      continue;
+    }
     const item = items.get(f.item) ?? { entries: new Map<string, string>(), size: 0 };
     item.entries.set(f.path, f.entry);
     item.size += f.size;
@@ -203,7 +237,7 @@ const parse = (
     const record = decodeRecord(raw);
     if (record._tag === "Some") decoded.set(name, record.value);
   }
-  return { items, records: decoded };
+  return { items, records: decoded, openssl };
 };
 
 // Where an entry sits on the Machine, as a shell word.
@@ -253,16 +287,17 @@ const resolveSources = Effect.fn("resolveSources")(function* (
   for (const item of items) {
     const copy = observed.items.get(item.name);
     if (!state.complete) {
-      sources.set(item.name, { kind: "unreadable", reason: "could not read it here" });
+      sources.set(item.name, { item, kind: "unreadable", reason: "could not read it here" });
       continue;
     }
     if (copy === undefined) {
-      sources.set(item.name, { kind: "missing" });
+      sources.set(item.name, { item, kind: "missing" });
       continue;
     }
     const unreadable = [...copy.entries].find(([, entry]) => entry === "?")?.[0];
     if (unreadable !== undefined) {
       sources.set(item.name, {
+        item,
         kind: "unreadable",
         reason: `cannot read or copy ${unreadable === "." ? item.path : unreadable} here`,
       });
@@ -270,6 +305,7 @@ const resolveSources = Effect.fn("resolveSources")(function* (
     }
     if (copy.size > SIZE_LIMIT) {
       sources.set(item.name, {
+        item,
         kind: "unreadable",
         reason: `${(copy.size / 1024 / 1024).toFixed(1)} MB, over the ${SIZE_LIMIT / 1024 / 1024} MB limit`,
       });
@@ -287,19 +323,52 @@ const resolveSources = Effect.fn("resolveSources")(function* (
     );
     const read = yield* readContents(list);
     if (read === undefined) {
-      sources.set(item.name, { kind: "unreadable", reason: "could not read it here" });
+      sources.set(item.name, { item, kind: "unreadable", reason: "could not read it here" });
       continue;
     }
     const record = observed.records.get(item.name);
     sources.set(item.name, {
+      item,
       kind: "present",
       entries: copy.entries,
       ...(record === undefined ? {} : { record }),
       contents: new Map(list.map(({ rel }, n) => [rel, read.get(n) ?? new Hidden("")])),
     });
   }
-  return sources;
+  return { sources, openssl: observed.openssl };
 });
+
+// Every checked Machine's copy of each Item, but the Starting Machine's own,
+// and any over the size limit, which is never pulled.
+const copiesOf = (
+  checked: ReadonlyArray<Checked<FileItem>>,
+  from: string,
+): ReadonlyMap<string, ReadonlyArray<Copy>> => {
+  const copies = new Map<string, Copy[]>();
+  for (const { machine, items, facts, records } of checked) {
+    if (machine.name === from) continue;
+    const observed = parse(facts, records);
+    for (const item of items) {
+      const copy = observed.items.get(item.name);
+      if (copy === undefined || copy.size > SIZE_LIMIT) continue;
+      const record = observed.records.get(item.name);
+      copies.set(item.name, [
+        ...(copies.get(item.name) ?? []),
+        {
+          machine: machine.name,
+          item,
+          entries: copy.entries,
+          ...(record === undefined ? {} : { record }),
+          openssl: observed.openssl,
+        },
+      ]);
+    }
+  }
+  return copies;
+};
+
+// The answer that pulls a Machine's copy to the Starting Machine.
+const PULL = "pull:";
 
 // Why a Ship should ask before overwriting `current` on this Machine, if it
 // should (ADR 0016).
@@ -323,14 +392,63 @@ const askWhy = (
   return undefined;
 };
 
-const fileQuestion = (subject: string, found: string, problem: string): Question => ({
+// Overwrite or skip, or take that Machine's copy instead when it can be pulled.
+const fileQuestion = (
+  subject: string,
+  found: string,
+  problem: string,
+  pull: Copy | undefined,
+  from: string,
+): Question => ({
   kind: "file",
   subject,
   found,
   problem,
   choices: [
     { value: "overwrite", title: "overwrite it with this Machine's copy" },
+    ...(pull === undefined || !pull.openssl
+      ? []
+      : [
+          {
+            value: `${PULL}${pull.machine}`,
+            title: `use ${pull.machine}'s copy (${short(pull.entries)}) on ${from} instead`,
+          },
+        ]),
     { value: "skip", title: "skip on these Machines (leave as is, shown as skipped)" },
+  ],
+  default: "skip",
+});
+
+// For an Item the Starting Machine lacks: pull one of the other Machines'
+// copies, Machines with the same copy as one choice, or skip.
+const missingQuestion = (
+  subject: string,
+  found: string,
+  copies: ReadonlyArray<Copy>,
+  from: string,
+): Question => ({
+  kind: "file",
+  subject,
+  found,
+  problem: `is not on ${from}`,
+  choices: [
+    ...Map.groupBy(
+      copies.filter((c) => c.openssl),
+      (c) => fingerprint(c.entries),
+    )
+      .values()
+      .flatMap((same) => {
+        const [first] = same;
+        return first === undefined
+          ? []
+          : [
+              {
+                value: `${PULL}${first.machine}`,
+                title: `pull ${short(first.entries)} from ${same.map((c) => c.machine).join(", ")}`,
+              },
+            ];
+      }),
+    { value: "skip", title: "skip it everywhere" },
   ],
   default: "skip",
 });
@@ -349,7 +467,39 @@ const decideFile = (
       item: item.name,
       reason: `${from} has no Variant for it; ship from a Machine it targets`,
     };
-  if (source.kind === "missing") return { kind: "skip", item: item.name, reason: `not on ${from}` };
+  const subject = address("files", item.name);
+  const answer = ctx.answer("file", subject);
+  const pulling = answer?.startsWith(PULL) === true;
+  const copies = resolved.copies.get(item.name) ?? [];
+  const mine = copies.find((c) => c.machine === ctx.machine.name);
+  if (source.kind === "missing") {
+    const notHere = { kind: "skip", item: item.name, reason: `not on ${from}` } as const;
+    if (mine === undefined) return notHere;
+    if (pulling)
+      return {
+        ...notHere,
+        at: short(mine.entries),
+        reason: `pulling it from ${answer?.slice(PULL.length)}`,
+      };
+    if (answer === "skip" || !resolved.openssl || !copies.some((c) => c.openssl)) {
+      const without = resolved.openssl
+        ? copies.filter((c) => !c.openssl).map((c) => c.machine)
+        : [from];
+      return {
+        ...notHere,
+        at: short(mine.entries),
+        ...(answer !== "skip" && without.length > 0
+          ? { reason: `not on ${from}; install openssl on ${without.join(", ")} to pull it` }
+          : {}),
+      };
+    }
+    return {
+      kind: "ask",
+      item: item.name,
+      at: short(mine.entries),
+      question: missingQuestion(subject, short(mine.entries), copies, from),
+    };
+  }
   if (source.kind === "unreadable")
     return { kind: "fail", item: item.name, reason: `${from}: ${source.reason}` };
   const current = observed.items.get(item.name)?.entries;
@@ -381,15 +531,29 @@ const decideFile = (
       reason: `${kindOf(current)} here, ${kindOf(source.entries)} on ${from}`,
     };
   const fromAt = short(current);
-  const subject = address("files", item.name);
   const why = askWhy(current, record, source, from);
   if (why === undefined) return { kind: "change", item: item.name, from: fromAt, to, change };
-  const answer = ctx.answer("file", subject);
+  if (pulling)
+    return {
+      kind: "skip",
+      item: item.name,
+      at: fromAt,
+      reason: `pulling it from ${answer?.slice(PULL.length)}`,
+    };
   if (answer === "skip") return { kind: "skip", item: item.name, at: fromAt, reason: why };
   if (answer === "overwrite")
     return { kind: "change", item: item.name, from: fromAt, to, reason: why, change };
-  return { kind: "ask", item: item.name, at: fromAt, question: fileQuestion(subject, fromAt, why) };
+  return {
+    kind: "ask",
+    item: item.name,
+    at: fromAt,
+    question: fileQuestion(subject, fromAt, why, resolved.openssl ? mine : undefined, from),
+  };
 };
+
+// How a pulled copy is encrypted: the same in LibreSSL (macOS) and OpenSSL,
+// base64 on one line.
+const CIPHER = "-aes-256-cbc -pbkdf2 -a -A";
 
 // Writes the record of `entries`, as the last thing a Step does.
 const writeRecord = (name: string, entries: Entries, at: string): string[] => {
@@ -422,7 +586,12 @@ const copyStep = (change: FileChange): Step => {
   const writes = [...entries]
     .filter(([rel, entry]) => current?.get(rel) !== entry)
     .toSorted(([a], [b]) => depth(a) - depth(b));
-  const input: Hidden[] = [];
+  // A pulled copy arrives encrypted (pullScript), so it is decrypted as it lands.
+  const input: Hidden[] = change.key === undefined ? [] : [change.key];
+  const decode =
+    change.key === undefined
+      ? "base64 -d"
+      : `FF_KEY="$ff_input_0" openssl enc -d ${CIPHER} -pass env:FF_KEY`;
   const write = ([rel, entry]: [string, string]): string[] => {
     const [type, mode = ""] = entry.split(" ");
     // Owner-only until its own mode is set, last, so nothing inside shows early.
@@ -431,7 +600,7 @@ const copyStep = (change: FileChange): Step => {
     const n = input.push(contents.get(rel) ?? new Hidden("")) - 1;
     return [
       `ff_t=$(mktemp "$(dirname ${at(rel)})/.fftmp.XXXXXX")`,
-      `printf '%s' "$ff_input_${n}" | base64 -d > "$ff_t"`,
+      `printf '%s' "$ff_input_${n}" | ${decode} > "$ff_t"`,
       `chmod ${mode} "$ff_t"`,
       `mv -f "$ff_t" ${at(rel)}`,
       `ff_t=""`,
@@ -479,6 +648,85 @@ const copyStep = (change: FileChange): Step => {
   };
 };
 
+// Pulls `machine`'s copy of an Item to the Starting Machine (ADR 0016). The
+// copy is encrypted there with a one-time key sent on stdin, so what comes
+// back on stdout (which session recording would capture) is ciphertext, and
+// the Starting Machine decrypts it as it writes, with the record that
+// Machine has, so the next Ship sees one copy on both.
+const pull = (
+  name: string,
+  machine: string,
+  resolved: FilesResolved,
+): Effect.Effect<
+  { readonly done: string } | { readonly error: string },
+  never,
+  ChildProcessSpawner.ChildProcessSpawner
+> =>
+  Effect.gen(function* () {
+    const source = resolved.sources.get(name);
+    const copy = resolved.copies.get(name)?.find((c) => c.machine === machine);
+    if (source === undefined || copy === undefined || source.kind === "unreadable")
+      return { error: `cannot pull ${machine}'s copy here` };
+    const key = [...globalThis.crypto.getRandomValues(new Uint8Array(32))]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const rels = [...copy.entries].flatMap(([rel, entry]) => (entry.startsWith("f ") ? [rel] : []));
+    const contents = new Map<number, Hidden>();
+    let finished = false;
+    const code = yield* runScript(
+      { name: machine, local: false },
+      [
+        // The Check's PATH, which found openssl there.
+        prelude,
+        `IFS= read -r FF_KEY || FF_KEY=""`,
+        "export FF_KEY",
+        `ff_p=${quotePath(copy.item.path)}`,
+        ...rels.map(
+          (rel, n) =>
+            `ff_c=$(openssl enc ${CIPHER} -pass env:FF_KEY -in ${at(rel)}) || exit 1; printf 'ff-file ${n} %s\\n' "$ff_c"`,
+        ),
+        `printf 'ff-pulled\\n'`,
+      ].join("\n"),
+      [key],
+      // Never logged: these lines are the copy.
+      (line) =>
+        Effect.sync(() => {
+          const match = /^ff-file (\d+) (.*)$/.exec(line);
+          if (match !== null) contents.set(Number(match[1]), new Hidden(match[2] ?? ""));
+          else if (line === "ff-pulled") finished = true;
+        }),
+    );
+    if (!finished || contents.size !== rels.length)
+      return {
+        error:
+          code === SSH_UNREACHABLE
+            ? `could not reach ${machine}`
+            : `could not read its copy on ${machine}`,
+      };
+    const step = copyStep({
+      item: source.item,
+      entries: copy.entries,
+      ...(source.kind === "present" ? { current: source.entries } : {}),
+      contents: new Map(rels.map((rel, n) => [rel, contents.get(n) ?? new Hidden("")])),
+      at: copy.record?.at ?? resolved.at,
+      key: new Hidden(key),
+    });
+    let written = false;
+    yield* runScript(
+      { name: resolved.from, local: true },
+      stepScript(step),
+      stepStdin(step),
+      (line) =>
+        Effect.sync(() => {
+          const parsed = parseLine(line);
+          if (parsed.kind === "done" && parsed.done.id === step.id) written = parsed.done.ok;
+        }),
+    );
+    return written
+      ? { done: `pulled ${short(copy.entries)} from ${machine}` }
+      : { error: `could not write ${machine}'s copy on ${resolved.from}` };
+  }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
+
 // The record alone, for a Machine that already has the copy.
 const recordStep = (change: FileChange): Step => ({
   id: `files:${change.item.name}:record`,
@@ -501,28 +749,34 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
   observe: (items) => observe(items),
   parse,
   // Only the Starting Machine's Items that some checked Machine needs are read.
-  resolve: (items, { starting: all }) =>
+  resolve: (items, { starting: all, checked }) =>
     Effect.gen(function* () {
       const at = DateTime.formatIso(yield* DateTime.now);
       const needed = new Set(items.map((item) => item.name));
       const starting = { ...all, items: all.items.filter((item) => needed.has(item.name)) };
-      const sources =
+      const { sources, openssl } =
         starting.items.length === 0
-          ? new Map<string, Source>()
+          ? { sources: new Map<string, Source>(), openssl: false }
           : // A path on a stalled mount must not hold the Ship forever.
             yield* resolveSources(starting.items, starting).pipe(
               Effect.timeout("2 minutes"),
-              Effect.orElseSucceed(
-                () =>
-                  new Map<string, Source>(
-                    starting.items.map((item) => [
-                      item.name,
-                      { kind: "unreadable", reason: "could not read it here" },
-                    ]),
-                  ),
-              ),
+              Effect.orElseSucceed(() => ({
+                sources: new Map<string, Source>(
+                  starting.items.map((item) => [
+                    item.name,
+                    { item, kind: "unreadable", reason: "could not read it here" },
+                  ]),
+                ),
+                openssl: false,
+              })),
             );
-      return { from: starting.machine.name, at, sources };
+      return {
+        from: starting.machine.name,
+        at,
+        sources,
+        copies: copiesOf(checked, starting.machine.name),
+        openssl,
+      };
     }),
   decide: ({ items, observed, resolved, ctx }) =>
     items.map((item) => decideFile(item, observed, resolved, ctx)),
@@ -534,4 +788,6 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
           ? [recordStep(d.upkeep)]
           : [],
     ),
+  adopt: (item, answer, resolved) =>
+    answer.startsWith(PULL) ? pull(item, answer.slice(PULL.length), resolved) : undefined,
 };

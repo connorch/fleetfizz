@@ -1,5 +1,5 @@
 // @fleetfizz/remote: the tailnet, transport, remote scripts, and the marker protocol.
-export { applyScript, applyStdin, CONFIG_STEP, END_STEP } from "./apply.ts";
+export { applyScript, applyStdin, CONFIG_STEP, END_STEP, stepScript, stepStdin } from "./apply.ts";
 export {
   CONFIG_DIR_SH,
   checkScript,
