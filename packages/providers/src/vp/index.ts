@@ -11,10 +11,9 @@ import {
   decideRangeItem,
   type Context,
   type Decision,
+  type Named,
   type Provider,
   type Step,
-  type Targeted,
-  type Targeting,
 } from "@fleetfizz/core";
 import { quote, resolveVersions, vpEnv } from "@fleetfizz/remote";
 
@@ -35,21 +34,21 @@ const TOOL_PACKAGES: Readonly<Record<Tool, ReadonlyArray<string>>> = {
 
 // An Item kept inside a Range (vp, a default tool, a Global), vp's managed
 // mode, or fleetfizz itself, pinned to the running version.
-export type VpItem = Targeted &
+export type VpItem = Named &
   (
     | {
         readonly kind: "vp" | "global";
         readonly packages: ReadonlyArray<string>;
         readonly range: string;
         // Where a "bump" answer edits the config.
-        readonly bumpPath: ReadonlyArray<string>;
+        readonly bumpPath: ReadonlyArray<string | number>;
       }
     | {
         readonly kind: "default";
         readonly name: Tool;
         readonly packages: ReadonlyArray<string>;
         readonly range: string;
-        readonly bumpPath: ReadonlyArray<string>;
+        readonly bumpPath: ReadonlyArray<string | number>;
       }
     | { readonly kind: "mode" | "self" }
   );
@@ -242,20 +241,14 @@ export const vp: Provider<"vp", VpItem, VpObserved, VpResolved, VpChange> = {
   name: "vp",
   rule: "range",
   dependsOn: [],
-  items(section) {
-    const globals = Object.entries(section?.globals ?? {}).map(([name, global]): VpItem => {
-      const targeting: Targeting = typeof global === "string" ? {} : global;
-      return {
-        ...(targeting.platforms === undefined ? {} : { platforms: targeting.platforms }),
-        ...(targeting.machines === undefined ? {} : { machines: targeting.machines }),
-        name,
-        kind: "global",
-        packages: [name],
-        range: typeof global === "string" ? global : global.range,
-        bumpPath:
-          typeof global === "string" ? ["vp", "globals", name] : ["vp", "globals", name, "range"],
-      };
-    });
+  items(section, listed) {
+    const globals = listed.map(({ name, def, path }): VpItem => ({
+      name,
+      kind: "global",
+      packages: [name],
+      range: def.range,
+      bumpPath: [...path, "range"],
+    }));
     const defaults = (["node", ...PACKAGE_MANAGERS] as const).flatMap((tool): VpItem[] => {
       const range = section?.[tool];
       return range === undefined

@@ -8,11 +8,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import type { HomebrewRange } from "@fleetfizz/config";
-import { AtFact, type Decision, type Provider, type Step, type Targeted } from "@fleetfizz/core";
+import { AtFact, type Decision, type Named, type Provider, type Step } from "@fleetfizz/core";
 import { quote } from "@fleetfizz/remote";
 
 // Homebrew itself, or a Formula or Cask kept inside its Range.
-export type HomebrewItem = Targeted &
+export type HomebrewItem = Named &
   ({ readonly kind: "homebrew" } | { readonly kind: "package"; readonly range: HomebrewRange });
 
 export interface HomebrewObserved {
@@ -36,10 +36,18 @@ const decodeFact = Schema.decodeUnknownOption(HomebrewFact);
 
 const NO_BREW = "Homebrew is not installed; install it first";
 
+type Homebrew<Name extends "brew" | "cask"> = Provider<
+  Name,
+  HomebrewItem,
+  HomebrewObserved,
+  void,
+  HomebrewChange
+>;
+
 // One Homebrew Provider: `brew` for Formulae, `cask` for Casks.
-const homebrew = <Name extends "brew" | "cask">(
-  name: Name,
-): Provider<Name, HomebrewItem, HomebrewObserved, void, HomebrewChange> => {
+function homebrew(name: "brew"): Homebrew<"brew">;
+function homebrew(name: "cask"): Homebrew<"cask">;
+function homebrew(name: "brew" | "cask"): Homebrew<"brew" | "cask"> {
   const flag = name === "brew" ? "--formula" : "--cask";
   // Prints each named Item's installed version as an AtFact. A tapped Cask
   // (owner/tap/app) is listed by its token: `brew list --cask` looks names up
@@ -72,13 +80,14 @@ const homebrew = <Name extends "brew" | "cask">(
     rule: "range",
     // Casks are installed with Homebrew, which the brew Provider checks.
     dependsOn: name === "cask" ? ["brew"] : [],
-    items(section) {
+    // brew:brew only where the section targets the Machine.
+    items(section, listed) {
       if (section === undefined) return [];
-      const packages = Object.entries(section.items ?? {}).map(([item, entry]): HomebrewItem =>
-        typeof entry === "string"
-          ? { name: item, kind: "package", range: entry }
-          : { ...entry, name: item, kind: "package" },
-      );
+      const packages = listed.map(({ name: item, def }): HomebrewItem => ({
+        name: item,
+        kind: "package",
+        range: def.range,
+      }));
       return name === "brew" ? [{ name: "brew", kind: "homebrew" }, ...packages] : packages;
     },
     observe: (items) =>
@@ -144,7 +153,7 @@ const homebrew = <Name extends "brew" | "cask">(
       });
     },
   };
-};
+}
 
 export const brew = homebrew("brew");
 export const cask = homebrew("cask");

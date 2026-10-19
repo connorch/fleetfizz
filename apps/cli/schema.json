@@ -24,143 +24,582 @@
       }
     },
     "machines": {
-      "type": "object",
-      "propertyNames": {
+      "type": "array",
+      "items": {
         "type": "string",
         "minLength": 1
       },
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "clones": {
-            "type": "string",
-            "minLength": 1,
-            "allOf": [
-              {
-                "description": "Where this Machine keeps its Managed Clones. `~` expands on that Machine. Default: `~/.local/share/fleetfizz/clones`."
-              }
-            ]
-          }
-        },
-        "additionalProperties": false
-      },
+      "minItems": 1,
+      "uniqueItems": true,
       "allOf": [
         {
-          "description": "The Fleet, keyed by each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet."
+          "description": "The Fleet: each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet."
         }
       ]
     },
     "repos": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "platforms": {
-            "type": "array",
-            "prefixItems": [
-              {
-                "type": "string",
-                "enum": ["darwin", "linux"]
-              }
-            ],
-            "minItems": 1,
-            "items": {
+      "type": "object",
+      "properties": {
+        "platforms": {
+          "type": "array",
+          "prefixItems": [
+            {
               "type": "string",
               "enum": ["darwin", "linux"]
-            },
-            "allOf": [
-              {
-                "description": "`darwin`, `linux`, or both."
-              }
-            ]
-          },
-          "machines": {
-            "type": "array",
-            "prefixItems": [
-              {
-                "type": "string",
-                "minLength": 1
-              }
-            ],
-            "minItems": 1,
-            "items": {
-              "type": "string",
-              "minLength": 1
-            },
-            "allOf": [
-              {
-                "description": "Machine names from `machines`."
-              }
-            ]
-          },
-          "origin": {
+            }
+          ],
+          "minItems": 1,
+          "items": {
             "type": "string",
-            "title": "GitHub origin",
-            "description": "a GitHub \"owner/repo\"",
-            "allOf": [
-              {
-                "description": "The GitHub `owner/repo`."
-              }
-            ]
+            "enum": ["darwin", "linux"]
           },
-          "ref": {
-            "type": "string",
-            "minLength": 1,
-            "allOf": [
-              {
-                "description": "A branch, or a full 40-character commit SHA to pin it."
-              }
-            ]
-          },
-          "install": {
-            "type": "string",
-            "minLength": 1,
-            "allOf": [
-              {
-                "description": "The Install Command, run in a login shell inside the Managed Clone."
-              }
-            ]
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "allOf": [
-              {
-                "description": "Names the clone's directory and the repo in output. Default: `<owner>-<repo>`."
-              }
-            ]
-          },
-          "outputs": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            },
-            "allOf": [
-              {
-                "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
-              }
-            ]
-          },
-          "files": {
-            "type": "object",
-            "propertyNames": {
-              "type": "string",
-              "minLength": 1
-            },
-            "additionalProperties": {
-              "type": "string"
-            },
-            "allOf": [
-              {
-                "description": "Gitignored files written into the clone before every install, keyed by path. Never secrets."
-              }
-            ]
-          }
+          "allOf": [
+            {
+              "description": "`darwin`, `linux`, or both."
+            }
+          ]
         },
-        "required": ["origin", "ref", "install"],
-        "additionalProperties": false
+        "machines": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allOf": [
+            {
+              "description": "Machine names from `machines`."
+            }
+          ]
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["vp", "brew", "cask", "repos"]
+          },
+          "allOf": [
+            {
+              "description": "Providers whose Items must succeed on a Machine before this one changes there."
+            }
+          ]
+        },
+        "cloneRoot": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "platforms": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string",
+                          "enum": ["darwin", "linux"]
+                        }
+                      ],
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "enum": ["darwin", "linux"]
+                      },
+                      "allOf": [
+                        {
+                          "description": "`darwin`, `linux`, or both."
+                        }
+                      ]
+                    },
+                    "machines": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      ],
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "allOf": [
+                        {
+                          "description": "Machine names from `machines`."
+                        }
+                      ]
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["path"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "string",
+                  "minLength": 1
+                }
+              ]
+            },
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "platforms": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "enum": ["darwin", "linux"]
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          },
+                          "allOf": [
+                            {
+                              "description": "`darwin`, `linux`, or both."
+                            }
+                          ]
+                        },
+                        "machines": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "allOf": [
+                            {
+                              "description": "Machine names from `machines`."
+                            }
+                          ]
+                        },
+                        "path": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["path"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  ]
+                }
+              ],
+              "minItems": 1,
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "platforms": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": ["darwin", "linux"]
+                        },
+                        "allOf": [
+                          {
+                            "description": "`darwin`, `linux`, or both."
+                          }
+                        ]
+                      },
+                      "machines": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "allOf": [
+                          {
+                            "description": "Machine names from `machines`."
+                          }
+                        ]
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["path"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ]
+              }
+            }
+          ],
+          "allOf": [
+            {
+              "description": "Where a Machine keeps its Managed Clones: a path, or a list of `{ path, platforms?, machines? }` where a Machine gets the first that targets it. `~` expands on that Machine. Default: `~/.local/share/fleetfizz/clones`."
+            }
+          ]
+        },
+        "items": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "platforms": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "enum": ["darwin", "linux"]
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": ["darwin", "linux"]
+                    },
+                    "allOf": [
+                      {
+                        "description": "`darwin`, `linux`, or both."
+                      }
+                    ]
+                  },
+                  "machines": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    ],
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "allOf": [
+                      {
+                        "description": "Machine names from `machines`."
+                      }
+                    ]
+                  },
+                  "origin": {
+                    "type": "string",
+                    "title": "GitHub origin",
+                    "description": "a GitHub \"owner/repo\"",
+                    "allOf": [
+                      {
+                        "description": "The GitHub `owner/repo`."
+                      }
+                    ]
+                  },
+                  "ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "allOf": [
+                      {
+                        "description": "A branch, or a full 40-character commit SHA to pin it."
+                      }
+                    ]
+                  },
+                  "install": {
+                    "type": "string",
+                    "minLength": 1,
+                    "allOf": [
+                      {
+                        "description": "The Install Command, run in a login shell inside the Managed Clone."
+                      }
+                    ]
+                  },
+                  "outputs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "allOf": [
+                      {
+                        "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
+                      }
+                    ]
+                  },
+                  "files": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "allOf": [
+                      {
+                        "description": "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets."
+                      }
+                    ]
+                  }
+                },
+                "required": ["origin", "ref", "install"],
+                "additionalProperties": false
+              },
+              {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "platforms": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": ["darwin", "linux"]
+                        },
+                        "allOf": [
+                          {
+                            "description": "`darwin`, `linux`, or both."
+                          }
+                        ]
+                      },
+                      "machines": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "allOf": [
+                          {
+                            "description": "Machine names from `machines`."
+                          }
+                        ]
+                      },
+                      "origin": {
+                        "type": "string",
+                        "title": "GitHub origin",
+                        "description": "a GitHub \"owner/repo\"",
+                        "allOf": [
+                          {
+                            "description": "The GitHub `owner/repo`."
+                          }
+                        ]
+                      },
+                      "ref": {
+                        "type": "string",
+                        "minLength": 1,
+                        "allOf": [
+                          {
+                            "description": "A branch, or a full 40-character commit SHA to pin it."
+                          }
+                        ]
+                      },
+                      "install": {
+                        "type": "string",
+                        "minLength": 1,
+                        "allOf": [
+                          {
+                            "description": "The Install Command, run in a login shell inside the Managed Clone."
+                          }
+                        ]
+                      },
+                      "outputs": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "allOf": [
+                          {
+                            "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
+                          }
+                        ]
+                      },
+                      "files": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "allOf": [
+                          {
+                            "description": "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets."
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["origin", "ref", "install"],
+                    "additionalProperties": false
+                  }
+                ],
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "platforms": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string",
+                          "enum": ["darwin", "linux"]
+                        }
+                      ],
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "enum": ["darwin", "linux"]
+                      },
+                      "allOf": [
+                        {
+                          "description": "`darwin`, `linux`, or both."
+                        }
+                      ]
+                    },
+                    "machines": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      ],
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "allOf": [
+                        {
+                          "description": "Machine names from `machines`."
+                        }
+                      ]
+                    },
+                    "origin": {
+                      "type": "string",
+                      "title": "GitHub origin",
+                      "description": "a GitHub \"owner/repo\"",
+                      "allOf": [
+                        {
+                          "description": "The GitHub `owner/repo`."
+                        }
+                      ]
+                    },
+                    "ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "allOf": [
+                        {
+                          "description": "A branch, or a full 40-character commit SHA to pin it."
+                        }
+                      ]
+                    },
+                    "install": {
+                      "type": "string",
+                      "minLength": 1,
+                      "allOf": [
+                        {
+                          "description": "The Install Command, run in a login shell inside the Managed Clone."
+                        }
+                      ]
+                    },
+                    "outputs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "allOf": [
+                        {
+                          "description": "Paths outside the clone the Install Command produces. If one changes by hand, the repo reinstalls."
+                        }
+                      ]
+                    },
+                    "files": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "allOf": [
+                        {
+                          "description": "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets."
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["origin", "ref", "install"],
+                  "additionalProperties": false
+                }
+              }
+            ]
+          },
+          "allOf": [
+            {
+              "description": "Tracked Repos, keyed by name, which names the Managed Clone and the `repos:<name>` Item. Each is `{ origin, ref, install, ... }`, or a list of Variants, of which a Machine gets the first that targets it."
+            }
+          ]
+        }
       },
+      "additionalProperties": false,
       "allOf": [
         {
           "description": "Each Tracked Repo is cloned on every targeted Machine and installed from its origin ref."
@@ -216,7 +655,7 @@
           },
           "allOf": [
             {
-              "description": "Providers whose Items must succeed on a Machine before vp changes there."
+              "description": "Providers whose Items must succeed on a Machine before this one changes there."
             }
           ]
         },
@@ -274,7 +713,7 @@
             }
           ]
         },
-        "globals": {
+        "items": {
           "type": "object",
           "propertyNames": {
             "type": "string",
@@ -283,63 +722,187 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "type": "string",
-                "minLength": 1
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "platforms": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": ["darwin", "linux"]
+                        },
+                        "allOf": [
+                          {
+                            "description": "`darwin`, `linux`, or both."
+                          }
+                        ]
+                      },
+                      "machines": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "allOf": [
+                          {
+                            "description": "Machine names from `machines`."
+                          }
+                        ]
+                      },
+                      "range": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": ["range"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ]
               },
               {
-                "type": "object",
-                "properties": {
-                  "platforms": {
-                    "type": "array",
-                    "prefixItems": [
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "anyOf": [
                       {
-                        "type": "string",
-                        "enum": ["darwin", "linux"]
-                      }
-                    ],
-                    "minItems": 1,
-                    "items": {
-                      "type": "string",
-                      "enum": ["darwin", "linux"]
-                    },
-                    "allOf": [
-                      {
-                        "description": "`darwin`, `linux`, or both."
-                      }
-                    ]
-                  },
-                  "machines": {
-                    "type": "array",
-                    "prefixItems": [
+                        "type": "object",
+                        "properties": {
+                          "platforms": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "enum": ["darwin", "linux"]
+                              }
+                            ],
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "enum": ["darwin", "linux"]
+                            },
+                            "allOf": [
+                              {
+                                "description": "`darwin`, `linux`, or both."
+                              }
+                            ]
+                          },
+                          "machines": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            ],
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "allOf": [
+                              {
+                                "description": "Machine names from `machines`."
+                              }
+                            ]
+                          },
+                          "range": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": ["range"],
+                        "additionalProperties": false
+                      },
                       {
                         "type": "string",
                         "minLength": 1
                       }
-                    ],
-                    "minItems": 1,
-                    "items": {
+                    ]
+                  }
+                ],
+                "minItems": 1,
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "platforms": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "enum": ["darwin", "linux"]
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          },
+                          "allOf": [
+                            {
+                              "description": "`darwin`, `linux`, or both."
+                            }
+                          ]
+                        },
+                        "machines": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "allOf": [
+                            {
+                              "description": "Machine names from `machines`."
+                            }
+                          ]
+                        },
+                        "range": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["range"],
+                      "additionalProperties": false
+                    },
+                    {
                       "type": "string",
                       "minLength": 1
-                    },
-                    "allOf": [
-                      {
-                        "description": "Machine names from `machines`."
-                      }
-                    ]
-                  },
-                  "range": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": ["range"],
-                "additionalProperties": false
+                    }
+                  ]
+                }
               }
             ]
           },
           "allOf": [
             {
-              "description": "Global packages, each with a Range, or `{ range, platforms?, machines? }` to target one."
+              "description": "Globals, keyed by package. Each is a Range, `{ range, platforms?, machines? }` to target it, or a list of Variants, of which a Machine gets the first that targets it."
             }
           ]
         }
@@ -413,65 +976,193 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "type": "string",
-                "enum": ["*", "latest"],
-                "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "platforms": {
-                    "type": "array",
-                    "prefixItems": [
-                      {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "platforms": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": ["darwin", "linux"]
+                        },
+                        "allOf": [
+                          {
+                            "description": "`darwin`, `linux`, or both."
+                          }
+                        ]
+                      },
+                      "machines": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "allOf": [
+                          {
+                            "description": "Machine names from `machines`."
+                          }
+                        ]
+                      },
+                      "range": {
                         "type": "string",
-                        "enum": ["darwin", "linux"]
+                        "enum": ["*", "latest"],
+                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
-                    ],
-                    "minItems": 1,
-                    "items": {
-                      "type": "string",
-                      "enum": ["darwin", "linux"]
                     },
-                    "allOf": [
-                      {
-                        "description": "`darwin`, `linux`, or both."
-                      }
-                    ]
+                    "required": ["range"],
+                    "additionalProperties": false
                   },
-                  "machines": {
-                    "type": "array",
-                    "prefixItems": [
-                      {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    ],
-                    "minItems": 1,
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "allOf": [
-                      {
-                        "description": "Machine names from `machines`."
-                      }
-                    ]
-                  },
-                  "range": {
+                  {
                     "type": "string",
                     "enum": ["*", "latest"],
                     "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                   }
-                },
-                "required": ["range"],
-                "additionalProperties": false
+                ]
+              },
+              {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "platforms": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "enum": ["darwin", "linux"]
+                              }
+                            ],
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "enum": ["darwin", "linux"]
+                            },
+                            "allOf": [
+                              {
+                                "description": "`darwin`, `linux`, or both."
+                              }
+                            ]
+                          },
+                          "machines": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            ],
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "allOf": [
+                              {
+                                "description": "Machine names from `machines`."
+                              }
+                            ]
+                          },
+                          "range": {
+                            "type": "string",
+                            "enum": ["*", "latest"],
+                            "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                          }
+                        },
+                        "required": ["range"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["*", "latest"],
+                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                      }
+                    ]
+                  }
+                ],
+                "minItems": 1,
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "platforms": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "enum": ["darwin", "linux"]
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          },
+                          "allOf": [
+                            {
+                              "description": "`darwin`, `linux`, or both."
+                            }
+                          ]
+                        },
+                        "machines": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "allOf": [
+                            {
+                              "description": "Machine names from `machines`."
+                            }
+                          ]
+                        },
+                        "range": {
+                          "type": "string",
+                          "enum": ["*", "latest"],
+                          "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                        }
+                      },
+                      "required": ["range"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["*", "latest"],
+                      "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                    }
+                  ]
+                }
               }
             ]
           },
           "allOf": [
             {
-              "description": "Formulae, each `\"*\"` or `\"latest\"`, or `{ range, platforms?, machines? }` to target one. A tapped name (`owner/tap/name`) taps on install."
+              "description": "Formulae, keyed by name. Each is `\"*\"` or `\"latest\"`, `{ range, platforms?, machines? }` to target it, or a list of Variants, of which a Machine gets the first that targets it. A tapped name (`owner/tap/name`) taps on install."
             }
           ]
         }
@@ -545,65 +1236,193 @@
           "additionalProperties": {
             "anyOf": [
               {
-                "type": "string",
-                "enum": ["*", "latest"],
-                "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "platforms": {
-                    "type": "array",
-                    "prefixItems": [
-                      {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "platforms": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": ["darwin", "linux"]
+                        },
+                        "allOf": [
+                          {
+                            "description": "`darwin`, `linux`, or both."
+                          }
+                        ]
+                      },
+                      "machines": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        ],
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "allOf": [
+                          {
+                            "description": "Machine names from `machines`."
+                          }
+                        ]
+                      },
+                      "range": {
                         "type": "string",
-                        "enum": ["darwin", "linux"]
+                        "enum": ["*", "latest"],
+                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
-                    ],
-                    "minItems": 1,
-                    "items": {
-                      "type": "string",
-                      "enum": ["darwin", "linux"]
                     },
-                    "allOf": [
-                      {
-                        "description": "`darwin`, `linux`, or both."
-                      }
-                    ]
+                    "required": ["range"],
+                    "additionalProperties": false
                   },
-                  "machines": {
-                    "type": "array",
-                    "prefixItems": [
-                      {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    ],
-                    "minItems": 1,
-                    "items": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "allOf": [
-                      {
-                        "description": "Machine names from `machines`."
-                      }
-                    ]
-                  },
-                  "range": {
+                  {
                     "type": "string",
                     "enum": ["*", "latest"],
                     "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                   }
-                },
-                "required": ["range"],
-                "additionalProperties": false
+                ]
+              },
+              {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "platforms": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "enum": ["darwin", "linux"]
+                              }
+                            ],
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "enum": ["darwin", "linux"]
+                            },
+                            "allOf": [
+                              {
+                                "description": "`darwin`, `linux`, or both."
+                              }
+                            ]
+                          },
+                          "machines": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            ],
+                            "minItems": 1,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "allOf": [
+                              {
+                                "description": "Machine names from `machines`."
+                              }
+                            ]
+                          },
+                          "range": {
+                            "type": "string",
+                            "enum": ["*", "latest"],
+                            "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                          }
+                        },
+                        "required": ["range"],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "string",
+                        "enum": ["*", "latest"],
+                        "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                      }
+                    ]
+                  }
+                ],
+                "minItems": 1,
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "platforms": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "enum": ["darwin", "linux"]
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "enum": ["darwin", "linux"]
+                          },
+                          "allOf": [
+                            {
+                              "description": "`darwin`, `linux`, or both."
+                            }
+                          ]
+                        },
+                        "machines": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          ],
+                          "minItems": 1,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "allOf": [
+                            {
+                              "description": "Machine names from `machines`."
+                            }
+                          ]
+                        },
+                        "range": {
+                          "type": "string",
+                          "enum": ["*", "latest"],
+                          "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                        }
+                      },
+                      "required": ["range"],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "string",
+                      "enum": ["*", "latest"],
+                      "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
+                    }
+                  ]
+                }
               }
             ]
           },
           "allOf": [
             {
-              "description": "Casks, each `\"*\"` or `\"latest\"`, or `{ range, platforms?, machines? }` to target one. A tapped name (`owner/tap/name`) taps on install."
+              "description": "Casks, keyed by name. Each is `\"*\"` or `\"latest\"`, `{ range, platforms?, machines? }` to target it, or a list of Variants, of which a Machine gets the first that targets it. A tapped name (`owner/tap/name`) taps on install."
             }
           ]
         }

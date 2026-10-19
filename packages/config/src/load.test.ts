@@ -9,7 +9,7 @@ describe("parseConfig", () => {
   it.effect("parses jsonc with comments and trailing commas", () =>
     Effect.gen(function* () {
       const result = yield* parse(`{
-        "machines": { "connors-mac-studio": {} },
+        "machines": ["connors-mac-studio"],
         // the vp section
         "vp": { "version": "1.1.0", },
       }`);
@@ -29,32 +29,50 @@ describe("parseConfig", () => {
 
   it.effect("rejects unknown keys", () =>
     Effect.gen(function* () {
-      const result = yield* parse('{ "machines": { "a": {} }, "vp": { "platform": ["darwin"] } }');
+      const result = yield* parse('{ "machines": ["a"], "vp": { "platform": ["darwin"] } }');
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") expect(result.failure.message).toContain("platform");
     }),
   );
 
-  it.effect("rejects duplicate repo names", () =>
+  it.effect("rejects a repeated key, which the parser would silently drop", () =>
     Effect.gen(function* () {
-      const result = yield* parse(`{ "machines": { "a": {} }, "repos": [
-        { "origin": "a/b", "ref": "main", "install": "x" },
-        { "origin": "c/d", "ref": "main", "install": "x", "name": "a-b" }
-      ] }`);
+      const result = yield* parse(`{ "machines": ["a"], "repos": { "items": {
+        "t3code": { "origin": "a/b", "ref": "main", "install": "x" },
+        "t3code": { "origin": "c/d", "ref": "main", "install": "x" }
+      } } }`);
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") {
-        expect(result.failure.problems).toEqual(['repos: duplicate name "a-b"']);
+        expect(result.failure.problems).toEqual(['line 3: "t3code" is repeated in repos.items']);
       }
     }),
   );
 
-  it.effect("rejects fleetfizz in globals: the running version pins it", () =>
+  it.effect("rejects fleetfizz as a Global: the running version pins it", () =>
     Effect.gen(function* () {
       const result = yield* parse(
-        '{ "machines": { "a": {} }, "vp": { "globals": { "fleetfizz": "0.2.0" } } }',
+        '{ "machines": ["a"], "vp": { "items": { "fleetfizz": "0.2.0" } } }',
       );
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") expect(result.failure.problems[0]).toContain("fleetfizz");
+    }),
+  );
+
+  it.effect("names what moved in a config from before uniform sections", () =>
+    Effect.gen(function* () {
+      const result = yield* parse(`{
+        "machines": { "a": { "clones": "/x" } },
+        "repos": [{ "origin": "a/b", "ref": "main", "install": "x" }],
+        "vp": { "globals": { "vercel": "*" } }
+      }`);
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        expect(result.failure.problems).toEqual([
+          "machines is now a list of names, and machines.<name>.clones is repos.cloneRoot",
+          "repos is now { items: { <name>: { origin, ref, install } } }, keyed by each repo's name",
+          "vp.globals is now vp.items",
+        ]);
+      }
     }),
   );
 });

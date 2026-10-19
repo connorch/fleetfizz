@@ -41,11 +41,20 @@ export interface Asked {
   readonly question: Question;
 }
 
+// One edit a "bump" answer makes: a Range, and the newest version found
+// under it, which it adopts.
+export interface Bump {
+  readonly path: ReadonlyArray<string | number>;
+  readonly range: string;
+  readonly newest: string;
+}
+
 export interface Answered {
   readonly question: Question;
   readonly machines: ReadonlyArray<string>;
-  // The newest version found among them, which a bump adopts.
-  readonly newest: string;
+  // One per Range the Machines were asked about: Machines that got different
+  // Variants of one Item each bump their own Variant's Range.
+  readonly bumps: ReadonlyArray<Bump>;
   readonly answer: string;
 }
 
@@ -66,9 +75,27 @@ export const askQuestions = Effect.fn("askQuestions")(function* (input: {
   for (const group of groups.values()) {
     const question = group[0]?.question;
     if (question === undefined) continue;
-    const newest = newestOf(group.map((a) => a.question.found));
-    const where = group.map((a) => `${a.question.found} on ${a.machine}`).join(", ");
-    yield* input.ledger.note("ask", `${question.subject} ${where} ${question.problem}`);
+    const bumps = [
+      ...Map.groupBy(
+        group.flatMap(({ question: q }) =>
+          q.bump === undefined ? [] : [{ ...q.bump, found: q.found }],
+        ),
+        (bump) => JSON.stringify(bump.path),
+      ).values(),
+    ].flatMap((list): Bump[] => {
+      const first = list[0];
+      return first === undefined
+        ? []
+        : [{ path: first.path, range: first.range, newest: newestOf(list.map((b) => b.found)) }];
+    });
+    // Machines on different Variants can be wrong in different ways ("is above ^1", "is above ^10").
+    const where = [...Map.groupBy(group, (a) => a.question.problem)]
+      .map(
+        ([problem, list]) =>
+          `${list.map((a) => `${a.question.found} on ${a.machine}`).join(", ")} ${problem}`,
+      )
+      .join("; ");
+    yield* input.ledger.note("ask", `${question.subject} ${where}`);
     if (input.dryRun) {
       yield* input.ledger.note("answer", "not asked (dry run)");
       continue;
@@ -76,15 +103,15 @@ export const askQuestions = Effect.fn("askQuestions")(function* (input: {
     const choices = question.choices.map((c) => ({
       value: c.value,
       title:
-        c.value === "bump" && question.bump !== undefined
-          ? `bump the config to ${bumpedRange(question.bump.range, newest)}`
+        c.value === "bump" && bumps.length > 0
+          ? `bump the config to ${bumps.map((b) => bumpedRange(b.range, b.newest)).join(" and ")}`
           : c.title,
     }));
     const answer =
       input.answer(question.kind, question.subject) ??
       (input.ask === undefined ? question.default : yield* input.ask(choices));
     yield* input.ledger.note("answer", choices.find((c) => c.value === answer)?.title ?? answer);
-    answered.push({ question, machines: group.map((a) => a.machine), newest, answer });
+    answered.push({ question, machines: group.map((a) => a.machine), bumps, answer });
   }
   return answered;
 });

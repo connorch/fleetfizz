@@ -1,6 +1,7 @@
 // "Bump": answer an above-range Question by editing one Range in
 // config.jsonc, at the path the Question names. Only the one string literal changes; comments and
-// formatting stay (ADR 0004).
+// formatting stay (ADR 0004). The path names the `range` field; when the
+// entry is a shorthand string, that string is the Range.
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
@@ -23,18 +24,22 @@ export const bumpedRange = (current: string, installed: string): string =>
 
 export const bumpText = (
   text: string,
-  path: ReadonlyArray<string>,
+  path: ReadonlyArray<string | number>,
   installed: string,
 ): { readonly text: string; readonly range: string } | { readonly reason: string } => {
-  const node = jsonc.findNodeAtLocation(
-    jsonc.parseTree(text) ?? { type: "null", offset: 0, length: 0 },
-    [...path],
-  );
+  const tree = jsonc.parseTree(text) ?? { type: "null", offset: 0, length: 0 };
+  const shorthand = path.slice(0, -1);
+  const at =
+    jsonc.findNodeAtLocation(tree, [...path]) === undefined &&
+    jsonc.findNodeAtLocation(tree, shorthand)?.type === "string"
+      ? shorthand
+      : path;
+  const node = jsonc.findNodeAtLocation(tree, [...at]);
   if (node === undefined || node.type !== "string" || typeof node.value !== "string") {
     return { reason: `${path.join(".")} is not a string literal; change it by hand` };
   }
   const range = bumpedRange(node.value, installed);
-  const edits = jsonc.modify(text, [...path], range, {
+  const edits = jsonc.modify(text, [...at], range, {
     formattingOptions: { insertSpaces: true, tabSize: 2 },
   });
   return { text: jsonc.applyEdits(text, edits), range };
@@ -42,7 +47,7 @@ export const bumpText = (
 
 export const bumpConfig = Effect.fn("bumpConfig")(function* (
   configPath: string,
-  path: ReadonlyArray<string>,
+  path: ReadonlyArray<string | number>,
   installed: string,
 ) {
   const fs = yield* FileSystem.FileSystem;

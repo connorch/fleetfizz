@@ -13,7 +13,7 @@ describe("stampText", () => {
     const text = `{
   // the schema
   "$schema": "./schema.json",
-  "machines": { "connors-mac-studio": {} }, // the fleet
+  "machines": ["connors-mac-studio"], // the fleet
 }
 `;
     expect(stampText(text, stamp)).toBe(`{
@@ -25,7 +25,7 @@ describe("stampText", () => {
     "connors-mac-studio": "2026-10-10T20:00:00.000Z",
     "connors-macbook-pro": "2026-10-10T20:00:00.000Z"
   },
-  "machines": { "connors-mac-studio": {} }, // the fleet
+  "machines": ["connors-mac-studio"], // the fleet
 }
 `);
   });
@@ -35,7 +35,7 @@ describe("stampText", () => {
   "shippedAt": "2026-10-09T00:00:00.000Z",
   "shippedFrom": "connors-macbook-pro",
   "shippedTo": { "connors-macbook-pro": "2026-10-09T00:00:00.000Z", "bluefin": "2026-10-01T00:00:00.000Z" },
-  "machines": { "connors-mac-studio": {}, "connors-macbook-pro": {} },
+  "machines": ["connors-mac-studio", "connors-macbook-pro"],
 }`;
     const out = stampText(text, { ...stamp, reached: ["connors-mac-studio"] });
     expect(out).toContain(`"shippedAt": "2026-10-10T20:00:00.000Z"`);
@@ -43,15 +43,15 @@ describe("stampText", () => {
     expect(out).toContain(`"connors-mac-studio": "2026-10-10T20:00:00.000Z"`);
     expect(out).toContain(`"connors-macbook-pro": "2026-10-09T00:00:00.000Z"`);
     expect(out).not.toContain("bluefin");
-    expect(
-      out.endsWith(`"machines": { "connors-mac-studio": {}, "connors-macbook-pro": {} },\n}`),
-    ).toBe(true);
+    expect(out.endsWith(`"machines": ["connors-mac-studio", "connors-macbook-pro"],\n}`)).toBe(
+      true,
+    );
   });
 });
 
 describe("stampText's own Machine", () => {
   it("counts as reached even when the Ship did not target it", () => {
-    const text = `{ "machines": { "connors-mac-studio": {}, "connors-macbook-pro": {} } }`;
+    const text = `{ "machines": ["connors-mac-studio", "connors-macbook-pro"] }`;
     const out = stampText(text, {
       ...stamp,
       reached: ["connors-macbook-pro"],

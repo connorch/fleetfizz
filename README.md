@@ -18,24 +18,26 @@ mkdir -p ~/.config/fleetfizz
   "$schema": "./schema.json",
   // The Fleet: every Machine a Ship touches, by its tailnet name. The Machine
   // you ship from must be listed.
-  "machines": {
-    "connors-mac-studio": { "clones": "/Volumes/StudioStack SSD/fleetfizz/clones" },
-    "connors-macbook-pro": {},
-  },
-  "repos": [
-    {
-      "origin": "connorch/t3code",
-      "ref": "main",
-      "platforms": ["darwin"],
-      "install": "pnpm install && pnpm build",
-      "outputs": ["~/Applications/T3 Code.app"],
+  "machines": ["connors-mac-studio", "connors-macbook-pro"],
+  "repos": {
+    "cloneRoot": [
+      { "machines": ["connors-mac-studio"], "path": "/Volumes/StudioStack SSD/fleetfizz/clones" },
+    ],
+    "items": {
+      "t3code": {
+        "origin": "connorch/t3code",
+        "ref": "main",
+        "platforms": ["darwin"],
+        "install": "pnpm install && pnpm build",
+        "outputs": ["~/Applications/T3 Code.app"],
+      },
     },
-  ],
+  },
   "vp": {
     "version": "1.1.0",
     "node": "24.18.1",
     "pnpm": "^10",
-    "globals": {
+    "items": {
       "vercel": "^59.25.4",
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
     },
@@ -61,13 +63,15 @@ fizz ship             # apply the plan everywhere, in parallel
 fizz report           # print the full Ledger of the last Ship from this Machine
 ```
 
-The Ledger lists each Machine and, under it, what changes there, by address: `vp:node`, `repos:connorch-t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
+The Ledger lists each Machine and, under it, what changes there, by address: `vp:node`, `repos:t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 
 Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
 
 Each Install Command runs in a login shell inside its Managed Clone, with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
 
-The `vp`, `brew`, and `cask` sections, each Global or Homebrew package, and each repo can take `platforms` and `machines`; they combine with AND, so a Global applies where both it and its section do. Repos run last, after vp and the Homebrew packages, so an Install Command can use a Formula installed in the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+Every section has the same shape: `platforms` and `machines` (Targeting), `dependsOn`, its own settings, and `items`, keyed by name. Each Item can take Targeting too, and they combine with AND, so a Global applies where both it and its section do. An Item can also be a list of Variants, whole entries each with its own Targeting, and a Machine gets the first that targets it: `"vercel": [{ "platforms": ["linux"], "range": "^60" }, "^59.25.4"]`.
+
+Repos run last, after vp and the Homebrew packages, so an Install Command can use a Formula installed in the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
 `brew` (Formulae) and `cask` (Casks, macOS only) need Homebrew on the Machine; a Ship never installs it, and `brew:brew` fails on a Machine without it. Homebrew installs only a package's newest version, so a Range there is only `"*"` or `"latest"`. A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
 

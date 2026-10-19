@@ -21,14 +21,11 @@ Write `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/config.
 ```jsonc title="config.jsonc"
 {
   "$schema": "./schema.json",
-  "machines": {
-    "connors-mac-studio": {},
-    "connors-macbook-pro": {},
-  },
+  "machines": ["connors-mac-studio", "connors-macbook-pro"],
   "vp": {
     "version": "1.1.0",
     "node": "24.18.1",
-    "globals": { "vercel": "^59.25.4" },
+    "items": { "vercel": "^59.25.4" },
   },
 }
 ```

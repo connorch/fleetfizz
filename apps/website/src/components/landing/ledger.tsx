@@ -48,7 +48,7 @@ const MACHINES: ReadonlyArray<Machine> = [
       { status: "✓ done", name: "vp:vp", value: "1.0.0 → 1.1.0", time: "16.6s" },
       {
         status: "✓ installed",
-        name: "repos:connorch-t3code",
+        name: "repos:t3code",
         value: "3f1a2b0 → 9e02bb1",
         time: "4m 50s",
       },
@@ -60,7 +60,7 @@ const MACHINES: ReadonlyArray<Machine> = [
     summary: [{ text: "2 of 2 done", tone: "ok" }],
     items: [
       { status: "✓ done", name: "vp:wrangler", value: "+ 4.141.0", time: "4.1s" },
-      { status: "✓ installed", name: "repos:connorch-dotfiles", value: "+ c7d9e02", time: "9.8s" },
+      { status: "✓ installed", name: "repos:dotfiles", value: "+ c7d9e02", time: "9.8s" },
     ],
   },
 ];

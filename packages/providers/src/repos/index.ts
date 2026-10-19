@@ -1,31 +1,29 @@
 // The repos Provider: each Tracked Repo as a Managed Clone at its ref,
 // installed with its Install Command. Kept matching an Install Record on the
-// Machine (ADR 0004): a new commit, a moved clone, a changed command or Files,
-// or Drift in an Output reinstalls.
+// Machine (ADR 0004): a new commit, a moved clone, a changed command or Clone
+// Files, or Drift in an Output reinstalls.
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import {
-  DEFAULT_CLONE_ROOT,
-  isPin,
-  repoName,
-  type FleetConfig,
-  type TrackedRepo,
-} from "@fleetfizz/config";
+import { DEFAULT_CLONE_ROOT, isPin, type FleetConfig, type TrackedRepo } from "@fleetfizz/config";
 import {
   address,
   decideInstall,
+  variantFor,
   type Context,
   type Decision,
   type InstallRecord,
+  type MachineIdentity,
   type Provider,
   type Step,
+  type Targeting,
 } from "@fleetfizz/core";
 import { quote, quotePath, RECORDS_DIR, recordDir, recordFile } from "@fleetfizz/remote";
 
-export type RepoItem = TrackedRepo & { readonly name: string };
+// A Tracked Repo on one Machine, named by its key in `repos.items`.
+export type RepoItem = Omit<TrackedRepo, keyof Targeting> & { readonly name: string };
 
 const RepoFact = Schema.Union([
   Schema.Struct({
@@ -74,10 +72,12 @@ export interface ReposObserved {
   readonly records: ReadonlyMap<string, InstallRecord>;
 }
 
-// Repo -> the commit its branch is at on origin, or why it could not be read.
+// The commit a branch is at on origin, or why it could not be read, by
+// `branchKey`: Variants of one repo can track different branches.
 type ReposResolved = Readonly<
   Record<string, { readonly commit: string } | { readonly error: string }>
 >;
+const branchKey = (repo: Pick<RepoItem, "origin" | "ref">): string => `${repo.origin}#${repo.ref}`;
 
 export interface RepoChange {
   readonly item: RepoItem;
@@ -85,8 +85,13 @@ export interface RepoChange {
   readonly commit: string;
 }
 
-const cloneRoot = (config: FleetConfig, machine: string): string =>
-  config.machines[machine]?.clones ?? DEFAULT_CLONE_ROOT;
+// The Machine's Clone Root: its Variant of `repos.cloneRoot`, or the default.
+const cloneRoot = (config: FleetConfig, machine: MachineIdentity): string => {
+  const root = config.repos?.cloneRoot;
+  return (
+    (root === undefined ? undefined : variantFor(root, machine))?.variant.path ?? DEFAULT_CLONE_ROOT
+  );
+};
 
 const originUrl = (origin: string): string => `https://github.com/${origin}.git`;
 
@@ -197,7 +202,7 @@ const decideRepo = (
   const url = originUrl(repo.origin);
   if (clone?.present && clone.origin !== undefined && clone.origin !== url)
     return fail(`managed clone has origin ${clone.origin}, expected ${url}`);
-  const target = isPin(repo.ref) ? { commit: repo.ref } : resolved[repo.name];
+  const target = isPin(repo.ref) ? { commit: repo.ref } : resolved[branchKey(repo)];
   if (target === undefined) return fail(`could not resolve ${repo.ref}`);
   if ("error" in target) return fail(target.error);
   const { commit } = target;
@@ -221,7 +226,7 @@ const decideRepo = (
         ? `checked out at ${short(clone.head ?? "")}`
         : undefined;
   const change = { item: repo, root, commit };
-  // An up-to-date clone is still reset and cleaned, with its Files rewritten,
+  // An up-to-date clone is still reset and cleaned, with its Clone Files rewritten,
   // on every Ship (ADR 0002).
   if (reason === undefined)
     return { kind: "leave", item: repo.name, at: short(commit), upkeep: change };
@@ -237,7 +242,7 @@ const decideRepo = (
 };
 
 // Brings the Managed Clone to the commit: clone when missing, check the
-// origin, reset, clean, and write the Files. One `set -e` subshell.
+// origin, reset, clean, and write the Clone Files. One `set -e` subshell.
 const fetchStep = ({ item, root, commit }: RepoChange): Step => {
   const url = originUrl(item.origin);
   const sync = isPin(item.ref)
@@ -280,7 +285,7 @@ const installStep = ({ item, root }: RepoChange, ctx: Context): Step => {
   const env = [
     `FLEETFIZZ_MACHINE=${quote(ctx.machine.name)}`,
     `FLEETFIZZ_PLATFORM=${quote(ctx.machine.platform)}`,
-    `FLEETFIZZ_MACHINES=${quote(Object.keys(ctx.config.machines).join(","))}`,
+    `FLEETFIZZ_MACHINES=${quote(ctx.config.machines.join(","))}`,
   ].join(" ");
   const tmp = `${recordDir("repos")}/${quote(`${item.name}.json.tmp`)}`;
   // Fingerprints are taken now, so the next Check compares against what this
@@ -325,8 +330,8 @@ export const repos: Provider<"repos", RepoItem, ReposObserved, ReposResolved, Re
   rule: "record",
   // Install Commands need pnpm and Node.
   dependsOn: ["vp"],
-  items: (section) => (section ?? []).map((repo) => ({ ...repo, name: repoName(repo) })),
-  observe: (items, scope) => observe(items, cloneRoot(scope.config, scope.machine.name)),
+  items: (_section, listed) => listed.map(({ name, def }) => ({ ...def, name })),
+  observe: (items, scope) => observe(items, cloneRoot(scope.config, scope.machine)),
   parse(facts, records) {
     let root: ReposObserved["cloneRoot"];
     const clones = new Map<string, Clone>();
@@ -368,12 +373,12 @@ export const repos: Provider<"repos", RepoItem, ReposObserved, ReposResolved, Re
   },
   resolve: (items, { token }) =>
     Effect.forEach(
-      items.filter((repo) => !isPin(repo.ref)),
-      (repo) => lsRemote(repo, token).pipe(Effect.map((result) => [repo.name, result] as const)),
+      [...new Map(items.filter((r) => !isPin(r.ref)).map((r) => [branchKey(r), r])).entries()],
+      ([key, repo]) => lsRemote(repo, token).pipe(Effect.map((result) => [key, result] as const)),
       { concurrency: 8 },
     ).pipe(Effect.map((entries): ReposResolved => Object.fromEntries(entries))),
   decide: ({ items, observed, resolved, ctx }) => {
-    const root = cloneRoot(ctx.config, ctx.machine.name);
+    const root = cloneRoot(ctx.config, ctx.machine);
     return items.map((repo) => decideRepo(repo, root, observed, resolved, ctx));
   },
   act: (decisions, ctx) =>

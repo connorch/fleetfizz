@@ -1,32 +1,45 @@
 import { describe, expect, it } from "@effect/vitest";
 
-import type { FleetConfig } from "@fleetfizz/config";
-import { assembleState, planMachine, type MachineIdentity, type PlanInput } from "@fleetfizz/core";
+import * as Schema from "effect/Schema";
+
+import { FleetConfig } from "@fleetfizz/config";
+import {
+  assembleState,
+  machinesNamed,
+  planMachine,
+  type MachineIdentity,
+  type PlanInput,
+} from "@fleetfizz/core";
 
 import { PROVIDERS } from "./index.ts";
 
-const config: FleetConfig = {
-  machines: {
-    "connors-mac-studio": { clones: "/Volumes/StudioStack SSD/fleetfizz/clones" },
-    "connors-macbook-pro": {},
-    bluefin: {},
-  },
-  repos: [
-    { origin: "connorch/skills", ref: "main", install: "pnpm install" },
-    {
-      origin: "kitlangton/psychopomp",
-      ref: "b517dd423fd19282898c33e43acb8eb67546ebab",
-      install: "cargo build --release",
-      platforms: ["darwin"],
-      outputs: ["~/.local/share/psychopomp"],
+// A config as written, decoded as the CLI decodes it.
+const decode = Schema.decodeSync(FleetConfig);
+
+const written: typeof FleetConfig.Encoded = {
+  machines: ["connors-mac-studio", "connors-macbook-pro", "bluefin"],
+  repos: {
+    cloneRoot: [
+      { machines: ["connors-mac-studio"], path: "/Volumes/StudioStack SSD/fleetfizz/clones" },
+    ],
+    items: {
+      skills: { origin: "connorch/skills", ref: "main", install: "pnpm install" },
+      psychopomp: {
+        origin: "kitlangton/psychopomp",
+        ref: "b517dd423fd19282898c33e43acb8eb67546ebab",
+        install: "cargo build --release",
+        platforms: ["darwin"],
+        outputs: ["~/.local/share/psychopomp"],
+      },
     },
-  ],
+  },
   vp: {
     version: "1.1.0",
     node: "24.18.1",
-    globals: { vercel: "^59.25.4", "inngest-cli": "^1.45.1", skills: "^1.7.0" },
+    items: { vercel: "^59.25.4", "inngest-cli": "^1.45.1", skills: "^1.7.0" },
   },
 };
+const config = decode(written);
 
 const SKILLS_HEAD = "abc1234000000000000000000000000000000000";
 const SKILLS_TIP = "def5678000000000000000000000000000000000";
@@ -41,7 +54,7 @@ const versions = {
 
 const resolved: PlanInput["resolved"] = {
   vp: versions,
-  repos: { "connorch-skills": { commit: SKILLS_TIP } },
+  repos: { "connorch/skills#main": { commit: SKILLS_TIP } },
 };
 
 const MACBOOK: MachineIdentity = { name: "connors-macbook-pro", platform: "darwin" };
@@ -248,7 +261,7 @@ describe("the vp Provider", () => {
     const vp = provider(
       plan({
         state: facts({ vp: null }),
-        config: { machines: config.machines },
+        config: decode({ machines: written.machines }),
         resolved: { vp: {}, repos: {} },
       }),
       "vp",
@@ -272,7 +285,7 @@ describe("the vp Provider", () => {
         subject: "vp:vercel",
         found: "60.1.0",
         default: "skip",
-        bump: { path: ["vp", "globals", "vercel"], range: "^59.25.4" },
+        bump: { path: ["vp", "items", "vercel", "range"], range: "^59.25.4" },
       },
     });
     expect(vercel({ "range:vp:vercel": "skip" })).toEqual({
@@ -309,7 +322,7 @@ describe("the repos Provider", () => {
   const skillsClone = (head: string) => ({
     provider: "repos",
     fact: "repo",
-    name: "connorch-skills",
+    name: "skills",
     present: true,
     head,
     origin: "https://github.com/connorch/skills.git",
@@ -317,10 +330,10 @@ describe("the repos Provider", () => {
   const skillsRecord = (commit: string) => ({
     fact: "record",
     provider: "repos",
-    item: "connorch-skills",
+    item: "skills",
     record: {
       commit,
-      path: `${ROOT}/connorch-skills`,
+      path: `${ROOT}/skills`,
       install: "pnpm install",
       files: {},
       outputs: {},
@@ -332,22 +345,22 @@ describe("the repos Provider", () => {
     expect(repos.decisions).toEqual([
       expect.objectContaining({
         kind: "change",
-        item: "connorch-skills",
+        item: "skills",
         to: "def5678",
         reason: "never installed",
       }),
       expect.objectContaining({
         kind: "change",
-        item: "kitlangton-psychopomp",
+        item: "psychopomp",
         to: "b517dd4",
         reason: "never installed",
       }),
     ]);
     expect(repos.steps.map((s) => s.id)).toEqual([
-      "repos:connorch-skills:fetch",
-      "repos:connorch-skills:install",
-      "repos:kitlangton-psychopomp:fetch",
-      "repos:kitlangton-psychopomp:install",
+      "repos:skills:fetch",
+      "repos:skills:install",
+      "repos:psychopomp:fetch",
+      "repos:psychopomp:install",
     ]);
     // A branch resets to the commit resolved for this Ship.
     expect(repos.steps[0]?.run).toContain(`  git -C "$ff_d" reset --quiet --hard '${SKILLS_TIP}'`);
@@ -358,14 +371,14 @@ describe("the repos Provider", () => {
     const repos = provider(plan({ state }), "repos");
     expect(repos.decisions[0]).toMatchObject({
       kind: "leave",
-      item: "connorch-skills",
+      item: "skills",
       at: "def5678",
     });
     // A Managed Clone is reset on every Ship, without reinstalling.
-    expect(repos.steps.map((s) => s.id)).toContain("repos:connorch-skills:fetch");
-    expect(repos.steps.map((s) => s.id)).not.toContain("repos:connorch-skills:install");
+    expect(repos.steps.map((s) => s.id)).toContain("repos:skills:fetch");
+    expect(repos.steps.map((s) => s.id)).not.toContain("repos:skills:install");
     expect(
-      provider(plan({ state, rebuild: ["repos:connorch-skills"] }), "repos").decisions[0],
+      provider(plan({ state, rebuild: ["repos:skills"] }), "repos").decisions[0],
     ).toMatchObject({ kind: "change", reason: "--rebuild" });
   });
 
@@ -407,7 +420,7 @@ describe("the repos Provider", () => {
       plan({
         resolved: {
           ...resolved,
-          repos: { "connorch-skills": { error: "no branch main on origin" } },
+          repos: { "connorch/skills#main": { error: "no branch main on origin" } },
         },
       }),
       "repos",
@@ -417,17 +430,78 @@ describe("the repos Provider", () => {
 
   it("applies Targeting per Platform", () => {
     const linux = plan({ machine: { name: "bluefin", platform: "linux" } });
-    expect(provider(linux, "repos").decisions.map((d) => d.item)).toEqual(["connorch-skills"]);
-    expect(stepIds(linux)).not.toContain("repos:kitlangton-psychopomp:fetch");
+    expect(provider(linux, "repos").decisions.map((d) => d.item)).toEqual(["skills"]);
+    expect(stepIds(linux)).not.toContain("repos:psychopomp:fetch");
+  });
+});
+
+describe("Variants", () => {
+  const BLUEFIN: MachineIdentity = { name: "bluefin", platform: "linux" };
+  const variants = decode({
+    ...written,
+    repos: {
+      items: {
+        skills: [
+          { platforms: ["linux"], origin: "connorch/skills", ref: "linux", install: "make" },
+          { origin: "connorch/skills", ref: "main", install: "pnpm install" },
+        ],
+      },
+    },
+    vp: { items: { vercel: [{ machines: ["bluefin"], range: "^60.0.0" }, "^59.25.4"] } },
+  });
+  const installOf = (result: ReturnType<typeof plan>) =>
+    provider(result, "repos")
+      .steps.find((s) => s.id === "repos:skills:install")
+      ?.run.join("\n");
+
+  it("gives each Machine the first Variant that targets it", () => {
+    const linux = plan({
+      config: variants,
+      machine: BLUEFIN,
+      resolved: { ...resolved, repos: { "connorch/skills#linux": { commit: SKILLS_HEAD } } },
+    });
+    expect(provider(linux, "repos").decisions[0]).toMatchObject({ item: "skills", to: "abc1234" });
+    expect(installOf(linux)).toContain("make");
+    expect(installOf(plan({ config: variants }))).toContain("pnpm install");
+  });
+
+  it("bumps the Variant the Machine got", () => {
+    const state = facts({
+      globals: [{ name: "vercel", version: "60.1.0", platform: { node: "24.18.1" } }],
+    });
+    const vercel = provider(plan({ config: variants, state }), "vp").decisions.find(
+      (d) => d.item === "vercel",
+    );
+    expect(vercel).toMatchObject({
+      kind: "ask",
+      question: { bump: { path: ["vp", "items", "vercel", 1, "range"], range: "^59.25.4" } },
+    });
+  });
+
+  it("names every Machine a Variant or cloneRoot targets, for the unknown-Machine check", () => {
+    const repos = PROVIDERS.find((p) => p.name === "repos");
+    const vp = PROVIDERS.find((p) => p.name === "vp");
+    if (repos === undefined || vp === undefined) throw new Error("no repos or vp Provider");
+    expect(machinesNamed(repos, config)).toEqual(["connors-mac-studio"]);
+    expect(machinesNamed(vp, variants)).toEqual(["bluefin"]);
+  });
+
+  it("leaves out an Item with no Variant for the Machine", () => {
+    const linuxOnly = decode({
+      machines: written.machines,
+      vp: { items: { vercel: [{ platforms: ["linux"], range: "*" }] } },
+    });
+    const items = provider(plan({ config: linuxOnly }), "vp").decisions.map((d) => d.item);
+    expect(items).not.toContain("vercel");
   });
 });
 
 describe("the brew and cask Providers", () => {
-  const homebrew: FleetConfig = {
-    ...config,
+  const homebrew = decode({
+    ...written,
     brew: { items: { gh: "*", tmux: "latest", jq: "*", "oven-sh/bun/bun": "latest" } },
     cask: { items: { ghostty: "latest", raycast: "*" } },
-  };
+  });
   // Homebrew 4.6.0 with gh and tmux installed, and the ghostty Cask.
   const installed = [
     ...(["brew", "cask"] as const).map((p) => ({ provider: p, fact: "brew", version: "4.6.0" })),

@@ -57,7 +57,7 @@ export const stampText = (text: string, stamp: Stamp): string => {
 const machinesOf = (config: unknown): ReadonlyArray<string> => {
   if (typeof config !== "object" || config === null || !("machines" in config)) return [];
   const value = config.machines;
-  return typeof value === "object" && value !== null ? Object.keys(value) : [];
+  return Array.isArray(value) ? value.filter((name) => typeof name === "string") : [];
 };
 
 const shippedToOf = (config: unknown): Record<string, string> => {

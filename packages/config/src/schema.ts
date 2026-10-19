@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import * as SchemaTransformation from "effect/SchemaTransformation";
 import * as semver from "semver";
 
 // A Machine's OS family. Every other OS on the tailnet is not part of the Fleet.
@@ -32,8 +33,8 @@ export const isPin = (ref: string): boolean => /^[0-9a-f]{40}$/.test(ref);
 
 // The built-in Providers, each a top-level config key. Their order is only
 // the tie-break when dependsOn leaves two Providers unordered: packages come
-// before repos, whose array section cannot declare dependsOn, so an Install
-// Command can use a Formula installed in the same Ship.
+// before repos, so an Install Command can use a Formula installed in the
+// same Ship without a dependsOn.
 export const PROVIDER_NAMES = ["vp", "brew", "cask", "repos"] as const;
 export const ProviderName = Schema.Literals(PROVIDER_NAMES);
 export type ProviderName = typeof ProviderName.Type;
@@ -51,15 +52,14 @@ export const Range = Schema.NonEmptyString.check(
   }),
 );
 
+// The Install Command, origin, and ref of a Tracked Repo. Its name is its
+// key in `repos.items`, which names its Managed Clone and Install Record.
 export const TrackedRepo = Schema.Struct({
   ...Targeting,
   origin: Origin.annotateKey({ description: "The GitHub `owner/repo`." }),
   ref: Ref.annotateKey({ description: "A branch, or a full 40-character commit SHA to pin it." }),
   install: Schema.NonEmptyString.annotateKey({
     description: "The Install Command, run in a login shell inside the Managed Clone.",
-  }),
-  name: Schema.optionalKey(Schema.NonEmptyString).annotateKey({
-    description: "Names the clone's directory and the repo in output. Default: `<owner>-<repo>`.",
   }),
   // Their fingerprints are recorded, so a hand install shows as a change.
   outputs: Schema.optionalKey(Schema.Array(Schema.NonEmptyString)).annotateKey({
@@ -68,13 +68,59 @@ export const TrackedRepo = Schema.Struct({
   }),
   files: Schema.optionalKey(Schema.Record(Schema.NonEmptyString, Schema.String)).annotateKey({
     description:
-      "Gitignored files written into the clone before every install, keyed by path. Never secrets.",
+      "Gitignored files (Clone Files) written into the clone before every install, keyed by path. Never secrets.",
   }),
 });
 export type TrackedRepo = typeof TrackedRepo.Type;
 
+// An entry that may also be written as one string with no Targeting
+// (`"vercel": "^59.25.4"`). The string decodes to the full entry, so
+// everything after decoding sees one shape.
+const withShorthand = <Fields extends Schema.Struct.Fields, Text extends string>(
+  entry: Schema.Struct<Fields>,
+  value: Schema.Codec<Text>,
+  shorthand: {
+    readonly decode: (text: Text) => Schema.Struct<Fields>["Type"];
+    readonly encode: (entry: Schema.Struct<Fields>["Type"]) => Text;
+  },
+) =>
+  // The object first, so encoding writes the full entry and keeps its Targeting.
+  Schema.Union([
+    entry,
+    value.pipe(Schema.decodeTo(Schema.toType(entry), SchemaTransformation.transform(shorthand))),
+  ]);
+
+// One definition, or a list of Variants: whole definitions, each with its own
+// Targeting. A Machine gets the first Variant that targets it (ADR 0014).
+const variants = <S extends Schema.Top>(entry: S) =>
+  Schema.Union([entry, Schema.NonEmptyArray(entry)]);
+
+const dependsOn = Schema.optionalKey(Schema.Array(ProviderName)).annotateKey({
+  description: "Providers whose Items must succeed on a Machine before this one changes there.",
+});
+
+// Every section's envelope: Targeting, dependsOn, the Provider's own
+// settings, and `items`, keyed by Item name. The engine applies the
+// Targeting and picks each Item's Variant.
+const section = <Settings extends Schema.Struct.Fields, Items extends Schema.Top>(
+  settings: Settings,
+  items: Items,
+  description: string,
+) =>
+  Schema.Struct({
+    ...Targeting,
+    dependsOn,
+    ...settings,
+    items: Schema.optionalKey(items).annotateKey({ description }),
+  });
+
+const VARIANTS = "or a list of Variants, of which a Machine gets the first that targets it";
+
 // A Global: its Range, or its Range with its own Targeting.
-export const Global = Schema.Union([Range, Schema.Struct({ ...Targeting, range: Range })]);
+export const Global = withShorthand(Schema.Struct({ ...Targeting, range: Range }), Range, {
+  decode: (range) => ({ range }),
+  encode: (global) => global.range,
+});
 export type Global = typeof Global.Type;
 
 // The package managers vp keeps a default version of, each its own vp key.
@@ -92,43 +138,36 @@ const NOT_GLOBALS: Readonly<Record<string, string>> = {
   fleetfizz: "a Ship installs the fleetfizz that ships",
 };
 
-export const VpSection = Schema.Struct({
-  ...Targeting,
-  dependsOn: Schema.optionalKey(Schema.Array(ProviderName)).annotateKey({
-    description: "Providers whose Items must succeed on a Machine before vp changes there.",
-  }),
-  // Exact pins are recommended for vp and Node: a change affects every tool.
-  version: Schema.optionalKey(Range).annotateKey({
-    description: "The vp version. Pin it exactly.",
-  }),
-  node: Schema.optionalKey(Range).annotateKey({
-    description: "The default Node version. Pin it exactly.",
-  }),
-  // Each package manager's default version.
-  npm: Schema.optionalKey(Range).annotateKey({ description: "The default npm version." }),
-  pnpm: Schema.optionalKey(Range).annotateKey({ description: "The default pnpm version." }),
-  yarn: Schema.optionalKey(Range).annotateKey({ description: "The default Yarn version." }),
-  bun: Schema.optionalKey(Range).annotateKey({ description: "The default Bun version." }),
-  // Global package name -> Range, or { range, platforms?, machines? }.
-  globals: Schema.optionalKey(
-    Schema.Record(Schema.NonEmptyString, Global).check(
-      Schema.makeFilter(
-        (globals) => {
-          const name = Object.keys(globals).find((n) => n in NOT_GLOBALS);
-          return name === undefined || `"${name}" is not a Global: ${NOT_GLOBALS[name]}`;
-        },
-        {
-          title: "Globals",
-          description:
-            "npm packages other than vp, node, a package manager, vite-plus, and fleetfizz",
-        },
-      ),
+export const VpSection = section(
+  {
+    // Exact pins are recommended for vp and Node: a change affects every tool.
+    version: Schema.optionalKey(Range).annotateKey({
+      description: "The vp version. Pin it exactly.",
+    }),
+    node: Schema.optionalKey(Range).annotateKey({
+      description: "The default Node version. Pin it exactly.",
+    }),
+    // Each package manager's default version.
+    npm: Schema.optionalKey(Range).annotateKey({ description: "The default npm version." }),
+    pnpm: Schema.optionalKey(Range).annotateKey({ description: "The default pnpm version." }),
+    yarn: Schema.optionalKey(Range).annotateKey({ description: "The default Yarn version." }),
+    bun: Schema.optionalKey(Range).annotateKey({ description: "The default Bun version." }),
+  },
+  Schema.Record(Schema.NonEmptyString, variants(Global)).check(
+    Schema.makeFilter(
+      (globals) => {
+        const name = Object.keys(globals).find((n) => n in NOT_GLOBALS);
+        return name === undefined || `"${name}" is not a Global: ${NOT_GLOBALS[name]}`;
+      },
+      {
+        title: "Globals",
+        description:
+          "npm packages other than vp, node, a package manager, vite-plus, and fleetfizz",
+      },
     ),
-  ).annotateKey({
-    description:
-      "Global packages, each with a Range, or `{ range, platforms?, machines? }` to target one.",
-  }),
-});
+  ),
+  `Globals, keyed by package. Each is a Range, \`{ range, platforms?, machines? }\` to target it, ${VARIANTS}.`,
+);
 export type VpSection = typeof VpSection.Type;
 
 // A Formula's or Cask's Range. Homebrew installs only its newest version:
@@ -140,49 +179,63 @@ export const HomebrewRange = Schema.Literals(["*", "latest"]).annotate({
 });
 export type HomebrewRange = typeof HomebrewRange.Type;
 
-// Formula or Cask name -> Range, or { range, platforms?, machines? }. A
-// tapped name ("oven-sh/bun/bun") taps on install.
+// Formula or Cask name -> Range, or { range, platforms?, machines? }, or a
+// list of Variants. A tapped name ("oven-sh/bun/bun") taps on install.
 const HomebrewItems = Schema.Record(
   Schema.NonEmptyString,
-  Schema.Union([HomebrewRange, Schema.Struct({ ...Targeting, range: HomebrewRange })]),
+  variants(
+    withShorthand(Schema.Struct({ ...Targeting, range: HomebrewRange }), HomebrewRange, {
+      decode: (range) => ({ range }),
+      encode: (entry) => entry.range,
+    }),
+  ),
 );
 
-// A brew or cask section; `noun` names its Items in their key description.
-const homebrewSection = (items: typeof HomebrewItems, noun: string) =>
-  Schema.Struct({
-    ...Targeting,
-    dependsOn: Schema.optionalKey(Schema.Array(ProviderName)).annotateKey({
-      description: "Providers whose Items must succeed on a Machine before this one changes there.",
-    }),
-    items: Schema.optionalKey(items).annotateKey({
-      description: `${noun}, each \`"*"\` or \`"latest"\`, or \`{ range, platforms?, machines? }\` to target one. A tapped name (\`owner/tap/name\`) taps on install.`,
-    }),
-  });
+const homebrewDescription = (noun: string) =>
+  `${noun}, keyed by name. Each is \`"*"\` or \`"latest"\`, \`{ range, platforms?, machines? }\` to target it, ${VARIANTS}. A tapped name (\`owner/tap/name\`) taps on install.`;
 
 // Formulae. Homebrew itself is the implicit `brew:brew` Item, so no Formula takes its name.
-export const BrewSection = homebrewSection(
+export const BrewSection = section(
+  {},
   HomebrewItems.check(
     Schema.makeFilter((items) => !Object.hasOwn(items, "brew") || '"brew" is Homebrew itself', {
       title: "Formulae",
       description: "Formulae other than brew",
     }),
   ),
-  "Formulae",
+  homebrewDescription("Formulae"),
 );
 
 // Casks, macOS only. Always after brew.
-export const CaskSection = homebrewSection(HomebrewItems, "Casks");
+export const CaskSection = section({}, HomebrewItems, homebrewDescription("Casks"));
 
 export const DEFAULT_CLONE_ROOT = "~/.local/share/fleetfizz/clones";
 
-export const MachineSettings = Schema.Struct({
-  // The Clone Root.
-  clones: Schema.optionalKey(Schema.NonEmptyString).annotateKey({
-    description: `Where this Machine keeps its Managed Clones. \`~\` expands on that Machine. Default: \`${DEFAULT_CLONE_ROOT}\`.`,
-  }),
-});
+// Where a Machine keeps its Managed Clones: one path, or Variants of `{ path }`.
+const CloneRoot = variants(
+  withShorthand(
+    Schema.Struct({ ...Targeting, path: Schema.NonEmptyString }),
+    Schema.NonEmptyString,
+    {
+      decode: (path) => ({ path }),
+      encode: (root) => root.path,
+    },
+  ),
+);
 
-// The whole config.jsonc, exactly as a user writes it.
+export const ReposSection = section(
+  {
+    cloneRoot: Schema.optionalKey(CloneRoot).annotateKey({
+      description: `Where a Machine keeps its Managed Clones: a path, or a list of \`{ path, platforms?, machines? }\` where a Machine gets the first that targets it. \`~\` expands on that Machine. Default: \`${DEFAULT_CLONE_ROOT}\`.`,
+    }),
+  },
+  Schema.Record(Schema.NonEmptyString, variants(TrackedRepo)),
+  `Tracked Repos, keyed by name, which names the Managed Clone and the \`repos:<name>\` Item. Each is \`{ origin, ref, install, ... }\`, ${VARIANTS}.`,
+);
+export type ReposSection = typeof ReposSection.Type;
+
+// The whole config.jsonc. Shorthands decode to their full entries, so
+// `FleetConfig.Encoded` is the config as a user writes it.
 export const FleetConfig = Schema.Struct({
   $schema: Schema.optionalKey(Schema.String),
   // Written by every Ship, never by hand: when and from which Machine this
@@ -193,18 +246,16 @@ export const FleetConfig = Schema.Struct({
   shippedFrom: Schema.optionalKey(Schema.NonEmptyString),
   shippedTo: Schema.optionalKey(Schema.Record(Schema.NonEmptyString, Schema.String)),
   // Every name must exist on the tailnet, and the Starting Machine must be one of them.
-  machines: Schema.Record(Schema.NonEmptyString, MachineSettings)
+  machines: Schema.Array(Schema.NonEmptyString)
     .check(
-      Schema.makeFilter((machines) => Object.keys(machines).length > 0, {
-        title: "Fleet",
-        description: "at least one Machine",
-      }),
+      Schema.isMinLength(1, { message: "list at least one Machine" }),
+      Schema.isUnique({ message: "list each Machine once" }),
     )
     .annotateKey({
       description:
-        "The Fleet, keyed by each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet.",
+        "The Fleet: each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet.",
     }),
-  repos: Schema.optionalKey(Schema.Array(TrackedRepo)).annotateKey({
+  repos: Schema.optionalKey(ReposSection).annotateKey({
     description:
       "Each Tracked Repo is cloned on every targeted Machine and installed from its origin ref.",
   }),
@@ -217,10 +268,6 @@ export const FleetConfig = Schema.Struct({
   }),
 });
 export type FleetConfig = typeof FleetConfig.Type;
-
-// The default Tracked Repo name: "<owner>-<repo>".
-export const repoName = (repo: Pick<TrackedRepo, "origin" | "name">): string =>
-  repo.name ?? repo.origin.replace("/", "-");
 
 // The npm package name of this tool, which a Ship pins implicitly (ADR 0008).
 export const SELF_PACKAGE = "fleetfizz";
