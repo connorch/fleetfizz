@@ -1,0 +1,12 @@
+{
+  "$schema": "https://t3.codes/schema/t3.json",
+  "iconPath": "apps/website/public/apple-touch-icon.png",
+  "scripts": [
+    {
+      "name": "Setup Worktree",
+      "command": "vp i && vp run --filter './apps/*' build",
+      "icon": "configure",
+      "runOnWorktreeCreate": true
+    }
+  ]
+}
