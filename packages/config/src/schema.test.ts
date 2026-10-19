@@ -125,6 +125,27 @@ describe("FleetConfig", () => {
       expect(files({ x: path }), path).toBe(false);
   });
 
+  it("requires the agents for skills, and one ref per skill", () => {
+    const skills = (section: unknown) => ok({ machines: ["a"], skills: section });
+    expect(
+      skills({
+        agents: ["claude-code", "codex"],
+        items: {
+          grilling: "mattpocock/skills",
+          pinned: "mattpocock/skills#main",
+          "find-skills": { source: "vercel-labs/skills", ref: "v2", agents: ["claude-code"] },
+        },
+      }),
+    ).toBe(true);
+    expect(skills({ items: { grilling: "mattpocock/skills" } })).toBe(false);
+    expect(skills({ agents: [], items: {} })).toBe(false);
+    expect(
+      skills({ agents: ["codex"], items: { x: { source: "mattpocock/skills#main", ref: "v2" } } }),
+    ).toBe(false);
+    for (const name of ["a/b", "..", "Connor's"])
+      expect(skills({ agents: ["codex"], items: { [name]: "o/r" } }), name).toBe(false);
+  });
+
   it("rejects an unknown Provider in dependsOn", () => {
     expect(ok({ machines: ["a"], vp: { dependsOn: ["repos"] } })).toBe(true);
     expect(ok({ machines: ["a"], vp: { dependsOn: ["npm"] } })).toBe(false);

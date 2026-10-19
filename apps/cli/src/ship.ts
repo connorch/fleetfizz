@@ -274,7 +274,9 @@ export const shipPass = Effect.fn("shipPass")(function* (
   );
   if (notAddress !== undefined)
     return yield* Effect.fail(
-      new ShipError(`--rebuild ${notAddress}: expected a record Item (repos:<name>) or all`),
+      new ShipError(
+        `--rebuild ${notAddress}: expected a record Item (repos:<name>, skills:<name>) or all`,
+      ),
     );
   const path = flags.config ?? configPath(process.env);
   const config = yield* loadConfig(path);
@@ -478,20 +480,23 @@ export const shipPass = Effect.fn("shipPass")(function* (
     ).size,
   );
 
-  // The Lent Token, only when a repo is targeted, read before resolving so
-  // private repos resolve too. Without one, private repos fail and public
-  // repos still ship.
+  // The Lent Token, only when a repo or a skill is targeted, read before
+  // resolving so private sources resolve too. Without one, private sources
+  // fail and public ones still ship.
   const lent: LentToken = targeted.some(
-    ({ provider, items }) => provider.name === "repos" && items.length > 0,
+    ({ provider, items }) =>
+      (provider.name === "repos" || provider.name === "skills") && items.length > 0,
   )
     ? yield* readLentToken()
     : { token: undefined };
   if (lent.token !== undefined) hidden.add(lent.token);
   yield* Effect.logInfo(
-    lent.token !== undefined ? "gh token: lent" : `gh token: none (${lent.reason ?? "no repos"})`,
+    lent.token !== undefined
+      ? "gh token: lent"
+      : `gh token: none (${lent.reason ?? "no repos or skills"})`,
   );
   if (lent.token === undefined && lent.reason !== undefined) {
-    yield* ledger.note("info", `no gh token (${lent.reason}); private repos will fail`);
+    yield* ledger.note("info", `no gh token (${lent.reason}); private repos and skills will fail`);
   }
 
   // Each Provider resolves once, for every checked Machine's Items, so every

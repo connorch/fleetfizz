@@ -1,6 +1,6 @@
 # fleetfizz
 
-fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain and its Globals, and a Managed Clone of each Tracked Repo, installed from its origin ref.
+fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain and its Globals, Homebrew packages, agent Skills, Shared Files, and a Managed Clone of each Tracked Repo, installed from its origin ref.
 
 ## Language
 
@@ -49,7 +49,7 @@ The phase of a Ship that turns the config and checked state into Steps and Quest
 _Avoid_: diff, preview
 
 **Question**:
-A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config, vp in system-first mode, a Shared File with Drift). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
+A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config, vp in system-first mode, a Shared File with Drift, a Skill folder an install would replace). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
 _Avoid_: conflict, prompt (a prompt is how a Question is asked)
 
 **Apply**:
@@ -75,11 +75,11 @@ _Avoid_: report (that is the saved Ledger), trace
 ### Providers
 
 **Provider**:
-One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos, Formulae, Casks, Shared Files), with its own section of the config.
+One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos, Formulae, Casks, Skills, Shared Files), with its own section of the config.
 _Avoid_: kind, adapter, plugin, manager
 
 **Item**:
-One entry a Provider keeps in line on one Machine: vp, its mode, Node, a package manager, a Global, a Tracked Repo, a Formula, a Cask, a Shared File. Written `provider:item` (`vp:node`, `repos:t3code`).
+One entry a Provider keeps in line on one Machine: vp, its mode, Node, a package manager, a Global, a Tracked Repo, a Formula, a Cask, a Skill, a Shared File. Written `provider:item` (`vp:node`, `repos:t3code`).
 _Avoid_: resource, dependency, package
 
 **Variant**:
@@ -109,7 +109,7 @@ The shell command that installs a Tracked Repo from its Managed Clone.
 _Avoid_: build script, hook
 
 **Install Record**:
-For one Machine and one Item of a Provider that cannot report what it installed: for a Tracked Repo, the commit, Managed Clone path, Install Command, and Output fingerprints of the last successful install; for a Shared File, the fingerprint and time of the last copy a Ship wrote there; for the Config, the Ship that wrote it there, its sha256, and when a Ship of it last reached each Machine.
+For one Machine and one Item of a Provider that cannot report what it installed: for a Tracked Repo, the commit, Managed Clone path, Install Command, and Output fingerprints of the last successful install; for a Shared File, the fingerprint and time of the last copy a Ship wrote there; for the Config, the Ship that wrote it there, its sha256, and when a Ship of it last reached each Machine. For a Skill, the agents a Ship installed it for; the rest (source, ref, folder hash) is the skills CLI's own lock entry, which fleetfizz reads but never writes.
 _Avoid_: lock, cache, receipt
 
 **Output**:
@@ -143,6 +143,16 @@ _Avoid_: brew package
 **Cask**:
 A Homebrew macOS app, an Item of the `cask` Provider. A Cask and a Formula can share a name (`ollama`).
 _Avoid_: app, brew app
+
+### Skills
+
+**Skill**:
+An agent skill (a folder with a `SKILL.md`), installed on a Machine with the skills CLI from its source and kept at its ref, for each of its Agents. An Item of the `skills` Provider, keyed by the skill's name.
+_Avoid_: plugin, prompt, command
+
+**Agent**:
+An agent harness a Skill is installed for, named by the skills CLI's id (`claude-code`, `codex`). The skills CLI knows where each one reads its skills.
+_Avoid_: harness, tool, client
 
 ### Shared Files
 

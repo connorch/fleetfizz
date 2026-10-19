@@ -33,9 +33,10 @@ export const isPin = (ref: string): boolean => /^[0-9a-f]{40}$/.test(ref);
 
 // The built-in Providers, each a top-level config key. Their order is only
 // the tie-break when dependsOn leaves two Providers unordered: Shared Files
-// come first and packages before repos, so an Install Command can read a
-// Shared File or use a Formula from the same Ship without a dependsOn.
-export const PROVIDER_NAMES = ["files", "vp", "brew", "cask", "repos"] as const;
+// come first and packages and skills before repos, so an Install Command can
+// read a Shared File or use a Formula or skill from the same Ship without a
+// dependsOn.
+export const PROVIDER_NAMES = ["files", "vp", "brew", "cask", "skills", "repos"] as const;
 export const ProviderName = Schema.Literals(PROVIDER_NAMES);
 export type ProviderName = typeof ProviderName.Type;
 
@@ -233,6 +234,12 @@ export const ReposSection = section(
 );
 export type ReposSection = typeof ReposSection.Type;
 
+// An Item name that names a file: an Install Record, a Step's markers, a
+// skill's folder. One path segment of letters, digits, ".", "_" and "-".
+const ITEM_NAME = /^[A-Za-z0-9._-]+$/;
+const badName = (names: ReadonlyArray<string>) =>
+  names.find((n) => !ITEM_NAME.test(n) || n === "." || n === "..");
+
 // A path on a Machine: absolute, or under its home.
 const HomePath = Schema.NonEmptyString.check(
   Schema.isPattern(/^(\/|~\/)./, {
@@ -286,22 +293,19 @@ export const FilesSection = section(
       }),
     ),
   ).check(
-    // A name names the Item's Install Record file and its Steps' markers, so
-    // it is one path segment of letters, digits, ".", "_" and "-".
+    // A name names the Item's Install Record file and its Steps' markers.
     // One exclude for every Variant, so the Starting Machine and a target
     // leave the same paths alone (a path only one side excluded would be
     // deleted, or copied and never seen again).
     Schema.makeFilter(
       (items) => {
-        const badName = Object.keys(items).find(
-          (n) => !/^[A-Za-z0-9._-]+$/.test(n) || n === "." || n === "..",
-        );
-        if (badName !== undefined)
-          return `"${badName}": a Shared File's name uses only letters, digits, ., _ and -, and is not . or ..`;
-        const name = Object.entries(items).find(
+        const name = badName(Object.keys(items));
+        if (name !== undefined)
+          return `"${name}": a Shared File's name uses only letters, digits, ., _ and -, and is not . or ..`;
+        const mixed = Object.entries(items).find(
           ([, item]) => Array.isArray(item) && item.some((v) => !sameExclude(v, item[0])),
         )?.[0];
-        return name === undefined || `"${name}": every Variant needs the same exclude`;
+        return mixed === undefined || `"${mixed}": every Variant needs the same exclude`;
       },
       {
         title: "Shared Files",
@@ -313,6 +317,66 @@ export const FilesSection = section(
   `Shared Files, keyed by name, which names the \`files:<name>\` Item. Each is a path, \`{ path, exclude?, platforms?, machines? }\`, ${VARIANTS}.`,
 );
 export type FilesSection = typeof FilesSection.Type;
+
+// An agent id the skills CLI knows (`claude-code`, `codex`), passed to `skills add -a`.
+const Agents = Schema.NonEmptyArray(Schema.NonEmptyString);
+
+// An agent skill, installed with the skills CLI from its source (ADR 0017).
+// Its name is its key in `skills.items`.
+export const Skill = Schema.Struct({
+  ...Targeting,
+  source: Schema.NonEmptyString.annotateKey({
+    description:
+      "Where the skills CLI installs it from: `owner/repo` on GitHub, or any source `skills add` takes.",
+  }),
+  ref: Schema.optionalKey(Ref).annotateKey({
+    description:
+      "A branch, tag, or full commit SHA. Default: the repo's default branch. Not with a `source` that has `#ref`.",
+  }),
+  agents: Schema.optionalKey(Agents).annotateKey({
+    description: "The agents to install it for, instead of the section's `agents`.",
+  }),
+});
+export type Skill = typeof Skill.Type;
+
+export const SkillsSection = section(
+  {
+    agents: Agents.annotateKey({
+      description:
+        "The agents every skill is installed for, as skills CLI ids (`claude-code`, `codex`). An Item's own `agents` replaces this list.",
+    }),
+  },
+  Schema.Record(
+    Schema.NonEmptyString,
+    variants(
+      withShorthand(Skill, Schema.NonEmptyString, {
+        decode: (source) => ({ source }),
+        encode: (skill) => skill.source,
+      }),
+    ),
+  ).check(
+    Schema.makeFilter(
+      (items) => {
+        const name = badName(Object.keys(items));
+        if (name !== undefined)
+          return `"${name}": a skill's name uses only letters, digits, ., _ and -, and is not . or ..`;
+        // The skills CLI's own rule for a source with a ref in it.
+        const twice = Object.entries(items).find(([, entry]) =>
+          (Array.isArray(entry) ? entry : [entry]).some(
+            (s: Skill) => s.ref !== undefined && s.source.includes("#"),
+          ),
+        )?.[0];
+        return twice === undefined || `"${twice}": its source already has a #ref; remove "ref"`;
+      },
+      {
+        title: "Skills",
+        description: "names of letters, digits, ., _ and -, and one ref per skill",
+      },
+    ),
+  ),
+  `Skills, keyed by name, which names the \`skills:<name>\` Item. Each is a source, \`{ source, ref?, agents?, platforms?, machines? }\`, ${VARIANTS}.`,
+);
+export type SkillsSection = typeof SkillsSection.Type;
 
 // The whole config.jsonc. Shorthands decode to their full entries, so
 // `FleetConfig.Encoded` is the config as a user writes it.
@@ -342,6 +406,10 @@ export const FleetConfig = Schema.Struct({
   }),
   cask: Schema.optionalKey(CaskSection).annotateKey({
     description: "Homebrew Casks, macOS only. Needs Homebrew on the Machine.",
+  }),
+  skills: Schema.optionalKey(SkillsSection).annotateKey({
+    description:
+      "Agent skills, installed with the skills CLI, which `vp.items` must list. Kept at their source's ref.",
   }),
 });
 export type FleetConfig = typeof FleetConfig.Type;

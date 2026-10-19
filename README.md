@@ -1,6 +1,6 @@
 # fleetfizz
 
-Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node and package-manager defaults, global packages at semver ranges), Homebrew Formulae and Casks, Shared Files copied from the Machine you ship from, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
+Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node and package-manager defaults, global packages at semver ranges), Homebrew Formulae and Casks, agent skills installed with the skills CLI, Shared Files copied from the Machine you ship from, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/adr).
 
@@ -41,6 +41,7 @@ A config written by hand looks like this:
     "pnpm": "^10",
     "items": {
       "vercel": "^59.25.4",
+      "skills": "^1.7.0",
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
     },
   },
@@ -54,6 +55,12 @@ A config written by hand looks like this:
     },
   },
   "cask": { "items": { "ghostty": "latest" } },
+  // Agent skills, installed with the skills CLI (a vp Global) for each agent,
+  // and kept at their GitHub ref.
+  "skills": {
+    "agents": ["claude-code", "codex"],
+    "items": { "grilling": "mattpocock/skills" },
+  },
   // Shared Files: copied from the Machine you ship from. A directory is mirrored.
   "files": {
     "items": {
@@ -90,11 +97,11 @@ Each Install Command runs in a login shell inside its Managed Clone, with `FLEET
 
 Every section has the same shape: `platforms` and `machines` (Targeting), `dependsOn`, its own settings, and `items`, keyed by name. Each Item can take Targeting too, and they combine with AND, so a Global applies where both it and its section do. An Item can also be a list of Variants, whole entries each with its own Targeting, and a Machine gets the first that targets it: `"vercel": [{ "platforms": ["linux"], "range": "^60" }, "^59.25.4"]`.
 
-Repos run last, after Shared Files, vp, and the Homebrew packages, so an Install Command can read a Shared File or use a Formula from the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+Repos run last, after Shared Files, vp, the Homebrew packages, and skills, so an Install Command can read a Shared File or use a Formula from the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
 `brew` (Formulae) and `cask` (Casks) need Homebrew on every Machine they target; a Ship never installs it, and `brew:brew` fails on a Machine without it. Casks fail on Linux, so in a Fleet with Linux Machines, give `cask` (and `brew`, if Linux has no Homebrew) `"platforms": ["darwin"]`. Homebrew installs only a package's newest version, so a Range there is only `"*"` or `"latest"`. A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
 
-Flags: `--only <machine>` (repeatable), `--rebuild repos:<name>` to reinstall a Tracked Repo or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, `mode=managed|skip`, `file=overwrite|skip`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
+Flags: `--only <machine>` (repeatable), `--rebuild repos:<name>` to reinstall a Tracked Repo (or `skills:<name>` a skill) or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, `mode=managed|skip`, `file=overwrite|skip`, `skill=overwrite|skip`, or one subject: `range:vp:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
 
 The Starting Machine needs `tailscale` (with Tailscale SSH to the others), and `gh` logged in if any Tracked Repo is private; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
 
@@ -111,4 +118,4 @@ Node 24 and pnpm 12. `pnpm install` once, then:
 | `pnpm video`        | open Remotion Studio for the site's motion graphics |
 | `pnpm video:render` | render them to transparent WebM and HEVC (macOS)    |
 
-Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: files, vp, brew, cask, and repos) are private and bundled into it. For the site, `apps/website` is fleetfizz.com; `packages/brand-assets` holds the name, copy, colors, and glyph that it, `packages/og-image` (the share image and favicons), and `packages/video` (motion graphics as Remotion compositions) share.
+Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: files, vp, brew, cask, skills, and repos) are private and bundled into it. For the site, `apps/website` is fleetfizz.com; `packages/brand-assets` holds the name, copy, colors, and glyph that it, `packages/og-image` (the share image and favicons), and `packages/video` (motion graphics as Remotion compositions) share.

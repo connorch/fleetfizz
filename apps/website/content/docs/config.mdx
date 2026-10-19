@@ -29,6 +29,7 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
     "pnpm": "^10",
     "items": {
       "vercel": "^59.25.4",
+      "skills": "^1.7.0",
       "wrangler": { "range": "^4.136.3", "machines": ["connors-mac-studio"] },
     },
   },
@@ -40,6 +41,13 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
     },
   },
   "cask": { "items": { "ghostty": "latest" } },
+  "skills": {
+    "agents": ["claude-code", "codex"],
+    "items": {
+      "grilling": "mattpocock/skills",
+      "find-skills": { "source": "vercel-labs/skills", "agents": ["claude-code"] },
+    },
+  },
   "files": {
     "items": {
       "vaut": "~/.config/vaut",
@@ -69,7 +77,7 @@ A Global above its Range usually means someone updated it by hand, so the Ship a
 
 Node and the package-manager defaults only take effect in vp's managed mode, where `node`, `npm`, `pnpm`, `yarn`, and `bun` run vp's version instead of a system install such as Homebrew's Node. A Machine with any tool in system-first mode gets a Question: switch it to managed mode (`vp env on`), or skip, which leaves the mode alone and skips that Machine's Node and package-manager defaults. Skip is the default, since switching changes which `node` every shell there runs.
 
-Repos run last, after Shared Files, vp, and the Homebrew packages, so an Install Command can read a Shared File or use a Formula from the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+Repos run last, after Shared Files, vp, the Homebrew packages, and skills, so an Install Command can read a Shared File or use a Formula from the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
 
 ## brew
 
@@ -80,6 +88,16 @@ Repos run last, after Shared Files, vp, and the Homebrew packages, so an Install
 <include>../generated/config/cask.md</include>
 
 `brew` and `cask` need Homebrew on every Machine they target; a Ship never installs it, and `brew:brew` fails on a Machine without it. Casks fail on Linux, so in a Fleet with Linux Machines, give `cask` (and `brew`, if Linux has no Homebrew) `"platforms": ["darwin"]`. Homebrew installs only a package's newest version, so a Range there is only `"*"` (install when missing) or `"latest"` (run `brew update`, then upgrade on every Ship). A `"latest"` package always shows as planned in a dry run; whether there is something newer is known only after `brew update`, and the Ledger then shows the version it reached.
+
+## skills
+
+<include>../generated/config/skills.md</include>
+
+The [skills CLI](https://github.com/vercel-labs/skills) installs each skill, so list it as a Global (`"skills": "^1.7.0"` in `vp.items`); a skill on a Machine without it fails. A Ship runs `skills add <source> -g -s <name> -a <agents>`, with telemetry off. The CLI's own lock (`~/.agents/.skill-lock.json`) records the source and hash of what it installed, and each Machine keeps a record of the agents, so adding one to `agents` installs every skill for it on the next Ship. A skill installed by hand with the CLI installs again on its first Ship, to record its agents. Skills the config does not list are left alone, and removing one from the config never uninstalls it.
+
+A skill from GitHub (`owner/repo`) follows its `ref`, or the default branch, like a Tracked Repo: once per Ship, the Machine you ship from reads the skill folder's hash at the ref from GitHub, and a Machine whose lock has another hash installs it again. The Ledger shows the hash: `skills:grilling eedaf25 → f073203`. A skill from any other source is installed when missing and never checked. When GitHub cannot be reached, installed skills are skipped for that Ship and missing ones still install.
+
+A Ship asks before an install would replace a skill's folder (`--answer skill=overwrite` or `skip`; skip is the default) when the folder was edited there, or when the skills CLI did not install it, such as a skill a Tracked Repo puts there. A private source uses the same gh token as private repos. `--rebuild skills:<name>` installs a skill again even when it is current.
 
 ## files
 

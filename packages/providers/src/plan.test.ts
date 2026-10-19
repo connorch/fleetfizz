@@ -77,6 +77,7 @@ const facts = (over: {
   repos?: ReadonlyArray<unknown>;
   records?: ReadonlyArray<unknown>;
   homebrew?: ReadonlyArray<unknown>;
+  skills?: ReadonlyArray<unknown>;
 }) => {
   const vp =
     over.vp === undefined
@@ -109,6 +110,7 @@ const facts = (over: {
     ...(over.repos ?? []),
     ...(over.records ?? []),
     ...(over.homebrew ?? []),
+    ...(over.skills ?? []),
     { fact: "end" },
   ]);
 };
@@ -609,7 +611,14 @@ describe("the brew and cask Providers", () => {
       expect.objectContaining({ kind: "change", item: "oven-sh/bun/bun", to: "latest" }),
     ]);
     // Shared Files and packages come before repos, so an Install Command can use them.
-    expect(result.providers.map((p) => p.name)).toEqual(["files", "vp", "brew", "cask", "repos"]);
+    expect(result.providers.map((p) => p.name)).toEqual([
+      "files",
+      "vp",
+      "brew",
+      "cask",
+      "skills",
+      "repos",
+    ]);
     const steps = result.providers
       .filter((p) => p.name === "brew" || p.name === "cask")
       .flatMap((p) => p.steps.map((s) => [s.id, s.items, s.run.join("").includes("brew update")]));
@@ -649,5 +658,248 @@ describe("the brew and cask Providers", () => {
     const result = plan({ state: facts({ homebrew: installed }) });
     expect(provider(result, "brew").decisions).toEqual([]);
     expect(provider(result, "cask").decisions).toEqual([]);
+  });
+});
+
+describe("the skills Provider", () => {
+  const withSkills = decode({
+    ...written,
+    skills: {
+      agents: ["claude-code", "codex"],
+      items: {
+        grilling: "mattpocock/skills",
+        "grill-me": "mattpocock/skills",
+        "find-skills": { source: "vercel-labs/skills", ref: "v2", agents: ["claude-code"] },
+        local: "https://example.com/skills.git",
+      },
+    },
+  });
+  const OLD = "1111111000000000000000000000000000000000";
+  const TIP = "2222222000000000000000000000000000000000";
+  const EDITED = "3333333000000000000000000000000000000000";
+  const at = (hash: string) => hash.slice(0, 7);
+  const tips: PlanInput["resolved"] = {
+    ...resolved,
+    skills: {
+      "mattpocock/skills#": {
+        folders: new Map([
+          ["skills/productivity/grilling", TIP],
+          ["skills/productivity/grill-me", TIP],
+        ]),
+      },
+      "vercel-labs/skills#v2": { folders: new Map([["skills/find-skills", TIP]]) },
+    },
+  };
+  // A skill the CLI installed from `source`: its folder, and its lock entry.
+  const installed = (
+    name: string,
+    source: string,
+    hash: string,
+    over: { folder?: string; ref?: string; folderOf?: string } = {},
+  ) => ({
+    provider: "skills",
+    fact: "skill",
+    name,
+    path: `/Users/connor/.agents/skills/${name}`,
+    hash: over.folder ?? hash,
+    lock: {
+      source,
+      sourceType: "github",
+      ...(over.ref === undefined ? {} : { ref: over.ref }),
+      skillPath: `${over.folderOf ?? `skills/productivity/${name}`}/SKILL.md`,
+      hash,
+    },
+  });
+  // Install Records: the agents a Ship installed each skill for.
+  const shipped = (names: ReadonlyArray<string>, agents = ["claude-code", "codex"]) =>
+    names.map((item) => ({ fact: "record", provider: "skills", item, record: { agents } }));
+  const all = ["grilling", "grill-me", "find-skills", "local"];
+  const state = (skills: ReadonlyArray<unknown>, records: ReadonlyArray<unknown> = shipped(all)) =>
+    facts({ skills: [{ provider: "skills", fact: "cli", present: true }, ...skills], records });
+  const current = [
+    installed("grilling", "mattpocock/skills", TIP),
+    installed("grill-me", "mattpocock/skills", OLD),
+    installed("find-skills", "vercel-labs/skills", TIP, {
+      ref: "v2",
+      folderOf: "skills/find-skills",
+    }),
+    {
+      provider: "skills",
+      fact: "skill",
+      name: "local",
+      path: "/Users/connor/.agents/skills/local",
+      lock: { source: "https://example.com/skills.git", sourceType: "git", hash: "abc" },
+    },
+  ];
+
+  it("installs missing skills with one skills add per source and agents, then records them", () => {
+    const result = plan({ config: withSkills, resolved: tips, state: state([], []) });
+    expect(provider(result, "skills").decisions.map((d) => [d.item, d.kind])).toEqual(
+      all.map((name) => [name, "change"]),
+    );
+    const steps = provider(result, "skills").steps;
+    expect(steps.map((s) => [s.id, s.items, s.run[0]])).toEqual([
+      [
+        "skills:grilling:install",
+        ["grilling", "grill-me"],
+        "ff_skills add 'mattpocock/skills' -g -y -s 'grilling' 'grill-me' -a 'claude-code' 'codex'",
+      ],
+      [
+        "skills:find-skills:install",
+        ["find-skills"],
+        "ff_skills add 'vercel-labs/skills#v2' -g -y -s 'find-skills' -a 'claude-code'",
+      ],
+      [
+        "skills:local:install",
+        ["local"],
+        "ff_skills add 'https://example.com/skills.git' -g -y -s 'local' -a 'claude-code' 'codex'",
+      ],
+    ]);
+    expect(steps[1]?.run.join("\n")).toContain(
+      `ff_lit '{"agents":["claude-code"]}' > "$HOME"'/.local/state/fleetfizz/records'/'skills'/'find-skills.json'`,
+    );
+  });
+
+  it("leaves a skill at its ref's hash, updates one whose source moved, and reinstalls on --rebuild", () => {
+    const result = plan({ config: withSkills, resolved: tips, state: state(current) });
+    expect(provider(result, "skills").decisions).toEqual([
+      { kind: "leave", item: "grilling", at: at(TIP) },
+      expect.objectContaining({
+        kind: "change",
+        item: "grill-me",
+        from: at(OLD),
+        to: at(TIP),
+        reason: "its source moved",
+      }),
+      { kind: "leave", item: "find-skills", at: at(TIP) },
+      // Not on GitHub: installed when missing, never checked.
+      { kind: "leave", item: "local", at: "abc" },
+    ]);
+    const rebuilt = plan({
+      config: withSkills,
+      resolved: tips,
+      state: state(current),
+      rebuild: ["skills:grilling"],
+    });
+    expect(provider(rebuilt, "skills").decisions[0]).toEqual(
+      expect.objectContaining({ kind: "change", item: "grilling", reason: "--rebuild" }),
+    );
+  });
+
+  it("asks before replacing an edited folder or one the CLI did not install, and honors answers", () => {
+    const touched = state([
+      installed("grilling", "mattpocock/skills", TIP, { folder: EDITED }),
+      {
+        provider: "skills",
+        fact: "skill",
+        name: "grill-me",
+        path: "/Users/connor/.agents/skills/grill-me",
+      },
+    ]);
+    const asked = provider(plan({ config: withSkills, resolved: tips, state: touched }), "skills");
+    expect(
+      asked.decisions
+        .slice(0, 2)
+        .map((d) =>
+          d.kind === "ask"
+            ? [d.question.kind, d.question.subject, d.question.problem, d.question.default]
+            : d.kind,
+        ),
+    ).toEqual([
+      ["skill", "skills:grilling", "was edited there", "skip"],
+      ["skill", "skills:grill-me", "was not installed by the skills CLI", "skip"],
+    ]);
+    const answered = provider(
+      plan({
+        config: withSkills,
+        resolved: tips,
+        state: touched,
+        answers: { "skill:skills:grilling": "overwrite", "skill:skills:grill-me": "skip" },
+      }),
+      "skills",
+    );
+    expect(answered.decisions.slice(0, 2)).toEqual([
+      expect.objectContaining({ kind: "change", item: "grilling", reason: "was edited there" }),
+      { kind: "skip", item: "grill-me", reason: "was not installed by the skills CLI" },
+    ]);
+  });
+
+  it("skips an installed skill whose source cannot be checked, still installing a missing one", () => {
+    const unreachable = {
+      ...tips,
+      skills: { "vercel-labs/skills#v2": { error: "GitHub answered 503" } },
+    };
+    const result = plan({ config: withSkills, resolved: unreachable, state: state(current) });
+    expect(provider(result, "skills").decisions[2]).toEqual({
+      kind: "skip",
+      item: "find-skills",
+      at: at(TIP),
+      reason: "could not check vercel-labs/skills: GitHub answered 503",
+    });
+    const missing = plan({ config: withSkills, resolved: unreachable, state: state([]) });
+    expect(provider(missing, "skills").decisions[2]).toEqual(
+      expect.objectContaining({ kind: "change", item: "find-skills", to: "v2" }),
+    );
+  });
+
+  it("reinstalls for a changed ref, a new agent, or no Install Record, never for a dropped agent", () => {
+    const result = plan({
+      config: withSkills,
+      resolved: tips,
+      state: state(
+        [
+          installed("grilling", "mattpocock/skills", TIP, { ref: "main" }),
+          installed("grill-me", "mattpocock/skills", TIP),
+          installed("find-skills", "vercel-labs/skills", TIP, {
+            ref: "v2",
+            folderOf: "skills/find-skills",
+          }),
+          current[3],
+        ],
+        [
+          ...shipped(["grilling"]),
+          ...shipped(["grill-me"], ["claude-code"]),
+          // Installed for codex too once; the config now names only claude-code.
+          ...shipped(["find-skills"]),
+        ],
+      ),
+    });
+    expect(provider(result, "skills").decisions).toEqual([
+      expect.objectContaining({ kind: "change", item: "grilling", reason: "installed at main" }),
+      expect.objectContaining({
+        kind: "change",
+        item: "grill-me",
+        reason: "not installed for codex",
+      }),
+      { kind: "leave", item: "find-skills", at: at(TIP) },
+      expect.objectContaining({ kind: "change", item: "local", reason: "not installed by a Ship" }),
+    ]);
+  });
+
+  it("fails every skill without the CLI, or for an agent id the CLI does not know", () => {
+    const unknown = plan({
+      config: withSkills,
+      resolved: tips,
+      state: state([
+        { provider: "skills", fact: "error", error: "Invalid agents: codex" },
+        ...current,
+      ]),
+    });
+    expect(provider(unknown, "skills").decisions[0]).toEqual({
+      kind: "fail",
+      item: "grilling",
+      at: at(TIP),
+      reason: "Invalid agents: codex",
+    });
+    const noCli = plan({
+      config: withSkills,
+      resolved: tips,
+      state: facts({ skills: [{ provider: "skills", fact: "cli", present: false }] }),
+    });
+    expect(provider(noCli, "skills").decisions[0]).toEqual({
+      kind: "fail",
+      item: "grilling",
+      reason: "the skills CLI is not installed; add skills to vp.items",
+    });
   });
 });

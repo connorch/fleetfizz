@@ -70,12 +70,15 @@ export interface Context extends Scope {
 // before anything runs. A "range" Question is an Item above its Range; a
 // "config" Question is a Stale Config (ADR 0008); a "mode" Question is vp in
 // system-first mode (ADR 0011); a "file" Question is a Shared File the
-// Starting Machine would overwrite on a target (ADR 0016).
+// Starting Machine would overwrite on a target (ADR 0016); a "skill" Question
+// is a skill folder an install would replace, edited there or put there by
+// something other than the skills CLI (ADR 0017).
 export const QUESTION_CHOICES = {
   range: ["bump", "skip", "downgrade"],
   config: ["overwrite", "stop"],
   mode: ["managed", "skip"],
   file: ["overwrite", "skip"],
+  skill: ["overwrite", "skip"],
 } as const;
 export type QuestionKind = keyof typeof QUESTION_CHOICES;
 export const isQuestionKind = (kind: string): kind is QuestionKind => kind in QUESTION_CHOICES;
@@ -183,7 +186,8 @@ export interface Provider<
 > {
   readonly name: Name;
   // "range": Items are versions kept inside a Range. "record": Items are
-  // installs kept matching an Install Record on the Machine.
+  // installs kept matching an Install Record on the Machine, fleetfizz's own
+  // or one their tool keeps (the skills CLI's lock); only these --rebuild.
   readonly rule: "range" | "record";
   // Providers that always come first, whatever the config says.
   readonly dependsOn: ReadonlyArray<ProviderName>;

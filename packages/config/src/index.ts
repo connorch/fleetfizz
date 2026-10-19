@@ -37,6 +37,8 @@ export {
   ReposSection,
   SELF_PACKAGE,
   SharedFile,
+  Skill,
+  SkillsSection,
   Targeting,
   TrackedRepo,
   VpSection,
