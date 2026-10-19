@@ -5,7 +5,8 @@ import { CodeBlock } from "./code-block";
 // view.tsx): notes above, then each Machine's line with its time and summary
 // and, under it, one line per item that changed, its status first. The same
 // columns run through every line. The run itself is invented: three
-// Machines, one Question.
+// Machines, one Question. Its bump edits the config, so every Machine also
+// gets the new copy.
 
 type Tone = "dim" | "bold" | "ok" | "fail" | "skip" | "run" | "ask";
 interface Segment {
@@ -36,14 +37,14 @@ const NOTES: ReadonlyArray<Row> = [
 const MACHINES: ReadonlyArray<Machine> = [
   {
     name: "mac-studio",
-    time: "",
-    summary: [{ text: "up to date", tone: "ok" }],
-    items: [],
+    time: "0.4s",
+    summary: [{ text: "1 of 1 done", tone: "ok" }],
+    items: [{ status: "✓ copied", name: "config", value: "4c8e1f2 → b07d93a", time: "0.2s" }],
   },
   {
     name: "macbook-pro",
     time: "5m 07s",
-    summary: [{ text: "2 of 2 done", tone: "ok" }],
+    summary: [{ text: "3 of 3 done", tone: "ok" }],
     items: [
       { status: "✓ done", name: "vp:vp", value: "1.0.0 → 1.1.0", time: "16.6s" },
       {
@@ -52,23 +53,23 @@ const MACHINES: ReadonlyArray<Machine> = [
         value: "3f1a2b0 → 9e02bb1",
         time: "4m 50s",
       },
+      { status: "✓ copied", name: "config", value: "4c8e1f2 → b07d93a", time: "0.3s" },
     ],
   },
   {
     name: "homelab",
     time: "14.2s",
-    summary: [{ text: "2 of 2 done", tone: "ok" }],
+    summary: [{ text: "3 of 3 done", tone: "ok" }],
     items: [
       { status: "✓ done", name: "vp:wrangler", value: "+ 4.141.0", time: "4.1s" },
       { status: "✓ installed", name: "repos:dotfiles", value: "+ c7d9e02", time: "9.8s" },
+      { status: "✓ copied", name: "config", value: "4c8e1f2 → b07d93a", time: "0.3s" },
     ],
   },
 ];
 
 const SUMMARY: Row = [
-  { text: "2 updated", tone: "ok" },
-  { text: ", ", tone: "dim" },
-  { text: "1 up to date", tone: "ok" },
+  { text: "3 updated", tone: "ok" },
   { text: "  in 5m 12s", tone: "dim" },
 ];
 

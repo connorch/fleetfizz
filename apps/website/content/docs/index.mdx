@@ -14,6 +14,7 @@ fleetfizz keeps them in line. One config lists your Machines and what each one n
 - **vp**: the vite-plus version, the Node and package-manager defaults, and Globals at semver Ranges.
 - **Tracked Repos**: a Managed Clone of each repo, reset to its origin ref and installed with its own Install Command.
 - **Formulae and Casks**: Homebrew packages and macOS apps.
+- **Shared Files**: files and directories copied from the Starting Machine, such as dotfiles or app configs.
 
 Every entry can target some Platforms or Machines and skip the rest. [Config](/docs/config) covers every field.
 
@@ -26,7 +27,7 @@ You run `fizz ship` on any Machine in the Fleet, the Starting Machine. It reache
 3. **Questions.** Ask about anything the Plan cannot decide alone, such as a Global that someone upgraded above its Range. No Machine changes until every Question is answered.
 4. **Apply.** Run every Machine's Steps in parallel.
 
-The Ledger shows the result: one line per Machine and, under it, each Item that changed. `fizz ship --dry-run` stops after the Plan, and `fizz report` prints the last Ledger again.
+The Ledger shows the result: one line per Machine and, under it, each Item that changed. `fizz ship --dry-run` stops after the Plan, and `fizz report` prints the last Ship's Ledger again.
 
 Every Ship also copies the config and its own fleetfizz version to every Machine, so any Machine can run the next one.
 
