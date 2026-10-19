@@ -1,6 +1,7 @@
 // `fizz ship`: one Ship. Load the config, read the Fleet, Check every
-// reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
-// and show it all on the Ledger: live in a terminal, printed once otherwise.
+// reachable Machine, Plan, ask Questions, copy the config with its Install
+// Record, Apply, and show it all on the Ledger: live in a terminal, printed
+// once otherwise.
 // Picking a newer config found elsewhere starts the Ship over from that one.
 // The Ship Log records all of it (log.ts).
 import * as Console from "effect/Console";
@@ -9,20 +10,26 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Logger from "effect/Logger";
+import * as Option from "effect/Option";
 import * as References from "effect/References";
 import * as Schema from "effect/Schema";
 
 import {
   bumpConfig,
+  type ConfigRecord,
   configPath,
+  decodeConfigRecord,
+  encodeConfigRecord,
   fleetConfigJsonSchema,
   loadConfig,
+  mergeReached,
   parseConfig,
-  stampText,
-  staleCopies,
-  type Copy,
-  type FleetConfig,
   type ProviderName,
+  type Reached,
+  reachedAfter,
+  shaOf,
+  staleWhy,
+  type FleetConfig,
 } from "@fleetfizz/config";
 import {
   dependenciesOf,
@@ -48,9 +55,10 @@ import {
   type Tailnet,
 } from "@fleetfizz/remote";
 
+import { readConfigRecord, writeConfigRecord } from "./configRecord.ts";
 import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
-import { openShipLog, shipId } from "./log.ts";
+import { openShipLog, parseShipId, shipId } from "./log.ts";
 import { apply, check } from "./machine.ts";
 import { askQuestions, parseAnswers, type Asked } from "./questions.ts";
 import { saveReport } from "./report.tsx";
@@ -118,46 +126,82 @@ const unshippable = (
   return undefined;
 };
 
-// A Stale Config: one text of the config, newer than this one, and the
-// Machines that hold it (one Ship from elsewhere reaches several).
+// A Stale Config: one text of the config that this Ship must ask before
+// overwriting, the Machines that hold it (one Ship from elsewhere reaches
+// several), and, merged across them, when a Ship of it reached each Machine.
 interface Stale {
   readonly text: string;
+  readonly sha: string;
   readonly config: FleetConfig;
   readonly machines: ReadonlyArray<string>;
+  readonly reached: Reached;
   readonly description: string;
 }
 
-// The other copies of the config that this Ship would roll back (staleCopies),
-// grouped by text. A copy that does not parse is reported and then
-// overwritten; it cannot be newer.
+const minute = (iso: string | undefined) =>
+  iso?.slice(0, 16).replace("T", " ") ?? "an unknown time";
+
+// The other copies of the config that differ from `text` and that this Ship
+// must ask about (staleWhy), grouped by text. `base` is when this config last
+// reached each Machine. `own` is the Machine whose file `text` is, never
+// asked about: the Starting Machine, unless --config named another file. A
+// copy that does not parse is reported and then overwritten.
 const staleConfigs = Effect.fn("staleConfigs")(function* (
-  config: FleetConfig,
+  text: string,
+  base: Reached,
   own: string | undefined,
   checked: ReadonlyArray<Checked>,
   ledger: Ledger,
 ) {
-  const copies: Array<Copy & { readonly config: FleetConfig; readonly text: string }> = [];
+  const copies: Array<{
+    readonly machine: string;
+    readonly text: string;
+    readonly sha: string;
+    readonly config: FleetConfig;
+    readonly record: ConfigRecord | undefined;
+    readonly why: string;
+  }> = [];
   for (const { machine, state } of checked) {
-    if (state.config === undefined) continue;
-    const parsed = yield* Effect.result(parseConfig(machine.name, state.config));
+    if (machine.name === own || state.config === undefined || state.config.text === text) continue;
+    const parsed = yield* Effect.result(parseConfig(machine.name, state.config.text));
     if (parsed._tag === "Failure") {
       yield* ledger.note(
         "info",
         `the config on ${machine.name} does not parse; it will be overwritten`,
       );
-    } else copies.push({ machine: machine.name, config: parsed.success, text: state.config });
+      continue;
+    }
+    const record = Option.getOrUndefined(decodeConfigRecord(state.configRecord));
+    const why = staleWhy({ machine: machine.name, sha: state.config.sha, record }, base);
+    if (why === undefined) continue;
+    copies.push({
+      machine: machine.name,
+      text: state.config.text,
+      sha: state.config.sha,
+      config: parsed.success,
+      record,
+      why:
+        why === "unrecorded"
+          ? "differs, and no Ship wrote it"
+          : why === "edited"
+            ? "was edited there"
+            : `got a Ship from ${parseShipId(record?.ship ?? "")?.from ?? "another Machine"} at ${minute(record?.reached[machine.name])} that missed this Machine`,
+    });
   }
-  const byText = Map.groupBy(staleCopies(config, copies, own), (c) => c.text);
-  return [...byText].flatMap(([text, [first, ...rest]]): Stale[] => {
+  return [...Map.groupBy(copies, (c) => c.text)].flatMap(([text, group]): Stale[] => {
+    const [first] = group;
     if (first === undefined) return [];
-    const { config, machine } = first;
-    const machines = [machine, ...rest.map((c) => c.machine)];
+    const machines = group.map((c) => c.machine);
     return [
       {
         text,
-        config,
+        sha: first.sha,
+        config: first.config,
         machines,
-        description: `${machines.join(", ")} (shipped ${config.shippedAt} from ${config.shippedFrom ?? "unknown"})`,
+        reached: mergeReached(
+          group.flatMap((c) => (c.record === undefined ? [] : [c.record.reached])),
+        ),
+        description: `the config on ${machines.join(", ")} ${first.why}`,
       },
     ];
   });
@@ -192,7 +236,7 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
       yield* Effect.logInfo(
         `tailnet: ${m.name} ${m.platform}${m.online ? "" : " offline"}${m.ssh ? "" : " no-ssh"}${m.name === tailnet.self.name ? " (this Machine)" : ""}`,
       );
-    while ((yield* shipPass(flags, tailnet, hidden)) === "adopted") {}
+    while ((yield* shipPass(flags, tailnet, hidden, id)) === "adopted") {}
   }).pipe(
     Effect.onExit((exit) =>
       Exit.isSuccess(exit)
@@ -210,6 +254,7 @@ const shipPass = Effect.fn("shipPass")(function* (
   flags: ShipFlags,
   tailnet: Tailnet,
   hidden: Set<string>,
+  id: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const parsed = parseAnswers(flags.answers);
@@ -239,8 +284,11 @@ const shipPass = Effect.fn("shipPass")(function* (
   if (problem !== undefined) return yield* Effect.fail(new ShipError(problem));
   const fleet = new Set(config.machines);
   // The Machine whose copy of the config this is: the Starting Machine's own
-  // file, unless --config named another (staleCopies).
+  // file, unless --config named another, which has no record and so no
+  // history: when this config last reached each Machine (ADR 0008).
   const own = flags.config === undefined ? tailnet.self.name : undefined;
+  const ownRecord = own === undefined ? undefined : yield* readConfigRecord;
+  const base = ownRecord?.reached ?? {};
   // Config order, so the Ledger lists Machines the way the config does.
   const order = config.machines;
   const targetsList = tailnet.fleet
@@ -334,18 +382,19 @@ const shipPass = Effect.fn("shipPass")(function* (
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
-  // A newer config elsewhere stops the Ship unless the person overrides it or
-  // picks it, which writes it here and starts the Ship over from it.
-  const stale = yield* staleConfigs(config, own, checked, ledger);
+  // A config elsewhere that a Ship from here must not overwrite unasked stops
+  // the Ship unless the person overrides it or picks it, which writes it
+  // (and what its record knows) here and starts the Ship over from it.
+  const stale = yield* staleConfigs(yield* fs.readFileString(path), base, own, checked, ledger);
   if (stale.length > 0) {
-    const what = `newer config on ${stale.map((s) => s.description).join(", ")}`;
+    const what = stale.map((s) => s.description).join("; ");
     const answers = stale.flatMap((s) => s.machines).map((m) => given("config", m));
     if (flags.dryRun) {
       yield* ledger.note("info", `${what}; a Ship would ask before overwriting it`);
     } else if (answers.every((a) => a === "overwrite")) {
       yield* ledger.note("info", `${what}; overwriting it, as answered`);
     } else if (answers.includes("stop")) {
-      return yield* Effect.fail(new ShipError("aborted: the config here is older"));
+      return yield* Effect.fail(new ShipError("stopped before overwriting the config there"));
     } else if (live.ask === undefined) {
       return yield* Effect.fail(
         new ShipError(`${what}; copy it here first, or pass --overwrite-config`),
@@ -369,12 +418,20 @@ const shipPass = Effect.fn("shipPass")(function* (
       ]);
       if (choice === "stop") {
         yield* ledger.note("answer", "stop");
-        return yield* Effect.fail(new ShipError("aborted: the config here is older"));
+        return yield* Effect.fail(new ShipError("stopped before overwriting the config there"));
       }
       if (choice === "overwrite") yield* ledger.note("answer", "overwrite it");
       else {
         yield* ledger.note("answer", `use the config on ${choice.machines[0]}`);
         yield* fs.writeFileString(path, choice.text);
+        if (own !== undefined)
+          yield* writeConfigRecord(
+            encodeConfigRecord({
+              ship: id,
+              sha: choice.sha,
+              reached: mergeReached([base, choice.reached]),
+            }),
+          );
         adopted = true;
         return "adopted" as const;
       }
@@ -529,22 +586,39 @@ const shipPass = Effect.fn("shipPass")(function* (
     return "adopted" as const;
   }
 
-  for (const { machine, plan: p } of planned) yield* ledger.plan(machine.name, p);
+  // Every Machine gets this exact text (ADR 0008), shown as changed where its
+  // copy differs.
+  const text = yield* fs.readFileString(path);
+  const sha = yield* shaOf(text);
+  for (const { machine, state, plan: p } of planned)
+    yield* ledger.plan(machine.name, p, {
+      ...(state.config === undefined ? {} : { from: state.config.sha.slice(0, 7) }),
+      to: sha.slice(0, 7),
+    });
 
   if (flags.dryRun) return;
 
-  // Stamp the config here, then every Machine gets this exact text (ADR 0008).
-  const shippedAt = DateTime.formatIso(yield* DateTime.now);
-  // The copy each Machine receives says this Ship reached it. The local file
-  // is written again after Apply with only the Machines whose config step
+  // The record each Machine gets says this Ship reached every planned
+  // Machine, and the Starting Machine itself. The Starting Machine's own
+  // record says so before Apply too, so an interrupted Ship still knows what
+  // it shipped; after Apply it claims only the Machines whose config Step
   // completed, so a failed delivery does not claim a copy that never landed.
+  const at = DateTime.formatIso(yield* DateTime.now);
+  const recordFor = (reached: ReadonlyArray<string>) =>
+    encodeConfigRecord({
+      ship: id,
+      sha,
+      reached: reachedAfter(
+        base,
+        at,
+        [...reached, ...(own === undefined ? [] : [own])],
+        cfg.machines,
+      ),
+    });
   changing = true;
-  const original = yield* fs.readFileString(path);
-  const stampWith = (reached: ReadonlyArray<string>) =>
-    stampText(original, { shippedAt, shippedFrom: tailnet.self.name, reached, own });
-  const stamped = stampWith(planned.map((g) => g.machine.name));
-  yield* fs.writeFileString(path, stamped);
-  yield* Effect.logInfo(`stamped the config: shippedAt ${shippedAt}`);
+  const record = recordFor(planned.map((g) => g.machine.name));
+  if (own !== undefined) yield* writeConfigRecord(record);
+  yield* Effect.logInfo(`the config's record: ${record}`);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
 
   // Apply, in parallel. No Machine changed before this point. Each Machine's
@@ -556,8 +630,8 @@ const shipPass = Effect.fn("shipPass")(function* (
         const applied = yield* apply(
           { name: machine.name, local },
           p,
-          applyScript(p),
-          applyStdin(lent.token, stamped, schema, p),
+          applyScript(p, record),
+          applyStdin(lent.token, text, schema, p),
           ledger,
         );
         return applied.done.includes(CONFIG_STEP) ? machine.name : undefined;
@@ -568,5 +642,5 @@ const shipPass = Effect.fn("shipPass")(function* (
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((name) => name !== undefined)));
   yield* Effect.logInfo(`the config reached: ${delivered.join(", ")}`);
-  yield* fs.writeFileString(path, stampWith(delivered));
+  if (own !== undefined) yield* writeConfigRecord(recordFor(delivered));
 }, Effect.scoped);

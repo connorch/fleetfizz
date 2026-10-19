@@ -31,7 +31,7 @@ Some files need to be the same on every Machine but belong to no repo: Karabiner
 - **A private dotfiles repo as a Tracked Repo (rejected).** It puts the secrets on GitHub, and a Managed Clone is reset to origin on every Ship: a symlinked `karabiner.json` loses each edit Karabiner writes, and a copy never sends one back.
 - **Contents inline in the Config (rejected).** Secrets in a file that may be under git, and 18KB of Karabiner JSON in the Config.
 - **Overlay instead of mirror (rejected).** A file only the target has keeps its fingerprint different forever, so every Ship asks the same Question. With mirror it is Drift, and the Question protects it before anything is deleted.
-- **Stamps per file, like the Config's `shippedTo` (rejected).** The record already holds the time; the stamps exist for the Config only because it has no record.
+- **Stamps per file, like the Config's old `shippedTo` (rejected).** The record already holds the time. The Config later moved its own stamps into a record too (ADR 0008).
 - **Following symlinks (rejected).** A link to a file outside the path would copy that file under the link's name and break the link everywhere.
 
 ## Consequences

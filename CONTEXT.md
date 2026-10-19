@@ -27,7 +27,7 @@ The one `config.jsonc` that describes the Fleet, kept at the same path on every 
 _Avoid_: manifest, fleet file, settings
 
 **Stale Config**:
-A Config that a Ship of the Starting Machine's Config would roll back: that Machine received a Config more recently than this one last reached it, so a Ship from elsewhere missed this Machine. The Ship asks a Question before going on: use that config on the Starting Machine and start over from it, overwrite it, or stop.
+A Config that a Ship of the Starting Machine's Config must not overwrite without asking: one that Machine received more recently than this one last reached it (a Ship from elsewhere missed this Machine), one edited there, or one no Ship wrote. The Config's Install Record on each Machine says which. The Ship asks a Question before going on: use that config on the Starting Machine and start over from it, overwrite it, or stop.
 _Avoid_: outdated config, conflict
 
 **Targeting**:
@@ -105,7 +105,7 @@ The shell command that installs a Tracked Repo from its Managed Clone.
 _Avoid_: build script, hook
 
 **Install Record**:
-For one Machine and one Item of a Provider that cannot report what it installed: for a Tracked Repo, the commit, Managed Clone path, Install Command, and Output fingerprints of the last successful install; for a Shared File, the fingerprint and time of the last copy a Ship wrote there.
+For one Machine and one Item of a Provider that cannot report what it installed: for a Tracked Repo, the commit, Managed Clone path, Install Command, and Output fingerprints of the last successful install; for a Shared File, the fingerprint and time of the last copy a Ship wrote there; for the Config, the Ship that wrote it there, its sha256, and when a Ship of it last reached each Machine.
 _Avoid_: lock, cache, receipt
 
 **Output**:

@@ -97,7 +97,7 @@ const runGlyph = (live: boolean, now: number): string =>
 // An unchanged item has no status; a record Item says so at the end instead.
 const unchanged = (i: Item) => ({
   text: "",
-  detail: i.kind === "record" ? "up to date" : undefined,
+  detail: i.kind === "record" || i.kind === "config" ? "up to date" : undefined,
 });
 
 // An item's status, first on its line, and the detail at its end. Outcomes
@@ -116,10 +116,10 @@ const statusOf = (
     case "skipped":
       return { text: "– skipped", tone: "skip", detail: i.detail };
     case "ok":
-      if (i.kind === "config") return { text: "✓ copied", tone: "dim" };
       // Only its upkeep ran (a Managed Clone's reset, an upgrade that found
       // nothing newer): still unchanged.
       if (!i.changes) return unchanged(i);
+      if (i.kind === "config") return { text: "✓ copied", tone: "ok" };
       if (i.kind === "record") {
         return i.from !== undefined && i.from === i.to
           ? { text: "✓ rebuilt", tone: "ok", detail: i.reason }

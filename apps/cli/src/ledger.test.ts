@@ -77,8 +77,8 @@ describe("the Ledger", () => {
         print: () => Effect.void,
       });
       yield* ledger.skip("homelab", "offline");
-      yield* ledger.plan("studio", upToDate);
-      yield* ledger.plan("macbook", changes);
+      yield* ledger.plan("studio", upToDate, { from: "9f8e7d6", to: "9f8e7d6" });
+      yield* ledger.plan("macbook", changes, { from: "3eca7d1", to: "9f8e7d6" });
       yield* ledger.start("studio");
       yield* ledger.start("macbook");
       for (const id of [CONFIG_STEP, "vp:vp:upgrade"]) {
@@ -107,10 +107,11 @@ describe("the Ledger", () => {
           "",
           "studio                                               up to date",
           "",
-          "macbook                                      1m 34s  1 of 2 done, 1 failed",
+          "macbook                                      1m 34s  2 of 3 done, 1 failed",
           "✓ done      vp:vp         1.0.0 → 1.1.0        2.0s",
           "✗ failed    repos:t3code  3f1a2b0 → 9e02bb1  1m 30s  exit 1",
           "            │ ERR_PNPM_OUTDATED_LOCKFILE",
+          "✓ copied    config        3eca7d1 → 9f8e7d6    2.0s",
           "",
           "homelab                                              – skipped  offline",
           "",
@@ -119,14 +120,14 @@ describe("the Ledger", () => {
       );
       expect(text(true)).toContain(
         [
-          "macbook                                        1m 34s  1 of 2 done, 1 failed",
+          "macbook                                        1m 34s  2 of 3 done, 1 failed",
           "✓ done      vp:vp           1.0.0 → 1.1.0        2.0s",
           "            vp:node         24.3.0",
           "            vp:vercel       59.25.4",
           "✗ failed    repos:t3code    3f1a2b0 → 9e02bb1  1m 30s  exit 1",
           "            │ ERR_PNPM_OUTDATED_LOCKFILE",
           "            repos:dotfiles  a41c0d2              0.0s  up to date",
-          "✓ copied    config                               2.0s",
+          "✓ copied    config          3eca7d1 → 9f8e7d6    2.0s",
         ].join("\n"),
       );
     }),
@@ -162,7 +163,7 @@ describe("an Item planned to latest", () => {
           machines: ["studio"],
           print: () => Effect.void,
         });
-        yield* ledger.plan("studio", plan("studio", [brew]));
+        yield* ledger.plan("studio", plan("studio", [brew]), { from: "9f8e7d6", to: "9f8e7d6" });
         yield* ledger.start("studio");
         for (const [id, reached] of [
           ["brew:formulae:install", [["gh", "2.80.0"]]],
@@ -187,7 +188,7 @@ describe("an Item planned to latest", () => {
             "✓ done    brew:gh    + 2.80.0     0.0s",
             "          brew:tmux  3.5a         0.0s",
             "✓ done    brew:jq    1.7 → 1.8.1  0.0s",
-            "          config",
+            "          config     9f8e7d6            up to date",
             "",
             "1 updated  in 0.0s",
           ].join("\n"),

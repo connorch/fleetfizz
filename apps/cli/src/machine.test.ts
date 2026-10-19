@@ -49,7 +49,7 @@ const run = (plan: MachinePlan, script: ReadonlyArray<string>) =>
       machines: ["studio"],
       print: () => Effect.void,
     });
-    yield* ledger.plan("studio", plan);
+    yield* ledger.plan("studio", plan, { from: "9f8e7d6", to: "9f8e7d6" });
     const { outcome } = yield* apply(local, plan, script.join("\n"), [""], ledger);
     const machine = store.get().state.machines[0];
     return { outcome, machine, skills: machine?.items.find((i) => i.name === "repos:skills") };

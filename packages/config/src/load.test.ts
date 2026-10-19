@@ -58,6 +58,17 @@ describe("parseConfig", () => {
     }),
   );
 
+  it.effect("names the Ship stamps a config from before the Config record still has", () =>
+    Effect.gen(function* () {
+      const result = yield* parse(`{ "shippedAt": "x", "shippedTo": {}, "machines": ["a"] }`);
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure")
+        expect(result.failure.problems).toEqual([
+          "shippedAt, shippedTo: no longer written; a Ship keeps them in its Install Record now, so delete them",
+        ]);
+    }),
+  );
+
   it.effect("names what moved in a config from before uniform sections", () =>
     Effect.gen(function* () {
       const result = yield* parse(`{

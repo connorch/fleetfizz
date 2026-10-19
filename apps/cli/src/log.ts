@@ -8,10 +8,8 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Logger from "effect/Logger";
-import * as Option from "effect/Option";
 import * as References from "effect/References";
 
-import { configPath, loadConfig } from "@fleetfizz/config";
 import {
   LOGS_DIR,
   quote,
@@ -21,6 +19,8 @@ import {
   SSH_UNREACHABLE,
   type Target,
 } from "@fleetfizz/remote";
+
+import { readConfigRecord } from "./configRecord.ts";
 
 // How many Ship Logs a Machine keeps.
 export const KEEP = 20;
@@ -148,7 +148,7 @@ export const logs = Effect.fn("logs")(function* (flags: LogsFlags) {
     return;
   }
 
-  const id = flags.id ?? (yield* latestShip(local, self, targetOf));
+  const id = flags.id ?? (yield* latestShip(local, self));
   const ship = parseShipId(id);
   if (ship === undefined)
     return yield* Effect.fail(new LogsError(`not a Ship id: ${id} (fizz logs --list shows them)`));
@@ -169,33 +169,22 @@ export const logs = Effect.fn("logs")(function* (flags: LogsFlags) {
 });
 
 // The latest Ship that started on or reached this Machine: the newest log
-// here (`local`, oldest first), unless this Machine's config stamp says a
-// Ship from another Machine reached it later. That Ship is the newest log
-// there that started before its stamp.
-const latestShip = Effect.fn("latestShip")(function* <E, R>(
+// here (`local`, oldest first), unless the config's Install Record says a
+// Ship from another Machine reached it later. That Ship's log is on its
+// Starting Machine.
+const latestShip = Effect.fn("latestShip")(function* (
   local: ReadonlyArray<string>,
   self: string | undefined,
-  targetOf: (name: string) => Effect.Effect<Target, E, R>,
 ) {
   const newest = local.at(-1);
-  const config = Option.getOrUndefined(
-    yield* loadConfig(configPath(process.env)).pipe(Effect.option),
-  );
-  const from = config?.shippedFrom;
-  const at = Date.parse(config?.shippedAt ?? "");
+  const record = yield* readConfigRecord;
+  const from = parseShipId(record?.ship ?? "")?.from;
+  // When it reached this Machine. Without logs here this Machine's name is
+  // unknown, but then nothing here is newer than the record anyway.
+  const at = self === undefined ? Infinity : Date.parse(record?.reached[self] ?? "");
   const newestStarted = parseShipId(newest ?? "")?.started ?? -Infinity;
-  if (from !== undefined && from !== self && at > newestStarted) {
-    const there = (yield* shipIds(yield* targetOf(from)))
-      .filter((id) => (parseShipId(id)?.started ?? Infinity) <= at)
-      .at(-1);
-    if (there === undefined)
-      return yield* Effect.fail(
-        new LogsError(
-          `the last Ship to reach this Machine (from ${from} at ${config?.shippedAt}) has no log there`,
-        ),
-      );
-    return there;
-  }
+  if (record !== undefined && from !== undefined && from !== self && at > newestStarted)
+    return record.ship;
   if (newest === undefined)
     return yield* Effect.fail(new LogsError("no Ship Log on this Machine yet"));
   return newest;

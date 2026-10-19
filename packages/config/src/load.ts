@@ -62,11 +62,19 @@ const repeatedKeys = (text: string): string[] => {
   return problems;
 };
 
-// What moved in a config written before ADR 0014, which no longer loads.
+// What moved in a config written before ADR 0014, or before the Config had
+// an Install Record (ADR 0008), which no longer loads.
+const STAMPS = ["shippedAt", "shippedFrom", "shippedTo"];
 const movedKeys = (parsed: unknown): string[] => {
   if (typeof parsed !== "object" || parsed === null) return [];
   const config: { machines?: unknown; repos?: unknown; vp?: unknown } = parsed;
+  const stamps = STAMPS.filter((key) => key in parsed);
   return [
+    ...(stamps.length > 0
+      ? [
+          `${stamps.join(", ")}: no longer written; a Ship keeps them in its Install Record now, so delete them`,
+        ]
+      : []),
     ...(typeof config.machines === "object" &&
     config.machines !== null &&
     !Array.isArray(config.machines)

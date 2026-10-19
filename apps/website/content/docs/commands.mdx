@@ -15,9 +15,9 @@ A Ship checks every Machine, plans its Steps, asks any Questions, then applies t
 
 Without a terminal, a Question is never waited on: the answer is skip. Piped to a file, the Ledger prints the full list once at the end.
 
-### A newer config elsewhere
+### A different config elsewhere
 
-If another Machine holds a config that was shipped more recently than this one, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
+If another Machine's config was edited there, was never written by a Ship, or was shipped there more recently than this one last reached it, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
 
 ## fizz report
 

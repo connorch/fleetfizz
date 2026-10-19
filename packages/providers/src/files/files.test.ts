@@ -364,7 +364,7 @@ describe("the files Provider copies", () => {
 
       // The first Ship: the MacBook's copy differs and no Ship wrote it.
       const first = planFor(yield* check(), "overwrite");
-      const script = applyScript(first);
+      const script = applyScript(first, "{}");
       expect(script).not.toContain("secret-a");
       expect(script).not.toContain(btoa("secret-a"));
       const out = yield* sh(script, home, applyStdin(undefined, "{}", "{}", first));
@@ -433,7 +433,7 @@ describe("the files Provider copies", () => {
       );
       const { check, planFor } = yield* shipFrom(home, config);
       const plan = planFor(yield* check(), "overwrite");
-      const out = yield* sh(applyScript(plan), home, applyStdin(undefined, "{}", "{}", plan));
+      const out = yield* sh(applyScript(plan, "{}"), home, applyStdin(undefined, "{}", "{}", plan));
       expect(out).toContain('ff-done {"id":"files:k:copy","ok":false');
       expect(yield* fs.readFileString(`${home}/dst/gone/keep.txt`)).toBe("keep");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

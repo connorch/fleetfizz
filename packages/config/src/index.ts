@@ -31,4 +31,16 @@ export {
   TrackedRepo,
   VpSection,
 } from "./schema.ts";
-export { stampText, staleCopies, type Copy, type Stamp } from "./stamp.ts";
+export {
+  type ConfigCopy,
+  ConfigRecord,
+  decodeConfigRecord,
+  decodeConfigRecordJson,
+  encodeConfigRecord,
+  isNewer,
+  mergeReached,
+  type Reached,
+  reachedAfter,
+  shaOf,
+  staleWhy,
+} from "./record.ts";
