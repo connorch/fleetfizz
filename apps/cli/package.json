@@ -34,6 +34,7 @@
     "@fleetfizz/remote": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "cli-spinners": "catalog:",
     "effect": "catalog:",
     "ink": "catalog:",
     "react": "catalog:",

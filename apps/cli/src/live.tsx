@@ -10,7 +10,7 @@ import { Box, render, useInput, useStdin, useWindowSize } from "ink";
 import { useState, useSyncExternalStore } from "react";
 
 import type { LedgerStore } from "./ledger.ts";
-import { LedgerView, Line, Styled, T } from "./view.tsx";
+import { LedgerView, Line, SPINNER, Styled, T } from "./view.tsx";
 
 // The Question being asked: its choices, and how to answer with one.
 interface Asking {
@@ -103,8 +103,10 @@ export const startLive = Effect.fn("startLive")(function* (store: LedgerStore, c
       await instance.waitUntilExit();
     }),
   );
-  // Running items count up once a second.
-  yield* Effect.forkScoped(Effect.repeat(store.tick, Schedule.spaced("1 second")));
+  // Running items count up, and their spinners turn.
+  yield* Effect.forkScoped(
+    Effect.repeat(store.tick, Schedule.spaced(`${SPINNER.interval} millis`)),
+  );
   const live: Live = {
     ask: process.stdin.isTTY
       ? <A,>(choices: ReadonlyArray<Choice<A>>) =>

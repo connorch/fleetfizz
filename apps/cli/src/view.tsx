@@ -6,6 +6,7 @@
 // Live, every line is cut at the terminal's edge instead of wrapping, so the
 // frame is exactly as tall as its lines, and the view keeps it shorter than
 // the window: Ink cannot redraw a frame taller than the window in place.
+import spinners from "cli-spinners";
 import { Box, renderToString, Text, type TextProps } from "ink";
 import { createContext, useContext, type ReactNode } from "react";
 
@@ -85,6 +86,14 @@ interface Part {
   readonly tone?: Tone;
 }
 
+// A running item's glyph: live, a spinner turned by the clock, so every
+// running item spins in step; printed once, a still arrow. live.tsx ticks the
+// clock at the spinner's interval.
+export const SPINNER = spinners.dots;
+const runGlyph = (live: boolean, now: number): string =>
+  (live ? SPINNER.frames[Math.floor(now / SPINNER.interval) % SPINNER.frames.length] : undefined) ??
+  "▸";
+
 // An unchanged item has no status; a record Item says so at the end instead.
 const unchanged = (i: Item) => ({
   text: "",
@@ -93,11 +102,15 @@ const unchanged = (i: Item) => ({
 
 // An item's status, first on its line, and the detail at its end. Outcomes
 // are past tense, work in progress ends in -ing, and `queued` (a Ship) or
-// `planned` (a dry run) has not started.
-const statusOf = (i: Item, dryRun: boolean): Part & { readonly detail?: string | undefined } => {
+// `planned` (a dry run) has not started. `glyph` leads a running item.
+const statusOf = (
+  i: Item,
+  dryRun: boolean,
+  glyph: string,
+): Part & { readonly detail?: string | undefined } => {
   switch (i.status) {
     case "running":
-      return { text: `▸ ${i.doing ?? "running"}`, tone: "run" };
+      return { text: `${glyph} ${i.doing ?? "running"}`, tone: "run" };
     case "failed":
       return { text: "✗ failed", tone: "fail", detail: i.detail };
     case "skipped":
@@ -274,9 +287,9 @@ const MachineLine = (props: { m: MachineEntry; w: Widths; dryRun: boolean; now: 
   );
 };
 
-const ItemLine = (props: { i: Item; w: Widths; dryRun: boolean; now: number }) => {
+const ItemLine = (props: { i: Item; w: Widths; dryRun: boolean; now: number; glyph: string }) => {
   const { i, w } = props;
-  const status = statusOf(i, props.dryRun);
+  const status = statusOf(i, props.dryRun, props.glyph);
   const quiet = i.status === "idle" ? "dim" : undefined;
   return (
     <Box columnGap={GAP}>
@@ -314,12 +327,13 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   const { dryRun } = state;
   const { live } = useContext(ModeContext);
   const running = live && state.ended === undefined;
+  const glyph = runGlyph(live, now);
   const shownItems = (m: MachineEntry) =>
     m.items.filter((i) => full || i.changes || i.status === "failed" || i.status === "skipped");
   const visible = state.machines.flatMap(shownItems);
   const width = (texts: ReadonlyArray<string>) => Math.max(0, ...texts.map((t) => t.length));
   const item = width(visible.map((i) => i.name));
-  const status = width(visible.map((i) => statusOf(i, dryRun).text));
+  const status = width(visible.map((i) => statusOf(i, dryRun, glyph).text));
   const w: Widths = {
     status,
     item,
@@ -342,7 +356,14 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
     body: [
       ...(m.output === undefined ? [] : outputLines(m.name, m.output, nameAt(w), running)),
       ...shownItems(m).flatMap((i) => [
-        <ItemLine key={`${m.name}/${i.kind}:${i.name}`} i={i} w={w} dryRun={dryRun} now={now} />,
+        <ItemLine
+          key={`${m.name}/${i.kind}:${i.name}`}
+          i={i}
+          w={w}
+          dryRun={dryRun}
+          now={now}
+          glyph={glyph}
+        />,
         ...(i.output === undefined
           ? []
           : outputLines(`${m.name}/${i.kind}:${i.name}`, i.output, nameAt(w), running)),
