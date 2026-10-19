@@ -2,10 +2,14 @@
 // reachable Machine, Plan, ask Questions, stamp and copy the config, Apply,
 // and show it all on the Ledger: live in a terminal, printed once otherwise.
 // Picking a newer config found elsewhere starts the Ship over from that one.
+// The Ship Log records all of it (log.ts).
 import * as Console from "effect/Console";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
+import * as Logger from "effect/Logger";
+import * as References from "effect/References";
 import * as Schema from "effect/Schema";
 
 import {
@@ -46,10 +50,11 @@ import {
 
 import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
+import { openShipLog, shipId } from "./log.ts";
 import { apply, check } from "./machine.ts";
 import { askQuestions, parseAnswers, type Asked } from "./questions.ts";
 import { saveReport } from "./report.tsx";
-import { colorful, ledgerText, noteText } from "./view.tsx";
+import { colorful, hintText, ledgerText, noteText } from "./view.tsx";
 
 export interface ShipFlags {
   readonly dryRun: boolean;
@@ -162,13 +167,50 @@ const schemaJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown, { spa
 
 // One Ship, started over each time the person picks a newer config found on
 // another Machine: that config decides what is checked, so the Check runs again.
+// The Starting Machine names the Ship Log, so the tailnet is read before it
+// opens; a failure there prints as usual and leaves no log. A log that cannot
+// be opened does not stop the Ship.
 export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
-  while ((yield* shipPass(flags)) === "adopted") {}
-});
+  const tailnet = yield* readTailnet();
+  const id = shipId(yield* DateTime.now, tailnet.self.name);
+  // Secrets the log must not contain, added as they are read.
+  const hidden = new Set<string>();
+  const logger = yield* openShipLog(id, hidden).pipe(
+    Effect.catch((e) =>
+      Console.error(`could not open the Ship Log: ${e.message}`).pipe(Effect.as(undefined)),
+    ),
+  );
+  // Printed last, after the Ledger, however the Ship ends.
+  if (logger !== undefined)
+    yield* Effect.addFinalizer(() => Console.log(hintText(`log: fizz logs ${id}`)));
+  yield* Effect.gen(function* () {
+    yield* Effect.logInfo(
+      `Ship ${id}: fleetfizz ${flags.version}, node ${process.version} on ${process.platform}`,
+    );
+    yield* Effect.logInfo(`fizz ${process.argv.slice(2).join(" ")}`);
+    for (const m of tailnet.fleet)
+      yield* Effect.logInfo(
+        `tailnet: ${m.name} ${m.platform}${m.online ? "" : " offline"}${m.ssh ? "" : " no-ssh"}${m.name === tailnet.self.name ? " (this Machine)" : ""}`,
+      );
+    while ((yield* shipPass(flags, tailnet, hidden)) === "adopted") {}
+  }).pipe(
+    Effect.onExit((exit) =>
+      Exit.isSuccess(exit)
+        ? Effect.logInfo("the Ship ended")
+        : Effect.logError("the Ship stopped", exit.cause),
+    ),
+    Effect.provide(Logger.layer(logger === undefined ? [] : [logger])),
+    Effect.provideService(References.MinimumLogLevel, "Debug"),
+  );
+}, Effect.scoped);
 
 // One pass of a Ship from the config at hand. "adopted" means it stopped
 // before any change because the person picked a Stale Config, now written here.
-const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
+const shipPass = Effect.fn("shipPass")(function* (
+  flags: ShipFlags,
+  tailnet: Tailnet,
+  hidden: Set<string>,
+) {
   const fs = yield* FileSystem.FileSystem;
   const parsed = parseAnswers(flags.answers);
   if ("invalid" in parsed) return yield* Effect.fail(new ShipError(parsed.invalid));
@@ -186,11 +228,12 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
     );
   const path = flags.config ?? configPath(process.env);
   const config = yield* loadConfig(path);
+  yield* Effect.logInfo(`config ${path}`);
+  yield* Effect.logDebug(yield* fs.readFileString(path));
   const ordered = orderProviders(PROVIDERS, (p) => dependenciesOf(p, config));
   if ("cycle" in ordered)
     return yield* Effect.fail(new ShipError(`dependsOn cycle: ${ordered.cycle.join(" → ")}`));
   const providers = ordered.order;
-  const tailnet = yield* readTailnet();
 
   const problem = unshippable(config, tailnet, flags.only, path);
   if (problem !== undefined) return yield* Effect.fail(new ShipError(problem));
@@ -204,6 +247,9 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
     .filter((m) => fleet.has(m.name) && (flags.only.length === 0 || flags.only.includes(m.name)))
     .toSorted((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
   const count = `${targetsList.length} machine${targetsList.length === 1 ? "" : "s"}`;
+  yield* Effect.logInfo(
+    `${flags.dryRun ? "dry run, " : ""}targets: ${targetsList.map((m) => m.name).join(", ")}`,
+  );
   yield* Console.log(`${flags.dryRun ? "dry run, " : ""}${count} from ${tailnet.self.name}`);
   const color = colorful();
   const { ledger, store } = yield* makeLedger({
@@ -256,31 +302,35 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   const live = redraw ? yield* startLive(store, color) : noLive;
 
   // Check, in parallel. Every Machine is checked before any Question is asked.
+  // Each Machine's Ship Log entries are marked with it and the phase.
   const checked: Checked[] = yield* Effect.forEach(
     targetsList,
-    Effect.fn("checkOne")(function* (machine) {
-      const local = machine.name === tailnet.self.name;
-      if (!machine.online) {
-        yield* ledger.skip(machine.name, "offline");
-        return undefined;
-      }
-      if (!local && !machine.ssh) {
-        yield* ledger.skip(machine.name, "no Tailscale SSH server");
-        return undefined;
-      }
-      const identity = { name: machine.name, platform: machine.platform };
-      const script = checkScript({
-        scope: { machine: identity, config },
-        providers: providers.map((provider) => ({
-          provider,
-          items: targetedItems(provider, config, identity),
-        })),
-      });
-      const result = yield* check({ name: machine.name, local }, script, ledger);
-      if (result.kind !== "checked") return undefined;
-      yield* ledger.checked(machine.name);
-      return { machine, local, state: result.state };
-    }),
+    Effect.fn("checkOne")(
+      function* (machine) {
+        const local = machine.name === tailnet.self.name;
+        if (!machine.online) {
+          yield* ledger.skip(machine.name, "offline");
+          return undefined;
+        }
+        if (!local && !machine.ssh) {
+          yield* ledger.skip(machine.name, "no Tailscale SSH server");
+          return undefined;
+        }
+        const identity = { name: machine.name, platform: machine.platform };
+        const script = checkScript({
+          scope: { machine: identity, config },
+          providers: providers.map((provider) => ({
+            provider,
+            items: targetedItems(provider, config, identity),
+          })),
+        });
+        const result = yield* check({ name: machine.name, local }, script, ledger);
+        if (result.kind !== "checked") return undefined;
+        yield* ledger.checked(machine.name);
+        return { machine, local, state: result.state };
+      },
+      (effect, machine) => Effect.annotateLogs(effect, { machine: machine.name, phase: "check" }),
+    ),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
@@ -346,6 +396,10 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
   )
     ? yield* readLentToken()
     : { token: undefined };
+  if (lent.token !== undefined) hidden.add(lent.token);
+  yield* Effect.logInfo(
+    lent.token !== undefined ? "gh token: lent" : `gh token: none (${lent.reason ?? "no repos"})`,
+  );
   if (lent.token === undefined && lent.reason !== undefined) {
     yield* ledger.note("info", `no gh token (${lent.reason}); private repos will fail`);
   }
@@ -438,17 +492,29 @@ const shipPass = Effect.fn("shipPass")(function* (flags: ShipFlags) {
     stampText(original, { shippedAt, shippedFrom: tailnet.self.name, reached, own });
   const stamped = stampWith(planned.map((g) => g.machine.name));
   yield* fs.writeFileString(path, stamped);
+  yield* Effect.logInfo(`stamped the config: shippedAt ${shippedAt}`);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
 
   // Apply, in parallel. No Machine changed before this point.
   const stdin = applyStdin(lent.token, stamped, schema);
   const delivered: string[] = yield* Effect.forEach(
     planned,
-    Effect.fn("applyOne")(function* ({ machine, local, plan: p }) {
-      const applied = yield* apply({ name: machine.name, local }, p, applyScript(p), stdin, ledger);
-      return applied.done.includes(CONFIG_STEP) ? machine.name : undefined;
-    }),
+    Effect.fn("applyOne")(
+      function* ({ machine, local, plan: p }) {
+        const applied = yield* apply(
+          { name: machine.name, local },
+          p,
+          applyScript(p),
+          stdin,
+          ledger,
+        );
+        return applied.done.includes(CONFIG_STEP) ? machine.name : undefined;
+      },
+      (effect, { machine }) =>
+        Effect.annotateLogs(effect, { machine: machine.name, phase: "apply" }),
+    ),
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((name) => name !== undefined)));
+  yield* Effect.logInfo(`the config reached: ${delivered.join(", ")}`);
   yield* fs.writeFileString(path, stampWith(delivered));
 }, Effect.scoped);

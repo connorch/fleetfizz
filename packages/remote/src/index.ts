@@ -3,6 +3,7 @@ export { applyScript, applyStdin, CONFIG_STEP, END_STEP } from "./apply.ts";
 export {
   CONFIG_DIR_SH,
   checkScript,
+  LOGS_DIR,
   RECORDS_DIR,
   recordDir,
   recordFile,

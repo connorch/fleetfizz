@@ -64,6 +64,10 @@ _Avoid_: task, action, job
 The output of a Ship: one line per Machine with a summary of its items and, under it, one line per Item that changes, written `provider:item` (`vp:node`, `repos:t3code`), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
 _Avoid_: log
 
+**Ship Log**:
+Everything one Ship did, written on the Starting Machine as it runs and named by the Ship id (when it started and where): every Machine's scripts and every line they printed, the Ship's decisions, and full errors. `fizz logs` prints one from any Machine.
+_Avoid_: report (that is the saved Ledger), trace
+
 ### Providers
 
 **Provider**:

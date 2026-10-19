@@ -1,6 +1,6 @@
 ---
 title: Commands
-description: fizz ship and fizz report.
+description: fizz ship, fizz report, and fizz logs.
 ---
 
 ## fizz ship
@@ -22,3 +22,9 @@ If another Machine holds a config that was shipped more recently than this one, 
 ## fizz report
 
 <include>../generated/commands/report.md</include>
+
+## fizz logs
+
+<include>../generated/commands/logs.md</include>
+
+Every Ship, dry runs included, writes a Ship Log on the Machine that started it, under `~/.local/state/fleetfizz/logs`, and ends by printing its id: `log: fizz logs 2026-10-18T14-03-22Z-connors-macbook-pro`. Each line has its time, its level, and the Machine and phase it belongs to; lines a Machine printed start with `> `. A Machine keeps its last 20.

@@ -42,4 +42,4 @@ A Tracked Repo's new commit is known only after Apply fetches it, so the Apply s
 - Amends ADR 0005: Ink and React are runtime dependencies, bundled into the one CLI file, and Questions are asked in Ink, not with `effect/cli`'s `Prompt`. Effect is still used everywhere else.
 - `ledger.ts` holds the state (a Schema) and its events. `view.tsx` is one Ink component that draws it: `render` live, `renderToString` for a pipe, the end of a Ship, `fizz report`, and the tests, which check its exact text.
 - A saved log from a pipe has every item, with no expansion needed.
-- `fizz report` shows only the last Ship from this Machine. A Ship started on another Machine is not visible here.
+- `fizz report` shows only the last Ship from this Machine. A Ship started on another Machine is not visible here; its Ship Log is, through `fizz logs` (ADR 0015).
