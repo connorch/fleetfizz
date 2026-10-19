@@ -12,6 +12,7 @@ import { showConfig } from "./configView.tsx";
 import { KEEP, logs } from "./log.ts";
 import { report } from "./report.tsx";
 import { ship } from "./ship.ts";
+import { status } from "./status.tsx";
 
 // Problems the person can fix print as one message, not a trace.
 const printProblems = <A, E extends Error, R>(effect: Effect.Effect<A, E, R>) =>
@@ -88,6 +89,23 @@ const shipCommand = Command.make("ship", {
       config: Option.getOrUndefined(flags.config),
       version: packageJson.version,
     }).pipe(printProblems),
+  ),
+);
+
+const statusCommand = Command.make("status", {
+  config: Flag.String("config").pipe(
+    Flag.optional,
+    Flag.withMetavar("path"),
+    Flag.withDescription("The config file. Default: `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`."),
+  ),
+}).pipe(
+  Command.withDescription(
+    "Check every reachable Machine and show where each Item stands: in line, to change, a Question, or failing. Changes nothing and asks nothing.",
+  ),
+  Command.withHandler((flags) =>
+    status({ config: Option.getOrUndefined(flags.config), version: packageJson.version }).pipe(
+      printProblems,
+    ),
   ),
 );
 
@@ -344,5 +362,5 @@ const configTree = configCommand.pipe(
 // The package is fleetfizz; the command is fizz.
 export const fizz = Command.make("fizz").pipe(
   Command.withDescription("Keep every Machine on your tailnet in line with one config."),
-  Command.withSubcommands([shipCommand, reportCommand, logsCommand, configTree]),
+  Command.withSubcommands([shipCommand, statusCommand, reportCommand, logsCommand, configTree]),
 );

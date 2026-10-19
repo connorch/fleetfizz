@@ -43,7 +43,7 @@ export interface SectionView {
 }
 
 // The order sections are shown in: the toolchain, packages, repos, files.
-const SHOWN = [
+export const SHOWN = [
   "vp",
   "brew",
   "cask",
@@ -256,7 +256,10 @@ export const showConfig = Effect.fn("showConfig")(function* (flags: {
       path,
       config,
       tailnet,
-      footer: [shippedLine(record, config.machines, sha, now)],
+      footer: [
+        shippedLine(record, config.machines, sha, now),
+        "fizz status for where each Machine stands.",
+      ],
     }),
   );
 });

@@ -47,6 +47,8 @@ const Item = Schema.Struct({
   doing: Schema.optionalKey(Schema.String),
   // Why it failed or was skipped.
   detail: Schema.optionalKey(Schema.String),
+  // Skipped because it is a Question a dry run does not ask.
+  asked: Schema.optionalKey(Schema.Boolean),
   output: Schema.optionalKey(Schema.Array(Schema.String)),
   // The Apply Steps that move this Item, in order, and what each is doing.
   steps: Schema.Array(Schema.Struct({ id: Schema.String, doing: Schema.String })),
@@ -136,6 +138,9 @@ export interface LedgerStore {
 export interface ConfigChange {
   readonly from?: string;
   readonly to: string;
+  // In a dry run, why a Ship would ask before overwriting the copy there (a
+  // Stale Config): the copy is then a Question, not a change.
+  readonly asked?: string;
 }
 
 // Every Item on one Machine, one per Decision, and the config copy. A
@@ -183,18 +188,23 @@ export const itemsOf = (p: MachinePlan, config: ConfigChange): Item[] => [
             changes: false,
             status: "skipped",
             detail: d.question.problem,
+            asked: true,
           };
       }
     }),
   ),
-  {
-    name: CONFIG_STEP,
-    kind: "config",
-    ...config,
-    changes: config.from !== config.to,
-    status: "idle",
-    steps: [{ id: CONFIG_STEP, doing: "copying" }],
-  },
+  ((): Item => {
+    const { asked, ...change } = config;
+    return {
+      name: CONFIG_STEP,
+      kind: "config",
+      ...change,
+      ...(asked === undefined
+        ? { changes: change.from !== change.to, status: "idle" }
+        : { changes: false, status: "skipped", asked: true, detail: asked }),
+      steps: [{ id: CONFIG_STEP, doing: "copying" }],
+    };
+  })(),
 ];
 
 // A Machine's outcome, counting failures the plan already knew about. A

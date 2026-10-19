@@ -58,7 +58,7 @@ import {
 
 import { readConfigRecord, writeConfigRecord } from "./configRecord.ts";
 import { showDiff } from "./diff.ts";
-import { anyFailed, makeLedger, type Ledger } from "./ledger.ts";
+import { anyFailed, type LedgerState, makeLedger, type Ledger } from "./ledger.ts";
 import { canRedraw, noLive, startLive } from "./live.tsx";
 import { openShipLog, parseShipId, shipId } from "./log.ts";
 import { apply, check } from "./machine.ts";
@@ -250,13 +250,19 @@ export const ship = Effect.fn("ship")(function* (flags: ShipFlags) {
   );
 }, Effect.scoped);
 
+// Where a pass's end state goes: printed as the Ledger, live while it runs
+// (a Ship), or handed to `fizz status`, which shows nothing while it runs and
+// draws the state itself.
+export type Show = "ledger" | ((state: LedgerState) => void);
+
 // One pass of a Ship from the config at hand. "adopted" means it stopped
 // before any change because the person picked a Stale Config, now written here.
-const shipPass = Effect.fn("shipPass")(function* (
+export const shipPass = Effect.fn("shipPass")(function* (
   flags: ShipFlags,
   tailnet: Tailnet,
   hidden: Set<string>,
   id: string,
+  show: Show = "ledger",
 ) {
   const fs = yield* FileSystem.FileSystem;
   const parsed = parseAnswers(flags.answers);
@@ -300,15 +306,17 @@ const shipPass = Effect.fn("shipPass")(function* (
   yield* Effect.logInfo(
     `${flags.dryRun ? "dry run, " : ""}targets: ${targetsList.map((m) => m.name).join(", ")}`,
   );
-  yield* Console.log(`${flags.dryRun ? "dry run, " : ""}${count} from ${tailnet.self.name}`);
+  const quiet = show !== "ledger";
+  if (!quiet)
+    yield* Console.log(`${flags.dryRun ? "dry run, " : ""}${count} from ${tailnet.self.name}`);
   const color = colorful();
   const { ledger, store } = yield* makeLedger({
     from: tailnet.self.name,
     dryRun: flags.dryRun,
     machines: targetsList.map((m) => m.name),
-    print: (note) => Console.log(noteText(note, color)),
+    print: (note) => (quiet ? Effect.void : Console.log(noteText(note, color))),
   });
-  const redraw = canRedraw();
+  const redraw = !quiet && canRedraw();
 
   // Runs however the Ship ends (done, failed, or interrupted), after the live
   // view is erased (finalizers run in reverse): saves the report once anything
@@ -321,6 +329,7 @@ const shipPass = Effect.fn("shipPass")(function* (
   const finish = Effect.fn("finish")(function* () {
     const state = yield* ledger.end;
     if (adopted) return;
+    if (show !== "ledger") return show(state);
     const saved =
       changing &&
       (yield* saveReport(state).pipe(
@@ -388,6 +397,16 @@ const shipPass = Effect.fn("shipPass")(function* (
   // the Ship unless the person overrides it or picks it, which writes it
   // (and what its record knows) here and starts the Ship over from it.
   const stale = yield* staleConfigs(yield* fs.readFileString(path), base, own, checked, ledger);
+  // In a dry run, the Machines whose copy a Ship would ask about, and why.
+  const asking = new Map(
+    flags.dryRun
+      ? stale.flatMap((s) =>
+          s.machines
+            .filter((m) => given("config", m) !== "overwrite")
+            .map((m) => [m, s.description] as const),
+        )
+      : [],
+  );
   if (stale.length > 0) {
     const what = stale.map((s) => s.description).join("; ");
     const answers = stale.flatMap((s) => s.machines).map((m) => given("config", m));
@@ -632,11 +651,14 @@ const shipPass = Effect.fn("shipPass")(function* (
   // copy differs.
   const text = yield* fs.readFileString(path);
   const sha = yield* shaOf(text);
-  for (const { machine, state, plan: p } of planned)
+  for (const { machine, state, plan: p } of planned) {
+    const asked = asking.get(machine.name);
     yield* ledger.plan(machine.name, p, {
       ...(state.config === undefined ? {} : { from: state.config.sha.slice(0, 7) }),
       to: sha.slice(0, 7),
+      ...(asked === undefined ? {} : { asked }),
     });
+  }
 
   if (flags.dryRun) return;
 
