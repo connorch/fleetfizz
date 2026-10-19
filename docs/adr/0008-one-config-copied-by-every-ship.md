@@ -19,7 +19,7 @@ The Check reports every Machine's config, its sha256, and its record. A copy tha
 
 - Every Machine in the Fleet can be a Starting Machine as soon as one Ship has reached it: it has vp, fleetfizz, and the config.
 - Amends ADR 0001's prerequisites: a remote Machine needs `tailscaled` with SSH, `git`, `curl`, and a shell. vp is no longer a prerequisite.
-- Bootstrapping a new Machine is: enable Tailscale SSH, add it to `machines`, Ship.
+- Bootstrapping a new Machine is: enable Tailscale SSH, add it to `machines` (`fizz config add machines`), Ship. `fizz init` writes a first config only where there is none; it does not look for one on other Machines, since every Ship already copies the config to every Machine it reaches.
 - A Ship never rewrites the config; only a bump or an adopted Stale Config does. A dry run writes no record and copies nothing, and reports the staleness as a note.
 - The Ledger's `config` line is unchanged where a Machine's copy already matches, and `a1b2c3d → 9f8e7d6` where it does not.
 - `fizz logs` finds the last Ship that reached a Machine from its record (ADR 0015).

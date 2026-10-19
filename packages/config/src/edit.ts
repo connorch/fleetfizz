@@ -135,6 +135,45 @@ const insertMember = (
   );
 };
 
+// `container`, written on one line, as one member per line, each member's
+// text as it was.
+const spread = (text: string, container: jsonc.Node): string => {
+  const open = container.offset;
+  const close = container.offset + container.length - 1;
+  const indent = indentAt(text, open);
+  const [l, r] = container.type === "array" ? ["[", "]"] : ["{", "}"];
+  const body = (container.children ?? [])
+    .map((m) => `${indent}  ${text.slice(m.offset, m.offset + m.length)},\n`)
+    .join("");
+  return `${text.slice(0, open)}${l}\n${body}${indent}${r}${text.slice(close + 1)}`;
+};
+
+// The outermost container written on one line that holds `offset` and starts
+// on its line, if any.
+const oneLineAround = (text: string, tree: jsonc.Node, offset: number): jsonc.Node | undefined => {
+  const start = lineStart(text, offset);
+  let found: jsonc.Node | undefined;
+  for (
+    let node = jsonc.findNodeAtOffset(tree, offset, true);
+    node !== undefined;
+    node = node.parent
+  ) {
+    const isContainer = node.type === "object" || node.type === "array";
+    if (
+      isContainer &&
+      node.offset >= start &&
+      !text.slice(node.offset, node.offset + node.length).includes("\n")
+    )
+      found = node;
+  }
+  return found;
+};
+
+const lineLength = (text: string, offset: number): number => {
+  const end = text.indexOf("\n", offset);
+  return (end < 0 ? text.length : end) - lineStart(text, offset);
+};
+
 export type EditResult = { readonly text: string } | { readonly reason: string };
 
 const valueOf = (text: string): unknown =>
@@ -149,6 +188,9 @@ const commentsOf = (text: string): ReadonlyArray<string> => {
       found.push(scanner.getTokenValue());
   return found;
 };
+
+const sameComments = (a: string, b: string): boolean =>
+  commentsOf(a).join("\0") === commentsOf(b).join("\0");
 
 // `root` with `change` applied to the value that holds the end of `path`,
 // creating the objects on the way.
@@ -174,7 +216,7 @@ const changedAt = (
 const checked = (text: string, result: EditResult, expected: unknown, comments: boolean) =>
   "reason" in result ||
   (JSON.stringify(valueOf(result.text)) === JSON.stringify(expected) &&
-    (!comments || commentsOf(result.text).join("\0") === commentsOf(text).join("\0")))
+    (!comments || sameComments(text, result.text)))
     ? result
     : {
         reason:
@@ -186,13 +228,33 @@ const checked = (text: string, result: EditResult, expected: unknown, comments: 
 export const insertAt = (text: string, path: JsonPath, value: unknown): EditResult =>
   checked(
     text,
-    insertText(text, path, value),
+    insertSpread(text, path, value),
     changedAt(valueOf(text), path, (parent, key) => {
       if (Array.isArray(parent)) parent.push(value);
       else parent[key] = value;
     }),
     true,
   );
+
+// When an insert makes a line longer than WIDTH, the outermost object on it is
+// spread over lines first.
+const insertSpread = (text: string, path: JsonPath, value: unknown): EditResult => {
+  const result = insertText(text, path, value);
+  if (!("text" in result)) return result;
+  const at = firstDifference(text, result.text);
+  if (lineLength(result.text, at) <= WIDTH) return result;
+  const container = oneLineAround(text, parse(text), Math.min(at, text.length - 1));
+  if (container === undefined) return result;
+  // Spread drops a comment between members: then the long line stays.
+  const spreadText = spread(text, container);
+  return sameComments(text, spreadText) ? insertSpread(spreadText, path, value) : result;
+};
+
+const firstDifference = (a: string, b: string): number => {
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  return i;
+};
 
 const insertText = (text: string, path: JsonPath, value: unknown): EditResult => {
   const tree = parse(text);

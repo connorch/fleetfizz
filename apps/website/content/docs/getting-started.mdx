@@ -1,6 +1,6 @@
 ---
 title: Getting started
-description: Set up Tailscale SSH, install fleetfizz, and run your first Ship.
+description: Set up Tailscale SSH, run fizz init, and run your first Ship.
 ---
 
 This guide takes two or more macOS or Linux Machines to a first Ship. Pick one Machine to ship from; the first Ship sets up fleetfizz on the others.
@@ -55,55 +55,50 @@ From the Machine you will ship from, check each other Machine. It should print `
 tailscale ssh connors-macbook-pro echo ok
 ```
 
-## 2. Install what fleetfizz needs
+## 2. Install fleetfizz
 
-If your config's `brew` section targets a Linux Machine, install Homebrew there too. A Ship never installs Homebrew itself.
-
-The Machine you ship from also needs:
-
-- **vp**, to install fleetfizz: `curl -fsSL https://vite.plus | bash`, then open a new terminal so `vp` is on your `PATH`. The first Ship installs vp on the other Machines.
-- **gh**, logged in with `gh auth login`, if any Tracked Repo is private. The Ship lends its token to each Machine for that Ship only, so the repo can clone. Without it, private repos fail and everything else still ships.
-
-## 3. Install fleetfizz
-
-On the Machine you will ship from:
+On the Machine you will ship from, install vp, then open a new terminal so `vp` is on your `PATH`, and install fleetfizz with it. The first Ship installs vp and fleetfizz on the other Machines.
 
 ```sh
+curl -fsSL https://vite.plus | bash
 vp install -g fleetfizz
 ```
 
-## 4. Write the config
-
-Find each Machine's name with `tailscale status`. A Machine is named by the first part of its tailnet name, so `connors-macbook-pro.tail1234.ts.net` is `connors-macbook-pro`.
-
-Create the config directory:
+## 3. Run fizz init
 
 ```sh
-mkdir -p ~/.config/fleetfizz
+fizz init
 ```
 
-Then write `~/.config/fleetfizz/config.jsonc` and list every Machine, the one you ship from included.
+`fizz init` first checks this Machine: vp, Tailscale connected with Tailscale SSH on, and, for Items that need them, Homebrew and a logged-in `gh`. It changes nothing there; for each problem it prints the command that fixes it. Fix any that are required and run it again.
 
-```jsonc title="config.jsonc"
-{
-  "$schema": "./schema.json",
-  "machines": ["connors-mac-studio", "connors-macbook-pro"],
-  "vp": {
-    "version": "1.1.0",
-    "node": "24.18.1",
-    "items": { "vercel": "^59.25.4" },
-  },
-}
-```
+Then it asks:
 
-This keeps vp, Node, and the `vercel` CLI in line. [Config](/docs/config) covers Tracked Repos, Homebrew, and every other field.
+- **Which Machines are in the Fleet**, from your tailnet. This Machine is always one. A Machine that is offline or has no Tailscale SSH yet can still be picked; a Ship skips it until it can reach it.
+- **Whether to pin vp and Node** to the versions on this Machine.
+- **Which Globals, Formulae, and Casks to keep in line**, from what this Machine has installed.
+- **Which Shared Files to copy**, from common dotfiles like `~/.gitconfig` and `~/.zshrc` that exist here.
 
-## 5. Ship
-
-See what would change, without changing anything:
+It writes `~/.config/fleetfizz/config.jsonc` with `schema.json` beside it, so your editor checks the config as you edit it, and shows what each Machine gets. Add more at any time:
 
 ```sh
-fizz ship --dry-run
+fizz config add repos connorch/t3code --install "pnpm install && pnpm build"
+fizz config add brew tmux --platform linux
+fizz config add files ~/.config/ghostty
+```
+
+[Config](/docs/config) covers every field, if you would rather write it by hand.
+
+If your config's `brew` section targets a Linux Machine, install Homebrew there too. A Ship never installs Homebrew itself.
+
+If a Machine already has a config, `fizz init` shows it instead. A new Machine joins an existing Fleet from a Machine that has the config: `fizz config add machines`, then ship.
+
+## 4. Ship
+
+See where each Machine stands, without changing anything:
+
+```sh
+fizz status
 ```
 
 Then ship:
@@ -112,6 +107,6 @@ Then ship:
 fizz ship
 ```
 
-The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. If the Ship asks a Question, such as whether to switch a Machine's vp to managed mode, answer it before anything changes.
+The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. If the Ship asks a Question, such as whether to switch a Machine's vp to managed mode, answer it before anything changes. Any Tracked Repo that is private needs `gh` logged in here: the Ship lends its token to each Machine for that Ship only.
 
-After the first Ship, every Machine it reached has fleetfizz and the config, so you can ship from any of them. An offline Machine is skipped and catches up on a later Ship. To add a Machine later, turn on Tailscale SSH there and add it to `machines`.
+After the first Ship, every Machine it reached has fleetfizz and the config, so you can ship from any of them. An offline Machine is skipped and catches up on a later Ship.

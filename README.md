@@ -6,12 +6,14 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/
 
 ## Usage
 
-Install fleetfizz as a vp Global on the Machine you will ship from, and write the config at `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
+Install fleetfizz as a vp Global on the Machine you will ship from, then run `fizz init`. It checks that this Machine is ready to ship, asks which Machines on your tailnet are in the Fleet and what to keep in line, and writes the config at `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
 
 ```sh
 vp install -g fleetfizz
-mkdir -p ~/.config/fleetfizz
+fizz init
 ```
+
+A config written by hand looks like this:
 
 ```jsonc
 {
@@ -65,6 +67,7 @@ mkdir -p ~/.config/fleetfizz
 Then:
 
 ```sh
+fizz init             # check this Machine and write a first config
 fizz status           # where every Item stands on every Machine; change nothing
 fizz ship --dry-run   # check every Machine and print its plan; change nothing
 fizz ship             # apply the plan everywhere, in parallel
