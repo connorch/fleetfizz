@@ -1,50 +1,40 @@
 ---
-title: Getting started
-description: Install fleetfizz, describe your Fleet, and ship.
+title: Overview
+description: Why fleetfizz exists, and how a Ship works.
 ---
 
-fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node and package-manager defaults, global packages at semver ranges), Homebrew Formulae and Casks, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
+## Why
 
-## Install
+Agents don't stop when you close your laptop, so your dev setup now lives on more than one machine: a desktop that runs agents all night, a laptop you take with you, maybe a Linux box. Each one needs the same Node, the same CLIs, and the same repos at the same commit, and by hand they drift.
 
-Install fleetfizz as a vp Global on the Machine you will ship from, and make the config directory:
+fleetfizz keeps them in line. One config lists your Machines and what each one needs. One command, `fizz ship`, brings every Machine up to it.
 
-```sh
-vp install -g fleetfizz
-mkdir -p ~/.config/fleetfizz
-```
+## What it keeps in line
 
-## Describe your Fleet
+- **vp**: the vite-plus version, the Node and package-manager defaults, and Globals at semver Ranges.
+- **Tracked Repos**: a Managed Clone of each repo, reset to its origin ref and installed with its own Install Command.
+- **Formulae and Casks**: Homebrew packages and macOS apps.
 
-Write `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`). Every Machine is named by its tailnet name, and the Machine you ship from must be listed:
+Every entry can target some Platforms or Machines and skip the rest. [Config](/docs/config) covers every field.
 
-```jsonc title="config.jsonc"
-{
-  "$schema": "./schema.json",
-  "machines": ["connors-mac-studio", "connors-macbook-pro"],
-  "vp": {
-    "version": "1.1.0",
-    "node": "24.18.1",
-    "items": { "vercel": "^59.25.4" },
-  },
-}
-```
+## How a Ship works
 
-[Config](/docs/config) covers every field.
+You run `fizz ship` on any Machine in the Fleet, the Starting Machine. It reaches the others over Tailscale SSH and runs in four steps:
 
-## Ship
+1. **Check.** Read each Machine's current state. Nothing changes.
+2. **Plan.** Compare that state to the config and list the Steps each Machine needs.
+3. **Questions.** Ask about anything the Plan cannot decide alone, such as a Global that someone upgraded above its Range. No Machine changes until every Question is answered.
+4. **Apply.** Run every Machine's Steps in parallel.
 
-```sh
-fizz ship --dry-run   # check every Machine and print its plan; change nothing
-fizz ship             # apply the plan everywhere, in parallel
-```
+The Ledger shows the result: one line per Machine and, under it, each Item that changed. `fizz ship --dry-run` stops after the Plan, and `fizz report` prints the last Ledger again.
 
-The Ledger lists each Machine and, under it, what changes there. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included.
+Every Ship also copies the config and its own fleetfizz version to every Machine, so any Machine can run the next one.
 
-Every Ship copies the config to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship.
+## What it does not do
 
-## Requirements
+- **Run anything in the background.** There is no agent, daemon, or server. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
+- **Uninstall.** Removing an Item from the config leaves it installed.
+- **Fail on an offline Machine.** It is skipped and catches up on the next Ship.
+- **Keep your GitHub token.** The Starting Machine lends it to each Machine for one Ship, on stdin, so private repos clone. It is never written to disk.
 
-The Machine you ship from needs `tailscale` (with Tailscale SSH to the others) and `gh` logged in. Its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere.
-
-A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none.
+[Getting started](/docs/getting-started) installs fleetfizz and runs a first Ship.
