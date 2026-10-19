@@ -3,6 +3,7 @@
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import { Prompt } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -141,7 +142,8 @@ export const editConfig = Effect.fn("editConfig")(function* (flags: {
   const copy = `${dir}/${path.split("/").at(-1) ?? "config.jsonc"}`;
   yield* fs.writeFileString(copy, text);
   // Beside the copy, so an editor that reads `$schema` still checks it.
-  const schema = `${path.slice(0, path.lastIndexOf("/"))}/${SCHEMA_FILE}`;
+  const paths = yield* Path.Path;
+  const schema = paths.join(paths.dirname(path), SCHEMA_FILE);
   if (yield* fs.exists(schema)) yield* fs.copyFile(schema, `${dir}/${SCHEMA_FILE}`);
   for (;;) {
     yield* runEditor(copy);

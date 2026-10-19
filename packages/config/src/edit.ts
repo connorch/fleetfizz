@@ -6,6 +6,7 @@
 // the wrong entry, can leave a stray comma, and spreads values over lines.
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as jsonc from "jsonc-parser";
 
 import { parseConfig } from "./load.ts";
@@ -205,7 +206,7 @@ export const targetingLists = (text: string, machine: string) => {
 export const saveConfig = Effect.fn("saveConfig")(function* (path: string, text: string) {
   const config = yield* parseConfig(path, text);
   const fs = yield* FileSystem.FileSystem;
-  yield* fs.makeDirectory(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  yield* fs.makeDirectory((yield* Path.Path).dirname(path), { recursive: true });
   yield* fs.writeFileString(`${path}.tmp`, text);
   yield* fs.rename(`${path}.tmp`, path);
   return config;
