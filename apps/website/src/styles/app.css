@@ -40,6 +40,13 @@
   overflow-wrap: anywhere;
 }
 
+/* A reference table's first column names a field or flag, which stays whole
+   on one line. Breaking anywhere would let the column shrink to a few letters,
+   so the description column takes the wrapping instead. */
+.prose td:first-child > code {
+  white-space: nowrap;
+}
+
 /* A code block's title is a file name, so it is mono like the code. */
 figure:has(pre) figcaption {
   @apply font-mono;
