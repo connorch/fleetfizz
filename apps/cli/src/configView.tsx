@@ -43,7 +43,7 @@ export interface SectionView {
 }
 
 // The order sections are shown in: the toolchain, packages, repos, files.
-const SHOWN = [
+export const SHOWN = [
   "vp",
   "brew",
   "cask",

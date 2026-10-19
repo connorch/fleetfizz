@@ -1,7 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
 
-import type { Item, MachineEntry } from "./ledger.ts";
-import { cellOf, summaryOf } from "./status.tsx";
+import { parseConfig } from "@fleetfizz/config";
+
+import { itemsOf, type Item, type LedgerState, type MachineEntry } from "./ledger.ts";
+import { cellOf, rowsOf, summaryOf } from "./status.tsx";
 
 const item = (name: string, change: Partial<Item> = {}): Item => ({
   name,
@@ -70,5 +73,52 @@ describe("summaryOf", () => {
     expect(summaryOf(machine([], { status: "skipped", detail: "offline" }), record, now).text).toBe(
       "offline · last reached 9d ago",
     );
+  });
+});
+
+describe("rowsOf", () => {
+  const config = Effect.runSync(
+    parseConfig(
+      "config.jsonc",
+      JSON.stringify({
+        machines: ["studio", "air"],
+        brew: { items: { gh: "*", tmux: { range: "*", machines: ["air"] } } },
+      }),
+    ),
+  );
+
+  it("keeps an Item only offline Machines get, and vp's Items without a vp section", () => {
+    const state: LedgerState = {
+      from: "studio",
+      dryRun: true,
+      notes: [],
+      started: 0,
+      machines: [
+        machine([item("vp:vp"), item("vp:mode"), item("brew:gh"), item("config")], {
+          name: "studio",
+        }),
+        machine([], { name: "air", status: "skipped", detail: "offline" }),
+      ],
+    };
+    expect(rowsOf(state, config).map((s) => [s.provider, s.items.map((i) => i.name)])).toEqual([
+      ["vp", ["vp", "mode"]],
+      ["brew", ["gh", "tmux"]],
+    ]);
+  });
+});
+
+describe("a Stale Config in a dry run", () => {
+  it("is a Question, not a change", () => {
+    const [config] = itemsOf(
+      { machine: { name: "macbook", platform: "darwin" }, providers: [] },
+      { from: "a1b2c3d", to: "9f8e7d6", asked: "edited there" },
+    );
+    expect(config).toMatchObject({
+      name: "config",
+      changes: false,
+      status: "skipped",
+      asked: true,
+    });
+    expect(cellOf(machine(config === undefined ? [] : [config]), "config").glyph).toBe("?");
   });
 });

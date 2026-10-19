@@ -138,6 +138,9 @@ export interface LedgerStore {
 export interface ConfigChange {
   readonly from?: string;
   readonly to: string;
+  // In a dry run, why a Ship would ask before overwriting the copy there (a
+  // Stale Config): the copy is then a Question, not a change.
+  readonly asked?: string;
 }
 
 // Every Item on one Machine, one per Decision, and the config copy. A
@@ -190,14 +193,18 @@ export const itemsOf = (p: MachinePlan, config: ConfigChange): Item[] => [
       }
     }),
   ),
-  {
-    name: CONFIG_STEP,
-    kind: "config",
-    ...config,
-    changes: config.from !== config.to,
-    status: "idle",
-    steps: [{ id: CONFIG_STEP, doing: "copying" }],
-  },
+  ((): Item => {
+    const { asked, ...change } = config;
+    return {
+      name: CONFIG_STEP,
+      kind: "config",
+      ...change,
+      ...(asked === undefined
+        ? { changes: change.from !== change.to, status: "idle" }
+        : { changes: false, status: "skipped", asked: true, detail: asked }),
+      steps: [{ id: CONFIG_STEP, doing: "copying" }],
+    };
+  })(),
 ];
 
 // A Machine's outcome, counting failures the plan already knew about. A

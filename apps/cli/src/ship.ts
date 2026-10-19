@@ -397,6 +397,16 @@ export const shipPass = Effect.fn("shipPass")(function* (
   // the Ship unless the person overrides it or picks it, which writes it
   // (and what its record knows) here and starts the Ship over from it.
   const stale = yield* staleConfigs(yield* fs.readFileString(path), base, own, checked, ledger);
+  // In a dry run, the Machines whose copy a Ship would ask about, and why.
+  const asking = new Map(
+    flags.dryRun
+      ? stale.flatMap((s) =>
+          s.machines
+            .filter((m) => given("config", m) !== "overwrite")
+            .map((m) => [m, s.description] as const),
+        )
+      : [],
+  );
   if (stale.length > 0) {
     const what = stale.map((s) => s.description).join("; ");
     const answers = stale.flatMap((s) => s.machines).map((m) => given("config", m));
@@ -641,11 +651,14 @@ export const shipPass = Effect.fn("shipPass")(function* (
   // copy differs.
   const text = yield* fs.readFileString(path);
   const sha = yield* shaOf(text);
-  for (const { machine, state, plan: p } of planned)
+  for (const { machine, state, plan: p } of planned) {
+    const asked = asking.get(machine.name);
     yield* ledger.plan(machine.name, p, {
       ...(state.config === undefined ? {} : { from: state.config.sha.slice(0, 7) }),
       to: sha.slice(0, 7),
+      ...(asked === undefined ? {} : { asked }),
     });
+  }
 
   if (flags.dryRun) return;
 

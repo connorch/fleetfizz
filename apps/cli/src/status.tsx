@@ -11,11 +11,11 @@ import { Box, Text } from "ink";
 
 import { type ConfigRecord, configPath, type FleetConfig, loadConfig } from "@fleetfizz/config";
 import { parseAddress } from "@fleetfizz/core";
-import { CONFIG_STEP, readTailnet } from "@fleetfizz/remote";
+import { readTailnet } from "@fleetfizz/remote";
 
 import { readConfigRecord } from "./configRecord.ts";
-import { ago, sectionsOf } from "./configView.tsx";
-import type { Item, LedgerState, MachineEntry } from "./ledger.ts";
+import { ago, sectionsOf, SHOWN } from "./configView.tsx";
+import { anyFailed, type Item, type LedgerState, type MachineEntry } from "./ledger.ts";
 import { shipId } from "./log.ts";
 import { shipPass } from "./ship.ts";
 import { T, toText, type Tone } from "./view.tsx";
@@ -38,38 +38,39 @@ export const cellOf = (m: MachineEntry, address: string): Cell => {
   return item.changes ? { glyph: "↑", tone: "run" } : { glyph: "✓", tone: "ok" };
 };
 
-// The Items to show, by Provider in `fizz config`'s order, each in the order
-// the Machines list it; the config copy is shown per Machine instead.
+// The Items to show, by Provider in `fizz config`'s order: every Item the
+// config lists, so one that targets only Machines that were not checked
+// still has a row, then every other Item a Machine planned (vp's implicit
+// Items, with or without a vp section). The config copy is shown per Machine.
 export const rowsOf = (state: LedgerState, config: FleetConfig) => {
-  const addresses = [...new Set(state.machines.flatMap((m) => m.items.map((i) => i.name)))].filter(
-    (a) => a !== CONFIG_STEP,
-  );
-  return sectionsOf(config)
-    .map((s) => s.provider)
-    .flatMap((provider) => {
-      const items = addresses.flatMap((a) => {
-        const at = parseAddress(a);
-        return at?.provider === provider ? [at.item] : [];
-      });
-      if (items.length === 0) return [];
-      const section = sectionsOf(config).find((s) => s.provider === provider);
-      return [
-        {
-          provider,
-          items: items.map((name) => {
-            // One value when every Variant wants the same.
-            const wants = [
-              ...new Set(section?.rows.filter((r) => r.name === name).map((r) => r.wants)),
-            ];
-            return {
-              name,
-              address: `${provider}:${name}`,
-              wants: wants.length === 1 ? wants[0] : "",
-            };
-          }),
-        },
-      ];
-    });
+  const sections = sectionsOf(config);
+  const planned = state.machines
+    .flatMap((m) => m.items.map((i) => parseAddress(i.name)))
+    .filter((at) => at !== undefined);
+  return SHOWN.flatMap((provider) => {
+    const rows = sections.find((s) => s.provider === provider)?.rows ?? [];
+    const names = [
+      ...new Set([
+        ...rows.map((r) => r.name),
+        ...planned.filter((at) => at.provider === provider).map((at) => at.item),
+      ]),
+    ];
+    if (names.length === 0) return [];
+    return [
+      {
+        provider,
+        items: names.map((name) => {
+          // One value when every Variant wants the same.
+          const wants = [...new Set(rows.filter((r) => r.name === name).map((r) => r.wants))];
+          return {
+            name,
+            address: `${provider}:${name}`,
+            wants: wants.length === 1 ? wants[0] : "",
+          };
+        }),
+      },
+    ];
+  });
 };
 
 // What differs on one Machine: every Item that is not in line, and its config copy.
@@ -185,8 +186,7 @@ export const statusText = (input: {
           <Box key={m.name} flexDirection="column" marginTop={1}>
             <T tone="bold">{m.name}</T>
             {items.map((i) => {
-              const cell =
-                i.name === CONFIG_STEP ? { glyph: "↑", tone: "run" as const } : cellOf(m, i.name);
+              const cell = cellOf(m, i.name);
               return (
                 <Text key={i.name}>
                   {"  "}
@@ -244,6 +244,8 @@ export const status = Effect.fn("status")(function* (flags: {
     Effect.ensuring(Effect.sync(() => tty && process.stdout.write("\r\x1b[2K"))),
   );
   if (state === undefined) return;
+  // As a dry run does: a failure anywhere exits non-zero.
+  if (anyFailed(state)) process.exitCode = 1;
   yield* Console.log(
     statusText({ state, config, record, now: DateTime.toEpochMillis(yield* now) }),
   );
