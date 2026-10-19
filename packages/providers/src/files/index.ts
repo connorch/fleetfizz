@@ -419,7 +419,8 @@ const copyStep = (change: FileChange): Step => {
   const input: Hidden[] = [];
   const write = ([rel, entry]: [string, string]): string[] => {
     const [type, mode = ""] = entry.split(" ");
-    if (type === "d") return [`mkdir -p ${at(rel)}`];
+    // Owner-only until its own mode is set, last, so nothing inside shows early.
+    if (type === "d") return [`(umask 077 && mkdir -p ${at(rel)})`];
     if (type === "l") return [`rm -f ${at(rel)}`, `ln -s -- ${quote(entry.slice(2))} ${at(rel)}`];
     const n = input.push(contents.get(rel) ?? new Hidden("")) - 1;
     return [
@@ -487,9 +488,12 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
     listed.map(({ name, def }) => ({ name, path: def.path, exclude: def.exclude ?? [] })),
   observe: (items) => observe(items),
   parse,
-  resolve: (_items, { starting }) =>
+  // Only the Starting Machine's Items that some checked Machine needs are read.
+  resolve: (items, { starting: all }) =>
     Effect.gen(function* () {
       const at = DateTime.formatIso(yield* DateTime.now);
+      const needed = new Set(items.map((item) => item.name));
+      const starting = { ...all, items: all.items.filter((item) => needed.has(item.name)) };
       const sources =
         starting.items.length === 0
           ? new Map<string, Source>()

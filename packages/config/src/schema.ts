@@ -283,15 +283,18 @@ export const FilesSection = section(
       }),
     ),
   ).check(
-    // A name names the Item's Install Record file, so it is one path segment.
+    // A name names the Item's Install Record file and its Steps' markers, so
+    // it is one path segment of letters, digits, ".", "_" and "-".
     // One exclude for every Variant, so the Starting Machine and a target
     // leave the same paths alone (a path only one side excluded would be
     // deleted, or copied and never seen again).
     Schema.makeFilter(
       (items) => {
-        const badName = Object.keys(items).find((n) => n.includes("/") || n === "." || n === "..");
+        const badName = Object.keys(items).find(
+          (n) => !/^[A-Za-z0-9._-]+$/.test(n) || n === "." || n === "..",
+        );
         if (badName !== undefined)
-          return `"${badName}": a Shared File's name has no / and is not . or ..`;
+          return `"${badName}": a Shared File's name uses only letters, digits, ., _ and -, and is not . or ..`;
         const name = Object.entries(items).find(
           ([, item]) => Array.isArray(item) && item.some((v) => !sameExclude(v, item[0])),
         )?.[0];
@@ -299,7 +302,8 @@ export const FilesSection = section(
       },
       {
         title: "Shared Files",
-        description: "names without /, and one exclude across a Shared File's Variants",
+        description:
+          "names of letters, digits, ., _ and -, and one exclude across a Shared File's Variants",
       },
     ),
   ),

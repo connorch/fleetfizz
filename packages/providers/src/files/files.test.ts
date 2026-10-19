@@ -185,7 +185,7 @@ describe("the files Provider copies", () => {
     process.env.SHELL = "/bin/sh";
     const provider: AnyProvider = files;
     const resolved = yield* provider
-      .resolve([], {
+      .resolve(targetedItems(files, config, MACBOOK), {
         starting: { machine: STUDIO, config, items: targetedItems(files, config, STUDIO) },
       })
       .pipe(Effect.ensuring(Effect.sync(() => Object.assign(process.env, env))));
