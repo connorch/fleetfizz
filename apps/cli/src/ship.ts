@@ -424,12 +424,19 @@ const shipPass = Effect.fn("shipPass")(function* (
       else {
         yield* ledger.note("answer", `use the config on ${choice.machines[0]}`);
         yield* fs.writeFileString(path, choice.text);
+        // Adopting it here is when it reached this Machine, so a later Ship
+        // from elsewhere asks before overwriting it.
         if (own !== undefined)
           yield* writeConfigRecord(
             encodeConfigRecord({
               ship: id,
               sha: choice.sha,
-              reached: mergeReached([base, choice.reached]),
+              reached: reachedAfter(
+                mergeReached([base, choice.reached]),
+                DateTime.formatIso(yield* DateTime.now),
+                [own],
+                config.machines,
+              ),
             }),
           );
         adopted = true;
