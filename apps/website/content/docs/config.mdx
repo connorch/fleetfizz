@@ -87,7 +87,7 @@ Repos run last, after Shared Files, vp, and the Homebrew packages, so an Install
 
 A Ship reads each Shared File on the Machine it runs from and copies it, with its mode bits, to every targeted Machine. A directory is mirrored: what the Starting Machine no longer has is deleted there too, except excluded paths. A symlink is copied as a link. A Shared File over 10 MB in total fails.
 
-Each Machine keeps a record of the last copy a Ship wrote there. Before overwriting, a Ship asks (`--answer file=overwrite` or `skip`; skip is the default) when the copy there was edited since, when no Ship wrote it, or when it came from a newer Ship that missed the Starting Machine. The Question can also keep that Machine's copy instead, and an Item the Starting Machine lacks asks which Machine to take it from: the Ship pulls the copy here, encrypted with `openssl` on the way, then starts over. Contents travel only on the ssh session's stdin, so they never appear in a script, the Ledger, or the Ship Log.
+Each Machine keeps a record of the last copy a Ship wrote there. Before overwriting, a Ship asks (`--answer file=overwrite` or `skip`; skip is the default) when the copy there was edited since, when no Ship wrote it, or when it came from a newer Ship that missed the Starting Machine. The Question can also show the diff from that Machine's copy first (with your own git pager, never logged), keep that Machine's copy instead, and an Item the Starting Machine lacks asks which Machine to take it from: the Ship pulls the copy here, encrypted with `openssl` on the way, then starts over. Contents travel only on the ssh session's stdin, so they never appear in a script, the Ledger, or the Ship Log.
 
 ## Targeting
 

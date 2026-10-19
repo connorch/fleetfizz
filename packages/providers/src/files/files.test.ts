@@ -16,9 +16,16 @@ import {
   type MachineIdentity,
   type MachineState,
 } from "@fleetfizz/core";
-import { applyScript, applyStdin, checkScript, parseLine } from "@fleetfizz/remote";
+import {
+  applyScript,
+  applyStdin,
+  checkScript,
+  parseLine,
+  stepScript,
+  stepStdin,
+} from "@fleetfizz/remote";
 
-import { files, type FilesResolved } from "./index.ts";
+import { diffStep, files, type FilesResolved } from "./index.ts";
 
 const STUDIO: MachineIdentity = { name: "studio", platform: "darwin" };
 const MACBOOK: MachineIdentity = { name: "macbook", platform: "darwin" };
@@ -134,6 +141,7 @@ describe("the files Provider decides", () => {
       "pull:macbook",
       "skip",
     ]);
+    expect(d?.kind === "ask" && d.question.diffs?.map((c) => c.value)).toEqual(["diff:macbook"]);
     // A Ship from elsewhere reached the MacBook after the Studio's last copy.
     const newer = { at: "2026-10-12T09:30:00.000Z", entries: theirs };
     const older = { at: "2026-10-01T00:00:00.000Z", entries: Object.fromEntries(ours) };
@@ -458,6 +466,89 @@ describe("the files Provider copies", () => {
         "studio: cannot read or copy a here",
       );
       yield* sh('chmod 600 "$HOME/src/a"', home);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("writes a diff's two sides with only what differs, the fetched side decrypted", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      // The MacBook's files arrive encrypted with a one-time key, as fetchFiles returns them.
+      const encrypt = (text: string) =>
+        sh(
+          `printf '%s' ${text} | FF_KEY=k openssl enc -aes-256-cbc -pbkdf2 -a -A -pass env:FF_KEY`,
+          home,
+        );
+      const step = diffStep({
+        name: "wovn",
+        dir: `${home}/d`,
+        old: {
+          machine: "macbook",
+          entries: new Map([
+            [".", "d 700"],
+            ["same.json", "f 600 s"],
+            ["config.json", "f 600 old"],
+            ["only-there.json", "f 644 t"],
+            ["link", "l same.json"],
+          ]),
+          contents: new Map([
+            ["config.json", new Hidden(yield* encrypt("old"))],
+            ["only-there.json", new Hidden(yield* encrypt("there"))],
+          ]),
+          key: new Hidden("k"),
+        },
+        new: {
+          machine: "studio",
+          entries: new Map([
+            [".", "d 700"],
+            ["same.json", "f 600 s"],
+            ["config.json", "f 600 new"],
+            ["link", "l config.json"],
+          ]),
+          contents: new Map([["config.json", new Hidden(btoa("new"))]]),
+        },
+      });
+      expect(stepScript(step)).not.toContain(btoa("new"));
+      const out = yield* sh(stepScript(step), home, stepStdin(step));
+      expect(out).toContain('ff-done {"id":"files:wovn:diff","ok":true}');
+      expect(yield* fs.exists(`${home}/d/studio/wovn/same.json`)).toBe(false);
+      expect(
+        ((yield* fs.stat(`${home}/d/macbook/wovn/config.json`)).mode & 0o777).toString(8),
+      ).toBe("600");
+      const diff = yield* sh(
+        'cd "$HOME/d" && git diff --no-index --no-color -- macbook studio',
+        home,
+      );
+      // Only what differs: a changed file, a removed one, and a link's new target.
+      expect(diff).toMatchInlineSnapshot(`
+        "diff --git a/macbook/wovn/config.json b/studio/wovn/config.json
+        index 489ce0f..3e5126c 100644
+        --- a/macbook/wovn/config.json
+        +++ b/studio/wovn/config.json
+        @@ -1 +1 @@
+        -old
+        \\ No newline at end of file
+        +new
+        \\ No newline at end of file
+        diff --git a/macbook/wovn/link b/studio/wovn/link
+        index 20479d8..0cffcb3 120000
+        --- a/macbook/wovn/link
+        +++ b/studio/wovn/link
+        @@ -1 +1 @@
+        -same.json
+        \\ No newline at end of file
+        +config.json
+        \\ No newline at end of file
+        diff --git a/macbook/wovn/only-there.json b/macbook/wovn/only-there.json
+        deleted file mode 100644
+        index c78ee1a..0000000
+        --- a/macbook/wovn/only-there.json
+        +++ /dev/null
+        @@ -1 +0,0 @@
+        -there
+        \\ No newline at end of file
+        "
+      `);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

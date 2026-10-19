@@ -164,7 +164,7 @@ _Avoid_: credential forwarding, shared token
 - A **Provider** can depend on other **Providers**. When an **Item** of a dependency fails on a **Machine**, its dependents are skipped there; a dependency the config does not target at that **Machine** does not hold them back
 - Removing an **Item** from the **Config** never uninstalls it
 - A **Ship** never overwrites a **Shared File** without a **Question** when the target has **Drift**, or when the target got a newer copy from another **Ship** than the **Starting Machine** has
-- A **Shared File**'s contents leave a remote **Machine** only when a **Question**'s answer pulls that **Machine**'s copy to the **Starting Machine**: when the **Starting Machine** has none, or instead of overwriting it
+- A **Shared File**'s contents leave a remote **Machine** only when a **Question**'s answer pulls that **Machine**'s copy to the **Starting Machine** (when the **Starting Machine** has none, or instead of overwriting it), or when the person answering views the diff from that copy first
 
 ## Example dialogue
 

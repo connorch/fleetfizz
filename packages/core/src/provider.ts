@@ -95,6 +95,9 @@ export interface Question {
   readonly default: string;
   // Where a "bump" answer edits the config: the key path and its Range.
   readonly bump?: { readonly path: ReadonlyArray<string | number>; readonly range: string };
+  // Choices that show a diff and ask again, never answers: what overwriting
+  // a Shared File would change there. Offered only when someone is asked.
+  readonly diffs?: ReadonlyArray<{ readonly value: string; readonly title: string }>;
 }
 
 // What a Ship does about one Item on one Machine. `at` is what the Machine
@@ -228,6 +231,21 @@ export interface Provider<
   ):
     | Effect.Effect<
         { readonly done: string } | { readonly error: string },
+        never,
+        ChildProcessSpawner.ChildProcessSpawner
+      >
+    | undefined;
+  // For a Question's diff choice, writes the two sides under `dir` (a new,
+  // owner-only directory) and names them, relative to it, for
+  // `git diff --no-index old new` run there. Undefined for any other choice.
+  diff?(
+    item: string,
+    choice: string,
+    resolved: Resolved,
+    dir: string,
+  ):
+    | Effect.Effect<
+        { readonly old: string; readonly new: string } | { readonly error: string },
         never,
         ChildProcessSpawner.ChildProcessSpawner
       >

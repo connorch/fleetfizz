@@ -37,6 +37,7 @@ describe("askQuestions", () => {
         answer: () => "bump",
         ledger,
         ask: undefined,
+        diff: () => Effect.void,
         dryRun: false,
       });
       expect(answered).toHaveLength(1);
@@ -47,6 +48,54 @@ describe("askQuestions", () => {
       expect(store.get().state.notes[0]?.text).toBe(
         "vp:vercel 11.0.0 on bluefin is above ^10.0.0; 2.1.0 on studio, 2.3.0 on macbook is above ^1.0.0",
       );
+    }),
+  );
+
+  it.effect("shows a diff choice, then asks again; the diff is never the answer", () =>
+    Effect.gen(function* () {
+      const { ledger } = yield* makeLedger({
+        from: "studio",
+        dryRun: false,
+        machines: ["studio", "macbook"],
+        print: () => Effect.void,
+      });
+      const question: Question = {
+        kind: "file",
+        subject: "files:karabiner",
+        found: "3eca7d1",
+        problem: "differs, and no Ship wrote it",
+        choices: [
+          { value: "overwrite", title: "overwrite it" },
+          { value: "skip", title: "skip" },
+        ],
+        default: "skip",
+        diffs: [{ value: "diff:macbook", title: "view the diff" }],
+      };
+      const offered: string[][] = [];
+      const picks = ["diff:macbook", "overwrite"];
+      const shown: string[] = [];
+      const answered = yield* askQuestions({
+        asked: [{ machine: "macbook", question }],
+        answer: () => undefined,
+        ledger,
+        ask: (choices) =>
+          Effect.suspend(() => {
+            offered.push(choices.map((c) => c.title));
+            const pick = picks.shift();
+            const choice = choices.find((c) => c.value === pick);
+            return choice === undefined
+              ? Effect.die("no such choice")
+              : Effect.succeed(choice.value);
+          }),
+        diff: (_, choice) => Effect.sync(() => void shown.push(choice)),
+        dryRun: false,
+      });
+      expect(shown).toEqual(["diff:macbook"]);
+      expect(offered).toEqual([
+        ["overwrite it", "skip", "view the diff"],
+        ["overwrite it", "skip", "view the diff"],
+      ]);
+      expect(answered.map((a) => a.answer)).toEqual(["overwrite"]);
     }),
   );
 });

@@ -2,12 +2,13 @@
 // redraws it as the Ship's events change the state, always shorter than the
 // window. `f` switches between the items that change and every item.
 // Questions are asked here too, as a list of choices above the Machines, so
-// Ink is the only thing reading keys. When the scope closes the live frame is
+// Ink is the only thing reading keys, except while `aside` hands the terminal
+// to another program (a pager). When the scope closes the live frame is
 // erased; the Ship then prints its result once, as ordinary output.
 import * as Effect from "effect/Effect";
 import * as Schedule from "effect/Schedule";
-import { Box, render, useInput, useStdin, useWindowSize } from "ink";
-import { useState, useSyncExternalStore } from "react";
+import { Box, render, useApp, useInput, useStdin, useWindowSize, type SuspendTerminal } from "ink";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import type { LedgerStore } from "./ledger.ts";
 import { LedgerView, Line, SPINNER, Styled, T } from "./view.tsx";
@@ -39,8 +40,14 @@ type Cell<A> = ReturnType<typeof cell<A>>;
 const LiveLedger = (props: {
   store: LedgerStore;
   asking: Cell<Asking | undefined>;
+  // Filled with Ink's suspendTerminal, for Live's aside.
+  suspend: { current?: SuspendTerminal };
   color: boolean;
 }) => {
+  const { suspendTerminal } = useApp();
+  useEffect(() => {
+    props.suspend.current = suspendTerminal;
+  }, [props.suspend, suspendTerminal]);
   const { state, now } = useSyncExternalStore(props.store.subscribe, props.store.get);
   const asking = useSyncExternalStore(props.asking.subscribe, props.asking.get);
   const [full, setFull] = useState(false);
@@ -88,14 +95,19 @@ export interface Live {
   // Asks one Question by its choices; the Question itself is a Ledger note.
   // Undefined when there is no one to ask (no terminal to read keys from).
   readonly ask: (<A>(choices: ReadonlyArray<Choice<A>>) => Effect.Effect<A>) | undefined;
+  // Runs `effect` with the Ledger erased and the terminal handed over (raw
+  // mode off, so a pager reads keys), then draws the Ledger again.
+  readonly aside: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
 }
 
 // Shows the Ledger until the scope closes, then erases it.
 export const startLive = Effect.fn("startLive")(function* (store: LedgerStore, color: boolean) {
   const asking = cell<Asking | undefined>(undefined);
-  const instance = render(<LiveLedger store={store} asking={asking} color={color} />, {
-    exitOnCtrlC: false,
-  });
+  const suspend: { current?: SuspendTerminal } = {};
+  const instance = render(
+    <LiveLedger store={store} asking={asking} suspend={suspend} color={color} />,
+    { exitOnCtrlC: false },
+  );
   yield* Effect.addFinalizer(() =>
     Effect.promise(async () => {
       instance.clear();
@@ -123,12 +135,22 @@ export const startLive = Effect.fn("startLive")(function* (store: LedgerStore, c
             return Effect.sync(() => asking.set(undefined));
           })
       : undefined,
+    aside: (effect) => {
+      const suspendTerminal = suspend.current;
+      return suspendTerminal === undefined
+        ? effect
+        : Effect.acquireUseRelease(
+            Effect.promise(() => suspendTerminal()),
+            () => effect,
+            (suspension) => Effect.promise(() => suspension.resume()),
+          );
+    },
   };
   return live;
 });
 
 // Outside a terminal nothing is redrawn and nothing is asked.
-export const noLive: Live = { ask: undefined };
+export const noLive: Live = { ask: undefined, aside: (effect) => effect };
 
 export const canRedraw = (): boolean =>
   Boolean(process.stdout.isTTY) && process.env.TERM !== "dumb";
