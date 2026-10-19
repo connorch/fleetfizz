@@ -79,8 +79,8 @@ export function Why({ className }: { className?: string }) {
 // it, Apply steps right, and a green elbow runs from under Check's first letter
 // to Apply. --word is the word size and --step Apply's indent, in the list's
 // own width (cqw) so the indent and the elbow agree. Below md the sentences
-// drop under their words, and the step and the elbow go: both start at the
-// left edge.
+// drop under their words and the elbow goes: Check sits at the left edge and
+// Apply at the right.
 export function Phases({ className }: { className?: string }) {
   return (
     <ol
@@ -95,7 +95,7 @@ export function Phases({ className }: { className?: string }) {
           className={cn(
             "relative flex flex-col gap-3 md:flex-row md:items-baseline md:gap-7",
             i > 0 &&
-              "md:ml-(--step) md:before:absolute md:before:-top-16 md:before:left-[calc(var(--word)*0.3-var(--step))] md:before:h-[calc(4rem+var(--word)*0.42)] md:before:w-[calc(var(--step)-var(--word)*0.3-1.25rem)] md:before:border-b-2 md:before:border-l-2 md:before:border-logo md:before:opacity-70 md:before:content-['']",
+              "max-md:items-end max-md:text-right md:ml-(--step) md:before:absolute md:before:-top-16 md:before:left-[calc(var(--word)*0.3-var(--step))] md:before:h-[calc(4rem+var(--word)*0.42)] md:before:w-[calc(var(--step)-var(--word)*0.3-1.25rem)] md:before:border-b-2 md:before:border-l-2 md:before:border-logo md:before:opacity-70 md:before:content-['']",
           )}
         >
           <span className="text-(length:--word) leading-[0.9] font-bold tracking-[-0.04em]">
