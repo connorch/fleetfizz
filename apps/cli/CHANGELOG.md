@@ -1,5 +1,21 @@
 # fleetfizz
 
+## 0.10.0
+
+### Minor Changes
+
+- [#53](https://github.com/connorch/fleetfizz/pull/53) [`932a05e`](https://github.com/connorch/fleetfizz/commit/932a05e0cb8a16ced27577c64a1dcb7b2a065afc) Thanks [@connorch](https://github.com/connorch)! - The config no longer carries `shippedAt`, `shippedFrom`, and `shippedTo`, and a Ship no longer rewrites it. Each Machine keeps that history in an Install Record instead (`~/.local/state/fleetfizz/records/config.json`), so a Ship also asks before overwriting a config edited on another Machine. The Ledger's `config` line shows a change only where a Machine's copy differs.
+  
+  A config that still has the three keys fails to load: delete them. Another Machine's copy that still has them is overwritten by the next Ship without a Question, so ship from the Machine with the newest config first.
+
+- [#52](https://github.com/connorch/fleetfizz/pull/52) [`98eceb2`](https://github.com/connorch/fleetfizz/commit/98eceb2f49a076651113519894e9ef835a0d9b4b) Thanks [@connorch](https://github.com/connorch)! - Shared Files can be pulled: when the Machine you ship from lacks a Shared File, the Ship asks which other Machine's copy to take, and a Question about overwriting an edited copy can keep that copy instead. The copy comes back encrypted with a one-time key (`openssl` on the other Machine), is written here, and the Ship starts over from it.
+
+- [#51](https://github.com/connorch/fleetfizz/pull/51) [`46d13ce`](https://github.com/connorch/fleetfizz/commit/46d13ce0923f896c923538cacba2d3dad10a1d75) Thanks [@connorch](https://github.com/connorch)! - Shared Files: a new `files` section copies files and directories (configs like Karabiner's, or ones that hold secrets) from the Machine you ship from to every targeted Machine, with their modes. A directory is mirrored, `exclude` leaves paths alone, and a Ship asks before overwriting a copy that was edited there, that no Ship wrote, or that came from a newer Ship. Contents travel only on the ssh session's stdin, never in a script or a log.
+
+### Patch Changes
+
+- [#54](https://github.com/connorch/fleetfizz/pull/54) [`7fc5919`](https://github.com/connorch/fleetfizz/commit/7fc59199b591daf7faf3a2a82aecfc1dd8b92f8a) Thanks [@connorch](https://github.com/connorch)! - `fleetfizz` is now an alias of the `fizz` command.
+
 ## 0.9.1
 
 ### Patch Changes
