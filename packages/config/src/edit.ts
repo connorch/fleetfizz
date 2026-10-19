@@ -183,9 +183,14 @@ export const removeAt = (text: string, path: JsonPath): EditResult => {
   if (previous === undefined) {
     const parent = member.parent;
     if (parent === undefined) return { text };
+    // The only member: `{}`, unless a comment beside it stays.
+    const kept = `${text.slice(parent.offset + 1, start)}${text.slice(after.end, parent.offset + parent.length - 1)}`;
     const empty = parent.type === "array" ? "[]" : "{}";
     return {
-      text: text.slice(0, parent.offset) + empty + text.slice(parent.offset + parent.length),
+      text:
+        kept.trim() === ""
+          ? text.slice(0, parent.offset) + empty + text.slice(parent.offset + parent.length)
+          : text.slice(0, start) + text.slice(after.end),
     };
   }
   return { text: text.slice(0, previous.offset + previous.length) + text.slice(after.end) };
@@ -222,6 +227,9 @@ export const saveConfig = Effect.fn("saveConfig")(function* (path: string, text:
   const target = (yield* fs.exists(path)) ? yield* fs.realPath(path) : path;
   yield* fs.makeDirectory((yield* Path.Path).dirname(target), { recursive: true });
   yield* fs.writeFileString(`${target}.tmp`, text);
+  // The new file keeps the old one's permissions (a private config stays private).
+  if (yield* fs.exists(target))
+    yield* fs.chmod(`${target}.tmp`, (yield* fs.stat(target)).mode & 0o7777);
   yield* fs.rename(`${target}.tmp`, target);
   return config;
 });

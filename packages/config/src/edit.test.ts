@@ -142,3 +142,11 @@ describe("insertAt into an object with only a comment", () => {
     );
   });
 });
+
+describe("removeAt the only member beside a comment", () => {
+  it("keeps the comment", () => {
+    expect(edited(removeAt(`{ "items": { /* why */ "gh": "*" } }`, ["items", "gh"]))).toBe(
+      `{ "items": { /* why */  } }`,
+    );
+  });
+});

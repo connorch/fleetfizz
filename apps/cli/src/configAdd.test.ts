@@ -62,4 +62,15 @@ describe("saveConfig", () => {
       expect(yield* fs.readFileString(`${dir}/real.jsonc`)).toBe(`{ "machines": ["b"] }`);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
+
+  it.effect("keeps the file's permissions", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(`${dir}/config.jsonc`, `{ "machines": ["a"] }`);
+      yield* fs.chmod(`${dir}/config.jsonc`, 0o600);
+      yield* saveConfig(`${dir}/config.jsonc`, `{ "machines": ["b"] }`);
+      expect((yield* fs.stat(`${dir}/config.jsonc`)).mode & 0o777).toBe(0o600);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });

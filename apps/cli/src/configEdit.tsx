@@ -146,7 +146,10 @@ export const editConfig = Effect.fn("editConfig")(function* (flags: {
   const schema = paths.join(paths.dirname(path), SCHEMA_FILE);
   if (yield* fs.exists(schema)) yield* fs.copyFile(schema, `${dir}/${SCHEMA_FILE}`);
   for (;;) {
-    yield* runEditor(copy);
+    const code = yield* runEditor(copy);
+    // An editor that exits non-zero was cancelled (vim's :cq) or failed.
+    if (code !== 0)
+      return yield* Console.log(`the editor exited with ${code}; the config is unchanged`);
     const edited = yield* fs.readFileString(copy);
     if (edited === text) return yield* Console.log("no changes");
     const parsed = yield* Effect.result(parseConfig(homeRelative(path), edited));
