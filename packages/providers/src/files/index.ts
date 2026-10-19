@@ -167,7 +167,6 @@ const changedPaths = (a: Entries, b: Entries): string => {
 // pattern without "/" matches a name at any depth, one with "/" a path from
 // the Item's own. find never follows a symlink, so a link is one entry.
 const SHELL_FNS = [
-  `ff_sha() { if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi | cut -d" " -f1; }`,
   `ff_mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }`,
   // ff_entry item rel abs
   `ff_entry() {`,

@@ -4,9 +4,9 @@
 import { CONFIG_FILE, SCHEMA_FILE } from "@fleetfizz/config";
 import type { MachinePlan, ProviderPlan, Step } from "@fleetfizz/core";
 
-import { CONFIG_DIR_SH } from "./check.ts";
+import { CONFIG_DIR_SH, CONFIG_RECORD, RECORDS_DIR } from "./check.ts";
 import { doneLine, skipLine, stepLine } from "./protocol.ts";
-import { fingerprintFn, prelude, quote } from "./shell.ts";
+import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
 
 // The config copy, one step on every Machine (ADR 0008).
 export const CONFIG_STEP = "config";
@@ -32,14 +32,18 @@ const marked = (
 ];
 
 // Writes the Starting Machine's config and the schema beside it, from stdin
-// lines 2 and 3, atomically. One && chain, so the step fails on the first
-// failed write (set -e would not stop at the left side of an && list).
-const configStep = (): string[] => {
+// lines 2 and 3, then the config's Install Record (`record`, JSON), each
+// atomically. One && chain, so the step fails on the first failed write (set
+// -e would not stop at the left side of an && list), and the record is
+// written only once the config is.
+const configStep = (record: string): string[] => {
   const dir = CONFIG_DIR_SH;
   const write = (variable: string, file: string) =>
     `printf '%s' "$${variable}" | base64 -d > ${dir}/${quote(`${file}.tmp`)} && mv -f ${dir}/${quote(`${file}.tmp`)} ${dir}/${quote(file)}`;
+  const recordFile = quotePath(CONFIG_RECORD);
+  const recordTmp = quotePath(`${CONFIG_RECORD}.tmp`);
   return marked(CONFIG_STEP, [
-    `( mkdir -p ${dir} && ${write("ff_config", CONFIG_FILE)} && ${write("ff_schema", SCHEMA_FILE)} )`,
+    `( mkdir -p ${dir} ${quotePath(RECORDS_DIR)} && ${write("ff_config", CONFIG_FILE)} && ${write("ff_schema", SCHEMA_FILE)} && printf '%s\\n' ${quote(record)} > ${recordTmp} && mv -f ${recordTmp} ${recordFile} )`,
   ]);
 };
 
@@ -123,8 +127,9 @@ const encodeBase64 = (text: string): string => {
 
 // Shell every Step may use besides the prelude: ff_lit prints $1 verbatim (a
 // JSON literal the Starting Machine prepared); ff_git is git with the Lent
-// Token, which only it sees.
-export const applyScript = (plan: MachinePlan): string => {
+// Token, which only it sees. `configRecord` is the JSON the config Step
+// writes beside the config.
+export const applyScript = (plan: MachinePlan, configRecord: string): string => {
   const offsets = inputOffsets(plan);
   return [
     prelude,
@@ -140,7 +145,7 @@ export const applyScript = (plan: MachinePlan): string => {
     ...inputsOf(plan).map((_, i) => `IFS= read -r ff_in_${i} || exit 1`),
     `ff_git() { if [ -n "$ff_token" ]; then FF_TOKEN="$ff_token" git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$FF_TOKEN"; }; f' "$@"; else git "$@"; fi; }`,
     // The config first, then each Provider in run order.
-    ...configStep(),
+    ...configStep(configRecord),
     ...plan.providers.flatMap((p) => providerSteps(p, offsets)),
     doneLine(END_STEP, true),
   ].join("\n");

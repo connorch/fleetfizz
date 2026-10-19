@@ -23,23 +23,33 @@ const planOf = (providers: ReadonlyArray<ProviderPlan>): MachinePlan => ({
   providers,
 });
 
-// Runs the script in sh with a throwaway config dir; returns its markers.
-const run = (plan: MachinePlan, stdin = applyStdin(undefined, "{}", "{}", plan)) =>
+const RECORD = '{"ship":"s","sha":"x","reached":{}}';
+
+// Runs the script in sh with a throwaway home, and `inspect` on that home
+// afterwards; returns the script's markers.
+const runIn = <A, E>(
+  plan: MachinePlan,
+  inspect: (home: string) => Effect.Effect<A, E, FileSystem.FileSystem>,
+  stdin: ReadonlyArray<string> = applyStdin(undefined, "{ }", "{}", plan),
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const home = yield* fs.makeTempDirectoryScoped();
     const handle = yield* spawner.spawn(
-      ChildProcess.make("/bin/sh", ["-c", applyScript(plan)], {
+      ChildProcess.make("/bin/sh", ["-c", applyScript(plan, RECORD)], {
         stdin: Stream.encodeText(Stream.make(`${stdin.join("\n")}\n`)),
         stdout: "pipe",
         stderr: "pipe",
-        env: { XDG_CONFIG_HOME: yield* fs.makeTempDirectoryScoped() },
+        env: { HOME: home, XDG_CONFIG_HOME: `${home}/.config` },
         extendEnv: true,
       }),
     );
     const stdout = yield* Stream.runCollect(Stream.decodeText(handle.stdout));
-    return markers(stdout.join(""));
+    return { markers: markers(stdout.join("")), inspected: yield* inspect(home) };
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+const run = (plan: MachinePlan, stdin?: ReadonlyArray<string>) =>
+  runIn(plan, () => Effect.void, stdin);
 
 const markers = (stdout: string) =>
   stdout
@@ -72,13 +82,28 @@ describe("applyScript", () => {
           ],
         }),
       ]);
-      expect(yield* run(plan, ["", "", ""])).toEqual([]);
+      expect((yield* run(plan, ["", "", ""])).markers).toEqual([]);
+    }),
+  );
+
+  it.effect("writes the config, then its Install Record", () =>
+    Effect.gen(function* () {
+      const { inspected } = yield* runIn(planOf([]), (home) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          return [
+            yield* fs.readFileString(`${home}/.config/fleetfizz/config.jsonc`),
+            yield* fs.readFileString(`${home}/.local/state/fleetfizz/records/config.json`),
+          ];
+        }),
+      );
+      expect(inspected).toEqual(["{ }", `${RECORD}\n`]);
     }),
   );
 
   it.effect("copies the config, runs each Provider's Steps in order, and ends", () =>
     Effect.gen(function* () {
-      const markers = yield* run(
+      const { markers } = yield* run(
         planOf([
           provider({
             name: "vp",
@@ -107,7 +132,7 @@ describe("applyScript", () => {
     "skips a failed Item's later Steps, and every Step of a Provider that depends on it",
     () =>
       Effect.gen(function* () {
-        const markers = yield* run(
+        const { markers } = yield* run(
           planOf([
             provider({
               name: "vp",
@@ -140,7 +165,7 @@ describe("applyScript", () => {
 
   it.effect("holds a Provider back through a dependency that has nothing to change", () =>
     Effect.gen(function* () {
-      const markers = yield* run(
+      const { markers } = yield* run(
         planOf([
           provider({
             name: "brew",

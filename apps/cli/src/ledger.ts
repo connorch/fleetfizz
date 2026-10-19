@@ -105,7 +105,7 @@ export interface Ledger {
   // Resolving `items` Items for every Machine, between Check and Plan.
   readonly resolving: (items: number) => Effect.Effect<void>;
   readonly resolved: Effect.Effect<void>;
-  readonly plan: (name: string, plan: MachinePlan) => Effect.Effect<void>;
+  readonly plan: (name: string, plan: MachinePlan, config: ConfigChange) => Effect.Effect<void>;
   readonly start: (name: string) => Effect.Effect<void>;
   readonly stepStarted: (name: string, id: string) => Effect.Effect<void>;
   readonly stepDone: (name: string, id: string, result: StepResult) => Effect.Effect<void>;
@@ -131,9 +131,16 @@ export interface LedgerStore {
   readonly tick: Effect.Effect<void>;
 }
 
+// What the config copy changes on one Machine: the short sha of its copy
+// there (none when it has none) and of the copy this Ship writes.
+export interface ConfigChange {
+  readonly from?: string;
+  readonly to: string;
+}
+
 // Every Item on one Machine, one per Decision, and the config copy. A
 // Question in a dry run, never asked, shows as skipped.
-export const itemsOf = (p: MachinePlan): Item[] => [
+export const itemsOf = (p: MachinePlan, config: ConfigChange): Item[] => [
   ...p.providers.flatMap((pp) =>
     pp.decisions.map((d): Item => {
       const base = {
@@ -183,7 +190,8 @@ export const itemsOf = (p: MachinePlan): Item[] => [
   {
     name: CONFIG_STEP,
     kind: "config",
-    changes: false,
+    ...config,
+    changes: config.from !== config.to,
     status: "idle",
     steps: [{ id: CONFIG_STEP, doing: "copying" }],
   },
@@ -285,8 +293,8 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
     resolved: update(({ resolving: _, ...state }) => state).pipe(
       Effect.andThen(Effect.logInfo("resolved")),
     ),
-    plan: (name, p) =>
-      machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p) })).pipe(
+    plan: (name, p, config) =>
+      machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p, config) })).pipe(
         Effect.andThen(
           Effect.forEach(
             p.providers.flatMap((pp) => pp.decisions.map((d) => ({ pp, d }))),

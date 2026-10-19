@@ -8,7 +8,7 @@ Every Ship, dry runs included, now writes a Ship Log on the Starting Machine as 
 
 It is written through Effect's logger, which during a Ship writes only to the file, so the live Ledger is never disturbed.
 
-`fizz logs` prints one. Without a Ship id it shows the latest Ship that started on or reached this Machine: the newest log here, unless this Machine's config stamp (ADR 0008) says a Ship from another Machine reached it later, in which case it reads that Ship's log from its Starting Machine over `tailscale ssh`. `fizz logs <ship-id>` reads that Ship's log from the Machine its id names, `--machine` keeps one Machine's lines, and `--list` lists the Ships started here.
+`fizz logs` prints one. Without a Ship id it shows the latest Ship that started on or reached this Machine: the newest log here, unless this Machine's config record (ADR 0008) says a Ship from another Machine reached it later, in which case it reads that Ship's log, which the record names, from its Starting Machine over `tailscale ssh`. `fizz logs <ship-id>` reads that Ship's log from the Machine its id names, `--machine` keeps one Machine's lines, and `--list` lists the Ships started here.
 
 ## Considered Options
 

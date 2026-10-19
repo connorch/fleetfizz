@@ -33,6 +33,8 @@ export const prelude = [
   // JSON-escapes $1 for embedding inside a double-quoted JSON string.
   `ff_json() { printf '%s' "$1" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | tr -d '\\n'; }`,
   `ff_state() { printf 'ff-state %s\\n' "$1"; }`,
+  // The sha256 of stdin, in hex (linux may have only sha256sum).
+  `ff_sha() { if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi | cut -d" " -f1; }`,
   // ff_at provider item version: the version an Item is at now (core's AtFact).
   `ff_at() { ff_state "{\\"provider\\":\\"$(ff_json "$1")\\",\\"fact\\":\\"at\\",\\"item\\":\\"$(ff_json "$2")\\",\\"at\\":\\"$(ff_json "$3")\\"}"; }`,
 ].join("\n");

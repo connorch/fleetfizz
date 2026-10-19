@@ -3,6 +3,7 @@ export { applyScript, applyStdin, CONFIG_STEP, END_STEP, stepScript, stepStdin }
 export {
   CONFIG_DIR_SH,
   checkScript,
+  CONFIG_RECORD,
   LOGS_DIR,
   RECORDS_DIR,
   recordDir,

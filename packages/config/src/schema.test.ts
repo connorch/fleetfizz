@@ -11,9 +11,6 @@ describe("FleetConfig", () => {
     expect(
       ok({
         $schema: "./schema.json",
-        shippedAt: "2026-10-10T20:00:00.000Z",
-        shippedFrom: "connors-mac-studio",
-        shippedTo: { "connors-mac-studio": "2026-10-10T20:00:00.000Z" },
         machines: ["connors-mac-studio", "connors-macbook-pro"],
         repos: {
           dependsOn: ["brew"],
