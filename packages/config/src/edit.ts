@@ -1,7 +1,8 @@
 // Edits to the config's text that keep everything else as written: comments,
 // trailing commas, and how each object is laid out (ADR 0017). `fizz config
 // add` inserts, `fizz config remove` removes, and `saveConfig` writes only a
-// config that loads. jsonc-parser's `modify` is used only to replace a value
+// config that loads. Each edit checks its own result (`checked`) and refuses a
+// layout it would get wrong. jsonc-parser's `modify` is used only to replace a value
 // in place (bump.ts): for inserts and removals it moves a line comment onto
 // the wrong entry, can leave a stray comma, and spreads values over lines.
 import * as Effect from "effect/Effect";
