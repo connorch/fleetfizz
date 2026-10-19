@@ -413,13 +413,22 @@ const shipPass = Effect.fn("shipPass")(function* (
   }
 
   // Each Provider resolves once, for every checked Machine's Items, so every
-  // Machine gets the same version or commit.
+  // Machine gets the same version or commit. The Starting Machine's own
+  // Items go too: Shared Files are read from them, checked or not.
+  const self = { name: tailnet.self.name, platform: tailnet.self.platform };
   const resolved: Partial<Record<ProviderName, unknown>> = Object.fromEntries(
     yield* Effect.forEach(
       targeted,
       ({ provider, items }) =>
         provider
-          .resolve(items, lent.token === undefined ? {} : { token: lent.token })
+          .resolve(items, {
+            ...(lent.token === undefined ? {} : { token: lent.token }),
+            starting: {
+              machine: self,
+              config,
+              items: targetedItems(provider, config, self),
+            },
+          })
           .pipe(Effect.map((r) => [provider.name, r] as const)),
       { concurrency: "unbounded" },
     ),
@@ -504,8 +513,8 @@ const shipPass = Effect.fn("shipPass")(function* (
   yield* Effect.logInfo(`stamped the config: shippedAt ${shippedAt}`);
   const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
 
-  // Apply, in parallel. No Machine changed before this point.
-  const stdin = applyStdin(lent.token, stamped, schema);
+  // Apply, in parallel. No Machine changed before this point. Each Machine's
+  // stdin carries the secrets its own Steps need (a Shared File's contents).
   const delivered: string[] = yield* Effect.forEach(
     planned,
     Effect.fn("applyOne")(
@@ -514,7 +523,7 @@ const shipPass = Effect.fn("shipPass")(function* (
           { name: machine.name, local },
           p,
           applyScript(p),
-          stdin,
+          applyStdin(lent.token, stamped, schema, p),
           ledger,
         );
         return applied.done.includes(CONFIG_STEP) ? machine.name : undefined;

@@ -48,8 +48,10 @@ const configStep = (): string[] => {
 // Steps, so a hold passes down a chain as it does in planMachine. Within a
 // Provider, a Step sharing an Item with a failed Step is skipped. Any failure
 // holds back the Provider's dependents. Flags are shell variables:
-// ff_held_<provider>, and ff_f_<provider>_<n> per Item.
-const providerSteps = (plan: ProviderPlan): string[] => {
+// ff_held_<provider>, and ff_f_<provider>_<n> per Item. A Step's inputs are
+// copied from the stdin lines read at the top (`offsets`) into its own
+// $ff_input_<i>.
+const providerSteps = (plan: ProviderPlan, offsets: ReadonlyMap<Step, number>): string[] => {
   // Nothing targeted: like planMachine, not a link in any chain.
   if (plan.decisions.length === 0 && plan.steps.length === 0) return [];
   const held = `ff_held_${plan.name}`;
@@ -59,6 +61,7 @@ const providerSteps = (plan: ProviderPlan): string[] => {
     `if [ -n "${s.items.map((item) => `\${${flag(item)}:-}`).join("")}" ]; then`,
     skipLine(s.id, "'an earlier step failed'"),
     "else",
+    ...(s.input ?? []).map((_, i) => `ff_input_${i}="$ff_in_${(offsets.get(s) ?? 0) + i}"`),
     ...marked(s.id, s.run, [...s.items.map((item) => `${flag(item)}=1`), `${held}=1`]),
     "fi",
   ];
@@ -81,12 +84,34 @@ const providerSteps = (plan: ProviderPlan): string[] => {
   ];
 };
 
+// Every Step input in the plan, in the order the apply script reads them.
+const inputsOf = (plan: MachinePlan) =>
+  plan.providers.flatMap((p) => p.steps.flatMap((step) => step.input ?? []));
+
+// Where each Step's inputs start among them.
+const inputOffsets = (plan: MachinePlan): ReadonlyMap<Step, number> => {
+  const offsets = new Map<Step, number>();
+  let next = 0;
+  for (const step of plan.providers.flatMap((p) => p.steps)) {
+    offsets.set(step, next);
+    next += step.input?.length ?? 0;
+  }
+  return offsets;
+};
+
 // The stdin lines the apply script reads, in order: the Lent Token, the
-// config text, and the schema text (the last two base64, so each is one line).
-export const applyStdin = (token: string | undefined, config: string, schema: string): string[] => [
+// config text, the schema text (the last two base64, so each is one line),
+// then every Step's inputs. Each input must already be one line.
+export const applyStdin = (
+  token: string | undefined,
+  config: string,
+  schema: string,
+  plan: MachinePlan,
+): string[] => [
   token ?? "",
   encodeBase64(config),
   encodeBase64(schema),
+  ...inputsOf(plan).map((input) => input.reveal()),
 ];
 
 const encodeBase64 = (text: string): string => {
@@ -99,19 +124,24 @@ const encodeBase64 = (text: string): string => {
 // Shell every Step may use besides the prelude: ff_lit prints $1 verbatim (a
 // JSON literal the Starting Machine prepared); ff_git is git with the Lent
 // Token, which only it sees.
-export const applyScript = (plan: MachinePlan): string =>
-  [
+export const applyScript = (plan: MachinePlan): string => {
+  const offsets = inputOffsets(plan);
+  return [
     prelude,
     fingerprintFn,
     `ff_lit() { printf '%s' "$1"; }`,
     // stdin: line 1 the Lent Token (empty when none), line 2 the config and
-    // line 3 the schema, both base64 (ADR 0008).
+    // line 3 the schema, both base64 (ADR 0008), then the Steps' inputs.
     `IFS= read -r ff_token || ff_token=""`,
     `IFS= read -r ff_config || ff_config=""`,
     `IFS= read -r ff_schema || ff_schema=""`,
+    // Every input line ends in a newline, so a failed read is a cut-off
+    // stdin: stop before any Step rather than write empty contents.
+    ...inputsOf(plan).map((_, i) => `IFS= read -r ff_in_${i} || exit 1`),
     `ff_git() { if [ -n "$ff_token" ]; then FF_TOKEN="$ff_token" git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$FF_TOKEN"; }; f' "$@"; else git "$@"; fi; }`,
     // The config first, then each Provider in run order.
     ...configStep(),
-    ...plan.providers.flatMap(providerSteps),
+    ...plan.providers.flatMap((p) => providerSteps(p, offsets)),
     doneLine(END_STEP, true),
   ].join("\n");
+};

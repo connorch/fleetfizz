@@ -5,7 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import type { MachinePlan, ProviderPlan } from "@fleetfizz/core";
+import { Hidden, type MachinePlan, type ProviderPlan } from "@fleetfizz/core";
 
 import { applyScript, applyStdin } from "./apply.ts";
 import { parseLine } from "./protocol.ts";
@@ -24,13 +24,13 @@ const planOf = (providers: ReadonlyArray<ProviderPlan>): MachinePlan => ({
 });
 
 // Runs the script in sh with a throwaway config dir; returns its markers.
-const run = (plan: MachinePlan) =>
+const run = (plan: MachinePlan, stdin = applyStdin(undefined, "{}", "{}", plan)) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const handle = yield* spawner.spawn(
       ChildProcess.make("/bin/sh", ["-c", applyScript(plan)], {
-        stdin: Stream.encodeText(Stream.make(`${applyStdin(undefined, "{}", "{}").join("\n")}\n`)),
+        stdin: Stream.encodeText(Stream.make(`${stdin.join("\n")}\n`)),
         stdout: "pipe",
         stderr: "pipe",
         env: { XDG_CONFIG_HOME: yield* fs.makeTempDirectoryScoped() },
@@ -56,6 +56,26 @@ const markers = (stdout: string) =>
     );
 
 describe("applyScript", () => {
+  it.effect("runs nothing when stdin is cut off before a Step's input", () =>
+    Effect.gen(function* () {
+      const plan = planOf([
+        provider({
+          name: "files",
+          steps: [
+            {
+              id: "files:x:copy",
+              items: ["x"],
+              doing: "copying",
+              run: ["true"],
+              input: [new Hidden("eA==")],
+            },
+          ],
+        }),
+      ]);
+      expect(yield* run(plan, ["", "", ""])).toEqual([]);
+    }),
+  );
+
   it.effect("copies the config, runs each Provider's Steps in order, and ends", () =>
     Effect.gen(function* () {
       const markers = yield* run(

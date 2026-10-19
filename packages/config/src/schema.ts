@@ -32,10 +32,10 @@ export const Ref = Schema.NonEmptyString;
 export const isPin = (ref: string): boolean => /^[0-9a-f]{40}$/.test(ref);
 
 // The built-in Providers, each a top-level config key. Their order is only
-// the tie-break when dependsOn leaves two Providers unordered: packages come
-// before repos, so an Install Command can use a Formula installed in the
-// same Ship without a dependsOn.
-export const PROVIDER_NAMES = ["vp", "brew", "cask", "repos"] as const;
+// the tie-break when dependsOn leaves two Providers unordered: Shared Files
+// come first and packages before repos, so an Install Command can read a
+// Shared File or use a Formula from the same Ship without a dependsOn.
+export const PROVIDER_NAMES = ["files", "vp", "brew", "cask", "repos"] as const;
 export const ProviderName = Schema.Literals(PROVIDER_NAMES);
 export type ProviderName = typeof ProviderName.Type;
 
@@ -230,6 +230,87 @@ export const ReposSection = section(
 );
 export type ReposSection = typeof ReposSection.Type;
 
+// A path on a Machine: absolute, or under its home.
+const HomePath = Schema.NonEmptyString.check(
+  Schema.isPattern(/^(\/|~\/)./, {
+    title: "path",
+    description: "an absolute path, or one under ~",
+  }),
+);
+
+// fleetfizz's own directories, which a Ship writes itself: a Shared File
+// may not be one, hold one, or sit inside one.
+const OWN_DIRS = ["~/.config/fleetfizz", "~/.local/state/fleetfizz"];
+const SharedFilePath = HomePath.check(
+  Schema.makeFilter(
+    (path) => {
+      const p = path.replace(/\/+$/, "");
+      const dir = OWN_DIRS.find(
+        (d) => p === "~" || d === p || d.startsWith(`${p}/`) || p.startsWith(`${d}/`),
+      );
+      return dir === undefined || `overlaps ${dir}, which a Ship writes itself`;
+    },
+    { title: "Shared File path", description: "a path outside fleetfizz's own directories" },
+  ),
+);
+
+// A Shared File: a file or directory a Ship copies from the Starting Machine
+// (ADR 0016). Its name is its key in `files.items`.
+export const SharedFile = Schema.Struct({
+  ...Targeting,
+  path: SharedFilePath.annotateKey({
+    description: "A file or directory, absolute or under `~`, which expands on each Machine.",
+  }),
+  exclude: Schema.optionalKey(Schema.Array(Schema.NonEmptyString)).annotateKey({
+    description:
+      "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. Every Variant of one Shared File has the same exclude.",
+  }),
+});
+export type SharedFile = typeof SharedFile.Type;
+
+const sameExclude = (a: SharedFile, b: SharedFile) =>
+  [...new Set(a.exclude ?? [])].toSorted().join("\n") ===
+  [...new Set(b.exclude ?? [])].toSorted().join("\n");
+
+export const FilesSection = section(
+  {},
+  Schema.Record(
+    Schema.NonEmptyString,
+    variants(
+      withShorthand(SharedFile, SharedFilePath, {
+        decode: (path) => ({ path }),
+        encode: (file) => file.path,
+      }),
+    ),
+  ).check(
+    // A name names the Item's Install Record file and its Steps' markers, so
+    // it is one path segment of letters, digits, ".", "_" and "-".
+    // One exclude for every Variant, so the Starting Machine and a target
+    // leave the same paths alone (a path only one side excluded would be
+    // deleted, or copied and never seen again).
+    Schema.makeFilter(
+      (items) => {
+        const badName = Object.keys(items).find(
+          (n) => !/^[A-Za-z0-9._-]+$/.test(n) || n === "." || n === "..",
+        );
+        if (badName !== undefined)
+          return `"${badName}": a Shared File's name uses only letters, digits, ., _ and -, and is not . or ..`;
+        const name = Object.entries(items).find(
+          ([, item]) => Array.isArray(item) && item.some((v) => !sameExclude(v, item[0])),
+        )?.[0];
+        return name === undefined || `"${name}": every Variant needs the same exclude`;
+      },
+      {
+        title: "Shared Files",
+        description:
+          "names of letters, digits, ., _ and -, and one exclude across a Shared File's Variants",
+      },
+    ),
+  ),
+  `Shared Files, keyed by name, which names the \`files:<name>\` Item. Each is a path, \`{ path, exclude?, platforms?, machines? }\`, ${VARIANTS}.`,
+);
+export type FilesSection = typeof FilesSection.Type;
+
 // The whole config.jsonc. Shorthands decode to their full entries, so
 // `FleetConfig.Encoded` is the config as a user writes it.
 export const FleetConfig = Schema.Struct({
@@ -251,6 +332,10 @@ export const FleetConfig = Schema.Struct({
       description:
         "The Fleet: each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet.",
     }),
+  files: Schema.optionalKey(FilesSection).annotateKey({
+    description:
+      "Files and directories copied from the Starting Machine to every targeted Machine. A directory is mirrored.",
+  }),
   repos: Schema.optionalKey(ReposSection).annotateKey({
     description:
       "Each Tracked Repo is cloned on every targeted Machine and installed from its origin ref.",

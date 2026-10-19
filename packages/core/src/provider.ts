@@ -69,11 +69,13 @@ export interface Context extends Scope {
 // Every Question kind and its choices, so `--answer kind=choice` is checked
 // before anything runs. A "range" Question is an Item above its Range; a
 // "config" Question is a Stale Config (ADR 0008); a "mode" Question is vp in
-// system-first mode (ADR 0011).
+// system-first mode (ADR 0011); a "file" Question is a Shared File the
+// Starting Machine would overwrite on a target (ADR 0016).
 export const QUESTION_CHOICES = {
   range: ["bump", "skip", "downgrade"],
   config: ["overwrite", "stop"],
   mode: ["managed", "skip"],
+  file: ["overwrite", "skip"],
 } as const;
 export type QuestionKind = keyof typeof QUESTION_CHOICES;
 export const isQuestionKind = (kind: string): kind is QuestionKind => kind in QUESTION_CHOICES;
@@ -124,6 +126,24 @@ export type Decision<Change, Upkeep = never> =
   | { readonly kind: "skip"; readonly item: string; readonly at?: string; readonly reason: string }
   | { readonly kind: "fail"; readonly item: string; readonly at?: string; readonly reason: string };
 
+// A secret a Step needs, such as a Shared File's contents. Every log and
+// JSON shows it as "[hidden]"; only the Apply's stdin carries its value.
+export class Hidden {
+  readonly #value: string;
+  constructor(value: string) {
+    this.#value = value;
+  }
+  reveal(): string {
+    return this.#value;
+  }
+  toJSON(): string {
+    return "[hidden]";
+  }
+  toString(): string {
+    return "[hidden]";
+  }
+}
+
 // One unit of work (a change, or upkeep) on one Machine, reported on its
 // own. `run` is shell; its last command's exit code is the Step's result.
 export interface Step {
@@ -134,6 +154,9 @@ export interface Step {
   // Shown while it runs: "installing", "fetching".
   readonly doing: string;
   readonly run: ReadonlyArray<string>;
+  // Secrets `run` reads as $ff_input_0, $ff_input_1, ... They reach the
+  // Machine on the Apply's stdin, never in the script.
+  readonly input?: ReadonlyArray<Hidden>;
 }
 
 // A Provider. Methods (not function properties) so a Provider with its own
@@ -166,9 +189,14 @@ export interface Provider<
   parse(facts: ReadonlyArray<unknown>, records: Readonly<Record<string, unknown>>): Observed;
   // Runs once on the Starting Machine for every Machine's targeted Items,
   // so every Machine gets the same version or commit during one Ship.
+  // `starting` is the Starting Machine and its own Items, which it has
+  // whether or not this Ship targets it.
   resolve(
     items: ReadonlyArray<Item>,
-    ctx: { readonly token?: string },
+    ctx: {
+      readonly token?: string;
+      readonly starting: Scope & { readonly items: ReadonlyArray<Item> };
+    },
   ): Effect.Effect<Resolved, never, ChildProcessSpawner.ChildProcessSpawner>;
   // One Decision per targeted Item, in config order.
   decide(input: {
