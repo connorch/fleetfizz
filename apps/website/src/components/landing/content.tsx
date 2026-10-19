@@ -7,6 +7,16 @@ import { useEffect, useRef, useState } from "react";
 
 // The landing page copy. Layout is the page's job.
 
+// Why fleetfizz exists, the first thing under the hero.
+export const WHY = (
+  <>
+    Agents don't stop when you close your laptop, so your dev setup now lives on more than one
+    machine. Keeping their tools and repos the same by hand doesn't scale. fleetfizz does it for
+    you: one config, one <code className="font-mono text-[0.9em]">fizz ship</code>, every machine in
+    line.
+  </>
+);
+
 // Two of a Ship's phases, as CONTEXT.md names them, each word starting its
 // sentence. Plan, between them, is left off the page.
 export const PHASES = [

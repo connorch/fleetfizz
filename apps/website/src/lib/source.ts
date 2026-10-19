@@ -18,7 +18,8 @@ export const pagesInOrder = (): DocsPage[] =>
   flattenTree(source.getPageTree().children).flatMap((node) => source.getNodePage(node) ?? []);
 
 // The Markdown copy of a page, for agents: config.mdx is /docs/config.md.
-export const markdownPath = (page: DocsPage) => `/docs/${page.path.replace(/\.mdx$/, ".md")}`;
+export const markdownPath = (page: Pick<DocsPage, "path">) =>
+  `/docs/${page.path.replace(/\.mdx$/, ".md")}`;
 
 export const renderMarkdown = async (page: DocsPage) =>
   [

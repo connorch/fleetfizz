@@ -8,6 +8,7 @@ import { type ComponentProps, Suspense, use } from "react";
 import { NAME } from "@fleetfizz/brand-assets";
 import { DocsSearch } from "../../components/docs-search";
 import { GITHUB_URL, GithubLink } from "../../components/nav-buttons";
+import { PageActions } from "../../components/page-actions";
 import { ThemeToggle } from "../../components/theme-toggle";
 import { Wordmark } from "../../components/wordmark";
 import { docs, source } from "../../lib/source";
@@ -76,6 +77,7 @@ function Content({ path }: { path: string }) {
     <DocsPage toc={toc}>
       <DocsTitle>{page.title}</DocsTitle>
       <DocsDescription>{page.description}</DocsDescription>
+      <PageActions path={path} />
       <DocsBody>
         <Body components={defaultMdxComponents} />
       </DocsBody>

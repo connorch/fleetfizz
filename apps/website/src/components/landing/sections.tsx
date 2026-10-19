@@ -2,7 +2,7 @@ import { cn } from "@fleetfizz/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { CodeBlock, PAPER, SYNTAX } from "./code-block";
 import { ConfigExample } from "./config-example";
-import { COMMANDS, PHASES } from "./content";
+import { COMMANDS, PHASES, WHY } from "./content";
 
 // The landing page sections below the fold. Spacing between them is the
 // page's job.
@@ -57,12 +57,30 @@ export function OneCommand({ className }: { className?: string }) {
   );
 }
 
+// Why fleetfizz exists: "Why?" in big type, the paragraph beside it, the pair
+// centered on the page. Below md the paragraph drops under the word.
+export function Why({ className }: { className?: string }) {
+  return (
+    <section
+      className={cn(
+        "flex flex-col items-center gap-3 text-center md:flex-row md:items-baseline md:justify-center md:gap-9 md:text-left",
+        className,
+      )}
+    >
+      <h2 className="text-[clamp(3.5rem,11vw,9rem)] leading-[0.9] font-bold tracking-[-0.02em]">
+        Why<span className="text-logo">?</span>
+      </h2>
+      <p className="max-w-[40ch] text-lg/relaxed text-foreground/75">{WHY}</p>
+    </section>
+  );
+}
+
 // Check and Apply in big type, as a stair: each word starts the sentence beside
 // it, Apply steps right, and a green elbow runs from under Check's first letter
 // to Apply. --word is the word size and --step Apply's indent, in the list's
 // own width (cqw) so the indent and the elbow agree. Below md the sentences
-// drop under their words, and the step and the elbow go: both start at the
-// left edge.
+// drop under their words and the elbow goes: Check sits at the left edge and
+// Apply at the right.
 export function Phases({ className }: { className?: string }) {
   return (
     <ol
@@ -77,7 +95,7 @@ export function Phases({ className }: { className?: string }) {
           className={cn(
             "relative flex flex-col gap-3 md:flex-row md:items-baseline md:gap-7",
             i > 0 &&
-              "md:ml-(--step) md:before:absolute md:before:-top-16 md:before:left-[calc(var(--word)*0.3-var(--step))] md:before:h-[calc(4rem+var(--word)*0.42)] md:before:w-[calc(var(--step)-var(--word)*0.3-1.25rem)] md:before:border-b-2 md:before:border-l-2 md:before:border-logo md:before:opacity-70 md:before:content-['']",
+              "max-md:items-end max-md:text-right md:ml-(--step) md:before:absolute md:before:-top-16 md:before:left-[calc(var(--word)*0.3-var(--step))] md:before:h-[calc(4rem+var(--word)*0.42)] md:before:w-[calc(var(--step)-var(--word)*0.3-1.25rem)] md:before:border-b-2 md:before:border-l-2 md:before:border-logo md:before:opacity-70 md:before:content-['']",
           )}
         >
           <span className="text-(length:--word) leading-[0.9] font-bold tracking-[-0.04em]">
