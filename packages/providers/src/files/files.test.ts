@@ -233,8 +233,8 @@ describe("the files Provider copies", () => {
       const config = configOf({
         items: {
           karabiner: [
-            { machines: ["studio"], path: `${home}/src`, exclude: ["backups"] },
-            { machines: ["macbook"], path: `${home}/dst`, exclude: ["backups"] },
+            { machines: ["studio"], path: `${home}/src`, exclude: ["./backups"] },
+            { machines: ["macbook"], path: `${home}/dst`, exclude: ["./backups"] },
           ],
         },
       });

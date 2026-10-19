@@ -159,7 +159,7 @@ const pruneExpr = (exclude: ReadonlyArray<string>): string =>
   [...ALWAYS_EXCLUDED, ...exclude]
     .map((pattern) =>
       pattern.includes("/")
-        ? `-path ${quote(`./${pattern.replace(/^\/+|\/+$/g, "")}`)}`
+        ? `-path ${quote(`./${pattern.replace(/^(\.?\/)+|\/+$/g, "")}`)}`
         : `-name ${quote(pattern)}`,
     )
     .join(" -o ");
@@ -434,6 +434,7 @@ const copyStep = (change: FileChange): Step => {
       `printf '%s' "$ff_input_${n}" | base64 -d > "$ff_t"`,
       `chmod ${mode} "$ff_t"`,
       `mv -f "$ff_t" ${at(rel)}`,
+      `ff_t=""`,
     ];
   };
   const modes = writes
@@ -450,6 +451,11 @@ const copyStep = (change: FileChange): Step => {
       `ff_p=${quotePath(item.path)}`,
       "(",
       "  set -e",
+      // A temporary file that never landed (a failed or interrupted copy) is
+      // removed, so no partial copy of a secret is left beside the path.
+      `  ff_t=""`,
+      `  trap '[ -z "$ff_t" ] || rm -f "$ff_t"' EXIT`,
+      `  trap 'exit 1' HUP INT TERM`,
       ...[
         `mkdir -p "$(dirname "$ff_p")"`,
         ...deletes.map(([rel, entry]) =>

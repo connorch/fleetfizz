@@ -135,7 +135,9 @@ export const applyScript = (plan: MachinePlan): string => {
     `IFS= read -r ff_token || ff_token=""`,
     `IFS= read -r ff_config || ff_config=""`,
     `IFS= read -r ff_schema || ff_schema=""`,
-    ...inputsOf(plan).map((_, i) => `IFS= read -r ff_in_${i} || ff_in_${i}=""`),
+    // Every input line ends in a newline, so a failed read is a cut-off
+    // stdin: stop before any Step rather than write empty contents.
+    ...inputsOf(plan).map((_, i) => `IFS= read -r ff_in_${i} || exit 1`),
     `ff_git() { if [ -n "$ff_token" ]; then FF_TOKEN="$ff_token" git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$FF_TOKEN"; }; f' "$@"; else git "$@"; fi; }`,
     // The config first, then each Provider in run order.
     ...configStep(),
