@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { renderToString } from "ink";
 
 import type { Item, LedgerState, MachineEntry } from "./ledger.ts";
-import { LedgerView, Styled } from "./view.tsx";
+import { LedgerView, SPINNER, Styled } from "./view.tsx";
 
 const item = (name: string, status: Item["status"]): Item => ({
   name,
@@ -44,7 +44,7 @@ describe("the live Ledger", () => {
   it("fits the window, keeping the running Machine's lines", () => {
     const lines = live(12);
     expect(lines.length).toBeLessThanOrEqual(12);
-    expect(lines.filter((l) => l.startsWith("▸ running"))).toHaveLength(4);
+    expect(lines.filter((l) => l.startsWith(`${SPINNER.frames[0]} running`))).toHaveLength(4);
     expect(lines.at(-1)).toContain("12 lines hidden to fit the window");
   });
 
