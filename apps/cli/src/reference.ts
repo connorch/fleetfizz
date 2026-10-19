@@ -88,16 +88,28 @@ const markdownFormatter: CliOutput.Formatter = {
     ].join("\n\n"),
 };
 
-const help = (command: string) =>
-  Command.runWith(fizz, { version: packageJson.version })([command, "--help"]).pipe(
+const help = (command: ReadonlyArray<string>) =>
+  Command.runWith(fizz, { version: packageJson.version })([...command, "--help"]).pipe(
     Effect.andThen(TestConsole.logLines),
     Effect.map((lines) => `${lines.join("\n")}\n`),
     Effect.provide([CliOutput.layer(markdownFormatter), TestConsole.layer, NodeServices.layer]),
   );
 
+interface Tree {
+  readonly name: string;
+  readonly subcommands: ReadonlyArray<{ readonly commands: ReadonlyArray<Tree> }>;
+}
+
+// Every command under `command`, as the words that run it: `config add brew`.
+const commandsOf = (command: Tree, path: ReadonlyArray<string> = []): string[][] =>
+  command.subcommands
+    .flatMap((group) => group.commands)
+    .flatMap((sub) => [[...path, sub.name], ...commandsOf(sub, [...path, sub.name])]);
+
 // Every generated file, keyed by its path under apps/website/content/generated.
+// A command's file is named by its words: commands/config-add-brew.md.
 export const reference = Effect.gen(function* () {
-  const commands = fizz.subcommands.flatMap((group) => group.commands);
+  const commands = commandsOf(fizz);
   return {
     "config/machines.md": `${describe("machines", FleetConfig.fields.machines)}\n`,
     "config/repos.md": `${section("repos", ReposSection.fields)}\nEach Tracked Repo in \`items\`:\n\n${fieldTable(TrackedRepo.fields)}\n`,
@@ -111,8 +123,8 @@ export const reference = Effect.gen(function* () {
     )}\n`,
     ...Object.fromEntries(
       yield* Effect.forEach(commands, (command) =>
-        help(command.name).pipe(
-          Effect.map((markdown) => [`commands/${command.name}.md`, markdown]),
+        help(command).pipe(
+          Effect.map((markdown) => [`commands/${command.join("-")}.md`, markdown]),
         ),
       ),
     ),

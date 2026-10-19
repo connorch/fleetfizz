@@ -1,6 +1,6 @@
 ---
 title: Commands
-description: fizz ship, fizz report, and fizz logs.
+description: fizz ship, fizz report, fizz logs, and fizz config.
 ---
 
 ## fizz ship
@@ -28,3 +28,53 @@ If another Machine's config was edited there, was never written by a Ship, or wa
 <include>../generated/commands/logs.md</include>
 
 Every Ship, dry runs included, writes a Ship Log on the Machine that started it, under `~/.local/state/fleetfizz/logs`, and ends by printing its id: `log: fizz logs 2026-10-18T14-03-22Z-connors-macbook-pro`. Each line has its time, its level, and the Machine and phase it belongs to; lines a Machine printed start with `> `. A Machine keeps its last 20.
+
+## fizz config
+
+<include>../generated/commands/config.md</include>
+
+It reads only the config and the tailnet, so it is instant and works with Machines offline.
+
+### fizz config add
+
+Every `add` writes one entry the way the docs write it, the shorthand (`"gh": "*"`) when it has no Targeting, then prints the lines it changed. It saves the config only when it still loads, and keeps its comments and layout. An Item that is already there is an error; change it with `fizz config edit`. Without a terminal, a missing value is an error instead of a prompt.
+
+#### fizz config add machines
+
+<include>../generated/commands/config-add-machines.md</include>
+
+#### fizz config add vp
+
+<include>../generated/commands/config-add-vp.md</include>
+
+#### fizz config add brew
+
+<include>../generated/commands/config-add-brew.md</include>
+
+#### fizz config add cask
+
+<include>../generated/commands/config-add-cask.md</include>
+
+#### fizz config add repos
+
+<include>../generated/commands/config-add-repos.md</include>
+
+#### fizz config add files
+
+<include>../generated/commands/config-add-files.md</include>
+
+A path under your home is written under `~`, so it names the same place on every Machine.
+
+### fizz config remove
+
+<include>../generated/commands/config-remove.md</include>
+
+`machines:<name>` also takes the Machine out of every Targeting list, and changes nothing when that would leave a list empty.
+
+### fizz config edit
+
+<include>../generated/commands/config-edit.md</include>
+
+### fizz config path
+
+<include>../generated/commands/config-path.md</include>

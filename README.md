@@ -69,6 +69,9 @@ fizz ship --dry-run   # check every Machine and print its plan; change nothing
 fizz ship             # apply the plan everywhere, in parallel
 fizz report           # print the full Ledger of the last Ship from this Machine
 fizz logs             # print the Ship Log of the latest Ship that started on or reached this Machine
+fizz config           # show each Provider's Items and the Machines they target
+fizz config add brew tmux --platform linux   # add an Item; also machines, vp, cask, repos, files
+fizz config remove brew:tmux                 # remove one; a Ship never uninstalls it
 ```
 
 `fleetfizz` is an alias of `fizz`.
