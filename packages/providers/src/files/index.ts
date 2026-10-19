@@ -339,7 +339,8 @@ const resolveSources = Effect.fn("resolveSources")(function* (
 });
 
 // Every checked Machine's copy of each Item, but the Starting Machine's own,
-// and any over the size limit, which is never pulled.
+// and any that could not be pulled whole: over the size limit, or with a
+// path that Machine cannot read.
 const copiesOf = (
   checked: ReadonlyArray<Checked<FileItem>>,
   from: string,
@@ -350,7 +351,8 @@ const copiesOf = (
     const observed = parse(facts, records);
     for (const item of items) {
       const copy = observed.items.get(item.name);
-      if (copy === undefined || copy.size > SIZE_LIMIT) continue;
+      if (copy === undefined || copy.size > SIZE_LIMIT || [...copy.entries.values()].includes("?"))
+        continue;
       const record = observed.records.get(item.name);
       copies.set(item.name, [
         ...(copies.get(item.name) ?? []),

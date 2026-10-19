@@ -230,6 +230,32 @@ describe("the files Provider pulls", () => {
     ).toMatchObject({ kind: "skip", reason: "pulling it from macbook" });
   });
 
+  it.effect("never offers a copy with a path that Machine cannot read", () =>
+    Effect.gen(function* () {
+      const config = configOf({ items: { wovn: "~/.config/wovn" } });
+      const fact = (path: string, entry: string) => ({
+        provider: "files",
+        fact: "entry",
+        item: "wovn",
+        path,
+        entry,
+        size: 1,
+      });
+      const resolved = yield* files.resolve([], {
+        starting: { machine: STUDIO, config, items: [] },
+        checked: [
+          {
+            machine: MACBOOK,
+            items: [item],
+            facts: [fact(".", "d 700"), fact("secret", "?")],
+            records: {},
+          },
+        ],
+      });
+      expect(resolved.copies.get("wovn")).toBeUndefined();
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it("says which Machines need openssl before a copy can be pulled from them", () => {
     expect(
       only(decide({ state: there, resolved: missing([copy("macbook", false)]) })),
