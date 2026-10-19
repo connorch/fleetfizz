@@ -64,6 +64,8 @@ fizz report           # print the full Ledger of the last Ship from this Machine
 fizz logs             # print the Ship Log of the latest Ship that started on or reached this Machine
 ```
 
+`fleetfizz` is an alias of `fizz`.
+
 The Ledger lists each Machine and, under it, what changes there, by address: `vp:node`, `repos:t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 
 To debug a Ship, read its Ship Log: every script each Machine ran, every line it printed, every decision, and full errors. Each Ship ends by printing its id (`log: fizz logs <ship-id>`). The log lives on the Machine that started the Ship, and `fizz logs` reads it from any Machine over Tailscale SSH.
