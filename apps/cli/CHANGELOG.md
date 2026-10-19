@@ -1,5 +1,15 @@
 # fleetfizz
 
+## 0.11.0
+
+### Minor Changes
+
+- [#59](https://github.com/connorch/fleetfizz/pull/59) [`b8a3658`](https://github.com/connorch/fleetfizz/commit/b8a36583c8ce67bab88eb3ee95c42caa0a5c6c54) Thanks [@connorch](https://github.com/connorch)! - A Question about overwriting a Shared File can show the diff from that Machine's copy first, in your own git pager, then asks again. Only the files that differ cross, encrypted as in a pull, and the diff never reaches the Ledger or the Ship Log.
+
+### Patch Changes
+
+- [#56](https://github.com/connorch/fleetfizz/pull/56) [`3f49eb8`](https://github.com/connorch/fleetfizz/commit/3f49eb8bb8a7ab5487133a01b6c40d8200f27af0) Thanks [@connorch](https://github.com/connorch)! - The Ledger draws every unchanged item the same way: dim, with no "up to date" label, including a Tracked Repo whose fetch ran and the config when nothing changed.
+
 ## 0.10.0
 
 ### Minor Changes
