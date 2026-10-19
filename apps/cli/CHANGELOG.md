@@ -1,5 +1,13 @@
 # fleetfizz
 
+## 0.9.1
+
+### Patch Changes
+
+- [#49](https://github.com/connorch/fleetfizz/pull/49) [`2ee1897`](https://github.com/connorch/fleetfizz/commit/2ee18970b5db8ca1627da374f46ca4c69d967ecb) Thanks [@connorch](https://github.com/connorch)! - The live Ledger always says what is running: a Machine shows `connecting` until ssh is up, then `checking`, `✓ checked`, and `applying`; a Step for an item that does not change (a repo's upkeep fetch) shows its item while it runs; and Resolve shows as a line under the Machines.
+
+- [#49](https://github.com/connorch/fleetfizz/pull/49) [`123954f`](https://github.com/connorch/fleetfizz/commit/123954fa7feca18cd10f38cdca73d65886ad9e7f) Thanks [@connorch](https://github.com/connorch)! - A Tracked Repo whose Managed Clone is already at the resolved commit is no longer fetched on every Ship; it is still reset and cleaned. A Ship that changes nothing is several seconds faster per Machine, and no longer fails when GitHub is briefly unreachable from a Machine with nothing to update.
+
 ## 0.9.0
 
 ### Minor Changes
