@@ -169,7 +169,9 @@ const observe = (items: ReadonlyArray<FileItem>): string => {
       return [
         `ff_p=${quotePath(item.path)}`,
         `if [ -d "$ff_p" ] && [ ! -L "$ff_p" ]; then`,
-        `  (cd "$ff_p" && find . \\( ${pruneExpr(item.exclude)} \\) -prune -o -print) | while IFS= read -r ff_rel; do ff_rel=\${ff_rel#./}; ff_entry ${name} "$ff_rel" "$ff_p/$ff_rel"; done`,
+        // The directory itself is never excluded, even by a pattern like ".*".
+        `  ff_entry ${name} . "$ff_p"`,
+        `  (cd "$ff_p" && find . -mindepth 1 \\( ${pruneExpr(item.exclude)} \\) -prune -o -print) | while IFS= read -r ff_rel; do ff_rel=\${ff_rel#./}; ff_entry ${name} "$ff_rel" "$ff_p/$ff_rel"; done`,
         `elif [ -e "$ff_p" ] || [ -L "$ff_p" ]; then`,
         `  ff_entry ${name} . "$ff_p"`,
         "fi",

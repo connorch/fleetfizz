@@ -278,6 +278,29 @@ describe("the files Provider copies", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("never excludes the directory itself, even with a pattern that matches it", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const exclude = [".*"];
+      const config = configOf({
+        items: {
+          k: [
+            { machines: ["studio"], path: `${home}/src`, exclude },
+            { machines: ["macbook"], path: `${home}/dst`, exclude },
+          ],
+        },
+      });
+      yield* sh('cd "$HOME" && mkdir -p src && printf a > src/a && printf h > src/.hidden', home);
+      const { check, planFor } = yield* shipFrom(home, config);
+      const plan = planFor(yield* check());
+      const out = yield* sh(applyScript(plan), home, applyStdin(undefined, "{}", "{}", plan));
+      expect(out).toContain('ff-done {"id":"files:k:copy","ok":true}');
+      expect(yield* fs.readFileString(`${home}/dst/a`)).toBe("a");
+      expect(yield* fs.exists(`${home}/dst/.hidden`)).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("stops rather than delete an excluded path inside a directory it removes", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
