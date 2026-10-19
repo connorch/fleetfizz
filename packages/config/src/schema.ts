@@ -155,7 +155,7 @@ export const VpSection = section(
   Schema.Record(Schema.NonEmptyString, variants(Global)).check(
     Schema.makeFilter(
       (globals) => {
-        const name = Object.keys(globals).find((n) => n in NOT_GLOBALS);
+        const name = Object.keys(globals).find((n) => !isGlobalName(n));
         return name === undefined || `"${name}" is not a Global: ${NOT_GLOBALS[name]}`;
       },
       {
