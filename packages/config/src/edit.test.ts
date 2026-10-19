@@ -165,3 +165,14 @@ describe("edits beside block comments", () => {
     );
   });
 });
+
+describe("edits beside a block comment after the last member", () => {
+  it("keep the comment with its member", () => {
+    expect(edited(insertAt(`{ "gh": "*" /* why */ }`, ["tmux"], "*"))).toBe(
+      `{ "gh": "*" /* why */, "tmux": "*" }`,
+    );
+    expect(edited(insertAt(`{\n  "gh": "*" /* why */\n}\n`, ["tmux"], "*"))).toBe(
+      `{\n  "gh": "*", /* why */\n  "tmux": "*"\n}\n`,
+    );
+  });
+});

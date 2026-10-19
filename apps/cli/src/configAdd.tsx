@@ -301,7 +301,7 @@ export const addRepo = Effect.fn("addRepo")(function* (input: {
               : Effect.succeed(v.trim()),
         })
       : yield* needs("--install"));
-  const outputs =
+  const outputs = (
     input.outputs.length > 0 || input.install !== undefined || !ask
       ? input.outputs
       : (yield* Prompt.String({
@@ -310,7 +310,8 @@ export const addRepo = Effect.fn("addRepo")(function* (input: {
         }))
           .split(",")
           .map((o) => o.trim())
-          .filter((o) => o !== "");
+          .filter((o) => o !== "")
+  ).map(homeRelative); // `~/x`, as the shell expands it, names each Machine's home.
   const targeting = targetingOf(input.targeting);
   yield* addItem({
     config: input.config,

@@ -57,16 +57,28 @@ const formatInline = (value: unknown): string => {
   return JSON.stringify(value);
 };
 
-// The text after a member up to where it ends: its comma, then a line comment
-// when nothing else follows it on its line. `own` is whether the member ends
-// its line, so removing it can take the whole line.
+// Block comments on the same line, one after another.
+const BLOCK_COMMENTS = /^(?:[ \t]*\/\*(?:(?!\*\/)[^\n])*\*\/)*/;
+
+// The text after a member up to where it ends, all of which belongs to it:
+// block comments on its line, its comma, then a line comment when nothing
+// else follows on its line. `close` is the end of the member and the block
+// comments before its comma. `lineEnd` is set when the member ends its line,
+// so removing it can take the whole line.
 const tail = (text: string, end: number) => {
-  let at = end;
+  const close = end + (BLOCK_COMMENTS.exec(text.slice(end))?.[0].length ?? 0);
+  let at = close;
   while (text[at] === " " || text[at] === "\t") at++;
   const comma = text[at] === ",";
   if (comma) at++;
-  const rest = /^[ \t]*(\/\/[^\n]*)?(?=\n|$)/.exec(text.slice(at));
-  return { comma, end: comma ? at : end, lineEnd: rest === null ? undefined : at + rest[0].length };
+  const blocks = BLOCK_COMMENTS.exec(text.slice(at))?.[0].length ?? 0;
+  const rest = /^[ \t]*(\/\/[^\n]*)?(?=\n|$)/.exec(text.slice(at + blocks));
+  return {
+    comma,
+    close,
+    end: comma ? at : end,
+    lineEnd: rest === null ? undefined : at + blocks + rest[0].length,
+  };
 };
 
 // A member of an object or array: the property, or the element.
@@ -110,8 +122,8 @@ const insertMember = (
   const multiline = text.slice(open, close).includes("\n");
   const after = tail(text, last.offset + last.length);
   if (!multiline || after.lineEnd === undefined) {
-    // On one line: `, member` after the last member.
-    const at = last.offset + last.length;
+    // On one line: `, member` after the last member and its comments.
+    const at = after.close;
     return `${text.slice(0, at)}, ${render("", at - lineStart(text, at) + 2)}${text.slice(at)}`;
   }
   const indent = indentAt(text, last.offset);
