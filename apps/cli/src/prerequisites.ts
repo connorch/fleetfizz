@@ -93,6 +93,8 @@ export const checksOf = (facts: Facts): ReadonlyArray<Check> => {
                     fix: "sudo tailscale set --ssh",
                   },
             ];
+  // The Mac's Tailscale fix installs tailscaled with Homebrew.
+  const brewForTailscale = darwin && (ts === undefined || (ts.app && !ts.ssh));
   const brew: ReadonlyArray<Check> = !darwin
     ? []
     : facts.brew
@@ -100,8 +102,10 @@ export const checksOf = (facts: Facts): ReadonlyArray<Check> => {
       : [
           {
             ok: false,
-            required: false,
-            text: "Homebrew is not installed (only brew and cask Items need it)",
+            required: brewForTailscale,
+            text: brewForTailscale
+              ? "Homebrew is not installed (Tailscale's fix needs it)"
+              : "Homebrew is not installed (only brew and cask Items need it)",
             fix: '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
           },
         ];
@@ -119,7 +123,8 @@ export const checksOf = (facts: Facts): ReadonlyArray<Check> => {
                 ? "brew install gh && gh auth login"
                 : "install gh from https://cli.github.com, then gh auth login",
         };
-  return [vp, ...tailscale, ...brew, gh];
+  // Homebrew first: on a Mac, Tailscale is installed with it.
+  return [vp, ...brew, ...tailscale, gh];
 };
 
 const Status = Schema.fromJsonString(

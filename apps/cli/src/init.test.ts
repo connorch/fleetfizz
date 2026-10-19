@@ -19,6 +19,7 @@ describe("draftText", () => {
       formulae: ["gh"],
       casks: [],
       files: ["~/.gitconfig"],
+      linux: false,
     });
     expect(text).toBe(`{
   "$schema": "./schema.json",
@@ -36,6 +37,20 @@ describe("draftText", () => {
       "studio",
       "macbook",
     ]);
+  });
+});
+
+describe("draftText with a Linux Machine", () => {
+  it("targets the cask section at darwin, since a Cask fails on Linux", () => {
+    const text = draftText({
+      machines: ["studio", "homelab"],
+      globals: [],
+      formulae: [],
+      casks: ["ghostty"],
+      files: [],
+      linux: true,
+    });
+    expect(text).toContain(`"cask": { "platforms": ["darwin"], "items": { "ghostty": "*" } },`);
   });
 });
 
@@ -67,6 +82,15 @@ describe("checksOf", () => {
     expect(
       failing({ ...ready, tailscale: { app: false, state: "NeedsLogin", ssh: false } }),
     ).toEqual([{ required: true, fix: "sudo tailscale up" }]);
+  });
+
+  it("requires Homebrew first when the Mac's Tailscale fix needs it", () => {
+    expect(failing({ ...ready, brew: false, tailscale: undefined }).map((c) => c.required)).toEqual(
+      [true, true],
+    );
+    expect(failing({ ...ready, brew: false, tailscale: undefined })[0]?.fix).toContain(
+      "Homebrew/install",
+    );
   });
 
   it("only warns about gh and Homebrew", () => {

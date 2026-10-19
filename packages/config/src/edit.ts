@@ -169,6 +169,9 @@ const oneLineAround = (text: string, tree: jsonc.Node, offset: number): jsonc.No
   return found;
 };
 
+// `text` with every string literal emptied, so `//` in a URL is not a comment.
+const stripStrings = (text: string): string => text.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+
 const lineLength = (text: string, offset: number): number => {
   const end = text.indexOf("\n", offset);
   return (end < 0 ? text.length : end) - lineStart(text, offset);
@@ -241,7 +244,14 @@ const insertSpread = (text: string, path: JsonPath, value: unknown): EditResult 
   const at = firstDifference(text, result.text);
   if (lineLength(result.text, at) <= WIDTH) return result;
   const container = oneLineAround(text, parse(text), Math.min(at, text.length - 1));
-  return container === undefined ? result : insertSpread(spread(text, container), path, value);
+  // A comment inside it is between members, where spread does not look:
+  // leave the long line rather than lose the comment.
+  return container === undefined ||
+    /\/\/|\/\*/.test(
+      stripStrings(text.slice(container.offset, container.offset + container.length)),
+    )
+    ? result
+    : insertSpread(spread(text, container), path, value);
 };
 
 const firstDifference = (a: string, b: string): number => {

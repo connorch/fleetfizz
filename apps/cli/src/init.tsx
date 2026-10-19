@@ -9,6 +9,7 @@ import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { Prompt } from "effect/cli";
 import { Box, Text } from "ink";
@@ -43,6 +44,9 @@ export interface Picks {
   readonly formulae: ReadonlyArray<string>;
   readonly casks: ReadonlyArray<string>;
   readonly files: ReadonlyArray<string>;
+  // A Cask fails on Linux, so with a Linux Machine in the Fleet the cask
+  // section targets darwin.
+  readonly linux: boolean;
 }
 
 // The config's text for `picks`, built with the edits `fizz config add` makes.
@@ -56,6 +60,9 @@ export const draftText = (picks: Picks): string => {
         ]),
     ...picks.globals.map((g) => [["vp", "items", g.name], `^${g.version}`] as const),
     ...picks.formulae.map((f) => [["brew", "items", f], "*"] as const),
+    ...(picks.casks.length > 0 && picks.linux
+      ? [[["cask", "platforms"], ["darwin"]] as const]
+      : []),
     ...picks.casks.map((c) => [["cask", "items", c], "*"] as const),
     ...picks.files.map((f) => [["files", "items", fileName(f)], f] as const),
   ];
@@ -225,12 +232,11 @@ export const init = Effect.fn("init")(function* (flags: {
     formulae,
     casks,
     files,
+    linux: machines.some((m) => tailnet.fleet.find((f) => f.name === m)?.platform === "linux"),
   });
   const config = yield* saveConfig(path, text);
-  yield* fs.writeFileString(
-    `${path.slice(0, path.lastIndexOf("/"))}/${SCHEMA_FILE}`,
-    fleetConfigSchemaText(),
-  );
+  const paths = yield* Path.Path;
+  yield* fs.writeFileString(paths.join(paths.dirname(path), SCHEMA_FILE), fleetConfigSchemaText());
   yield* Console.log(
     `\n${toText(
       <Text>

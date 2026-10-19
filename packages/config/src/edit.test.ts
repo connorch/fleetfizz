@@ -190,3 +190,10 @@ describe("insertAt into a line that would grow too long", () => {
 `);
   });
 });
+
+describe("insertAt next to a comment inside a one-line object", () => {
+  it("leaves the long line rather than lose the comment", () => {
+    const start = `{\n  "vp": { "version": "1.1.0" /* pinned */, "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3" } },\n}\n`;
+    expect(edited(insertAt(start, ["vp", "items", "turbo"], "^2.11.3"))).toContain("/* pinned */");
+  });
+});
