@@ -490,11 +490,13 @@ describe("the files Provider copies", () => {
             ["link", "l same.json"],
             ["empty", "d 755"],
             ["mode.json", "f 600 m"],
+            ["run.sh", "f 644 r"],
           ]),
           contents: new Map([
             ["config.json", new Hidden(yield* encrypt("old"))],
             ["only-there.json", new Hidden(yield* encrypt("there"))],
             ["mode.json", new Hidden(yield* encrypt("m"))],
+            ["run.sh", new Hidden(yield* encrypt("r"))],
           ]),
           key: new Hidden("k"),
         },
@@ -506,10 +508,12 @@ describe("the files Provider copies", () => {
             ["config.json", "f 600 new"],
             ["link", "l config.json"],
             ["mode.json", "f 644 m"],
+            ["run.sh", "f 755 r"],
           ]),
           contents: new Map([
             ["config.json", new Hidden(btoa("new"))],
             ["mode.json", new Hidden(btoa("m"))],
+            ["run.sh", new Hidden(btoa("r"))],
           ]),
         },
       };
@@ -526,7 +530,8 @@ describe("the files Provider copies", () => {
         home,
       );
       // Only what differs: a changed file, a removed one, and a link's new target.
-      // git shows neither the empty directory nor the 600 -> 644 mode, so those are listed.
+      // git shows neither the empty directory nor the 600 -> 644 mode, so those
+      // are listed; it shows run.sh becoming executable itself.
       expect(notShownByGit("wovn", sides.old, sides.new)).toEqual([
         "wovn/empty/ only on macbook",
         "wovn/mode.json mode 600 → 644",
@@ -558,6 +563,9 @@ describe("the files Provider copies", () => {
         @@ -1 +0,0 @@
         -there
         \\ No newline at end of file
+        diff --git a/macbook/wovn/run.sh b/studio/wovn/run.sh
+        old mode 100644
+        new mode 100755
         "
       `);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

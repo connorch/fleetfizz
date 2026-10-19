@@ -774,19 +774,26 @@ const differing = (a: Entries, b: Entries): ReadonlyArray<string> =>
   [...new Set([...a.keys(), ...b.keys()])].filter((rel) => a.get(rel) !== b.get(rel)).toSorted();
 
 // What differs that `git diff` of the two sides leaves out: directories
-// (git lists files, so an empty one is invisible) and file modes (git shows
-// only the executable bit). Paths and modes only, which the Check logs anyway.
+// (git lists files, so an empty one is invisible) and a file's mode when its
+// owner's executable bit, the only one git shows, is the same. Paths and
+// modes only, which the Check logs anyway.
 export const notShownByGit = (name: string, old: DiffSide, now: DiffSide): string[] =>
   differing(old.entries, now.entries).flatMap((rel) => {
     const a = old.entries.get(rel);
     const b = now.entries.get(rel);
     const path = rel === "." ? name : `${name}/${rel}`;
     const mode = (entry: string) => entry.split(" ")[1] ?? "";
+    const executable = (entry: string) => (Number.parseInt(mode(entry), 8) & 0o100) !== 0;
     if (a?.startsWith("d ") === true && b?.startsWith("d ") === true)
       return [`${path}/ mode ${mode(a)} → ${mode(b)}`];
     if (a?.startsWith("d ") === true) return [`${path}/ only on ${old.machine}`];
     if (b?.startsWith("d ") === true) return [`${path}/ only on ${now.machine}`];
-    if (a?.startsWith("f ") === true && b?.startsWith("f ") === true && mode(a) !== mode(b))
+    if (
+      a?.startsWith("f ") === true &&
+      b?.startsWith("f ") === true &&
+      mode(a) !== mode(b) &&
+      executable(a) === executable(b)
+    )
       return [`${path} mode ${mode(a)} → ${mode(b)}`];
     return [];
   });
