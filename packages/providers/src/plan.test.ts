@@ -1,4 +1,9 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Stream from "effect/Stream";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import * as Schema from "effect/Schema";
 
@@ -136,6 +141,31 @@ const provider = (result: ReturnType<typeof plan>, name: string) => {
 };
 const stepIds = (result: ReturnType<typeof plan>) =>
   result.providers.flatMap((p) => p.steps.map((s) => s.id));
+
+// Runs a command with HOME set to `home`: its trimmed stdout and exit code.
+const exec = (command: string, args: ReadonlyArray<string>, home: string) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const handle = yield* spawner.spawn(
+        ChildProcess.make(command, args, {
+          stdout: "pipe",
+          stderr: "pipe",
+          env: { HOME: home },
+          extendEnv: true,
+        }),
+      );
+      const [out, , code] = yield* Effect.all(
+        [
+          Stream.runCollect(Stream.decodeText(handle.stdout)),
+          Stream.runDrain(handle.stderr),
+          handle.exitCode,
+        ],
+        { concurrency: "unbounded" },
+      );
+      return { out: out.join("").trim(), code };
+    }),
+  );
 
 describe("the vp Provider", () => {
   it("brings the vp section into line", () => {
@@ -398,6 +428,60 @@ describe("the repos Provider", () => {
       reason: "checked out at abc1234",
     });
   });
+
+  // Runs the fetch step for skills against a real clone, in a temp HOME that
+  // holds the MacBook's Clone Root (~/.local/share/fleetfizz/clones). ff_git,
+  // the network fetch, leaves a mark and fails if it is called.
+  it.effect("fetches only when the clone is not at the resolved commit", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const clone = `${home}/.local/share/fleetfizz/clones/skills`;
+      const run = (command: string, ...args: string[]) => exec(command, args, home);
+      const git = (...args: string[]) =>
+        run("git", "-C", clone, ...args).pipe(Effect.map((r) => r.out));
+      yield* run("git", "init", "--quiet", clone);
+      yield* git("remote", "add", "origin", "https://github.com/connorch/skills.git");
+      const commit = Effect.gen(function* () {
+        yield* git(
+          "-c",
+          "user.name=t",
+          "-c",
+          "user.email=t@t",
+          "commit",
+          "--quiet",
+          "--allow-empty",
+          "-m",
+          "c",
+        );
+        return yield* git("rev-parse", "HEAD");
+      });
+      const first = yield* commit;
+      const second = yield* commit;
+      const fetchStep = (head: string) => {
+        const step = provider(
+          plan({
+            state: facts({ repos: [skillsClone(head)] }),
+            resolved: { ...resolved, repos: { "connorch/skills#main": { commit: second } } },
+          }),
+          "repos",
+        ).steps.find((s) => s.id === "repos:skills:fetch");
+        if (step === undefined) throw new Error("no fetch step");
+        return [`ff_git() { touch "$HOME/fetched"; return 1; }`, ...step.run].join("\n");
+      };
+
+      // At the commit already: no fetch, and the clone is still cleaned.
+      yield* fs.writeFileString(`${clone}/stray.txt`, "");
+      expect((yield* run("/bin/sh", "-c", fetchStep(second))).code).toBe(0);
+      expect(yield* fs.exists(`${home}/fetched`)).toBe(false);
+      expect(yield* fs.exists(`${clone}/stray.txt`)).toBe(false);
+
+      // Behind it: the step fetches.
+      yield* git("reset", "--quiet", "--hard", first);
+      expect((yield* run("/bin/sh", "-c", fetchStep(first))).code).not.toBe(0);
+      expect(yield* fs.exists(`${home}/fetched`)).toBe(true);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 
   it("fails repos when the Clone Root is not mounted, without touching vp", () => {
     const result = plan({

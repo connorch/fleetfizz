@@ -69,6 +69,53 @@ describe("the live Ledger", () => {
   });
 });
 
+describe("what the live Ledger says is running", () => {
+  const spin = SPINNER.frames[0];
+  const at = (machines: MachineEntry[], extra: Partial<LedgerState> = {}) =>
+    live(40, { ...state, machines, ...extra }).map((l) => l.trimEnd());
+
+  it("names each Machine's phase before it has items", () => {
+    const lines = at([
+      { name: "studio", status: "checking", items: [] },
+      { name: "macbook", status: "checking", connected: true, items: [] },
+      { name: "homelab", status: "waiting", checked: 300, items: [] },
+      { name: "bluefin", status: "running", connected: false, started: 0, items: [] },
+      { name: "pi", status: "running", connected: true, started: 0, items: [] },
+    ]);
+    expect(lines.filter((l) => /^\w/.test(l)).map((l) => l.replace(/\s+/g, " "))).toEqual([
+      `studio 0.0s ${spin} connecting`,
+      `macbook 0.0s ${spin} checking`,
+      "homelab 0.3s ✓ checked",
+      `bluefin 0.0s ${spin} connecting`,
+      "pi 0.0s applying",
+      "f full list · ctrl-c stop",
+    ]);
+  });
+
+  it("shows an item that does not change while its Step runs", () => {
+    const fetching: Item = {
+      ...item("repos:wovn", "running"),
+      kind: "record",
+      changes: false,
+      doing: "fetching",
+      started: 0,
+    };
+    const lines = at([{ name: "macbook", status: "running", connected: true, items: [fetching] }]);
+    expect(lines.some((l) => l.startsWith(`${spin} fetching`) && l.includes("repos:wovn"))).toBe(
+      true,
+    );
+  });
+
+  it("shows Resolve under the Machines while it runs", () => {
+    const lines = at([{ name: "macbook", status: "waiting", items: [] }], {
+      resolving: { started: 0, items: 12 },
+    });
+    expect(lines.find((l) => l.startsWith(`${spin} resolving`))?.replace(/\s+/g, " ")).toBe(
+      `${spin} resolving versions and commits 12 items 0.0s`,
+    );
+  });
+});
+
 describe("the Ship's summary", () => {
   const planned = (name: string, changes: boolean): MachineEntry => ({
     name,

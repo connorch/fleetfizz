@@ -62,6 +62,12 @@ const MachineEntry = Schema.Struct({
   detail: Schema.optionalKey(Schema.String),
   output: Schema.optionalKey(Schema.Array(Schema.String)),
   items: Schema.Array(Item),
+  // Its running script has printed its first line: ssh is up. Until then a
+  // Check or Apply is still connecting.
+  connected: Schema.optionalKey(Schema.Boolean),
+  // When its Check ended. The Check starts with the Ship.
+  checked: Schema.optionalKey(Schema.Number),
+  // Apply's start and end.
   started: Schema.optionalKey(Schema.Number),
   ended: Schema.optionalKey(Schema.Number),
 });
@@ -72,6 +78,9 @@ export const LedgerState = Schema.Struct({
   dryRun: Schema.Boolean,
   notes: Schema.Array(Note),
   machines: Schema.Array(MachineEntry),
+  // While every Provider resolves its versions and commits: when it started,
+  // and how many Items.
+  resolving: Schema.optionalKey(Schema.Struct({ started: Schema.Number, items: Schema.Number })),
   started: Schema.Number,
   ended: Schema.optionalKey(Schema.Number),
 });
@@ -87,10 +96,15 @@ export type StepResult =
 export interface Ledger {
   // Prints above the Machines now, and goes in the saved report.
   readonly note: (kind: Note["kind"], text: string) => Effect.Effect<void>;
+  // The Machine's running script printed its first line.
+  readonly connected: (name: string) => Effect.Effect<void>;
   readonly checked: (name: string) => Effect.Effect<void>;
   readonly skip: (name: string, reason: string) => Effect.Effect<void>;
   // The Machine failed as a whole: the first line is why, the rest is output.
   readonly fail: (name: string, lines: ReadonlyArray<string>) => Effect.Effect<void>;
+  // Resolving `items` Items for every Machine, between Check and Plan.
+  readonly resolving: (items: number) => Effect.Effect<void>;
+  readonly resolved: Effect.Effect<void>;
   readonly plan: (name: string, plan: MachinePlan) => Effect.Effect<void>;
   readonly start: (name: string) => Effect.Effect<void>;
   readonly stepStarted: (name: string, id: string) => Effect.Effect<void>;
@@ -244,8 +258,12 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
       yield* input.print({ kind, text });
       yield* Effect.logInfo(`${kind}: ${text}`);
     }),
+    connected: (name) =>
+      machine(name, (m) => ({ ...m, connected: true })).pipe(
+        Effect.andThen(log(name, Effect.logInfo("connected"))),
+      ),
     checked: (name) =>
-      machine(name, (m) => ({ ...m, status: "waiting" })).pipe(
+      machine(name, (m, now) => ({ ...m, status: "waiting", checked: now })).pipe(
         Effect.andThen(log(name, Effect.logInfo("checked"))),
       ),
     skip: (name, reason) =>
@@ -260,6 +278,13 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         ...(output.length === 0 ? {} : { output }),
         ended: now,
       })).pipe(Effect.andThen(log(name, Effect.logError(`failed: ${reason}`)))),
+    resolving: (n) =>
+      update((state, now) => ({ ...state, resolving: { started: now, items: n } })).pipe(
+        Effect.andThen(Effect.logInfo(`resolving ${n} items`)),
+      ),
+    resolved: update(({ resolving: _, ...state }) => state).pipe(
+      Effect.andThen(Effect.logInfo("resolved")),
+    ),
     plan: (name, p) =>
       machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p) })).pipe(
         Effect.andThen(
@@ -270,8 +295,9 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
           ),
         ),
       ),
+    // Apply connects anew.
     start: (name) =>
-      machine(name, (m, now) => ({ ...m, status: "running", started: now })).pipe(
+      machine(name, (m, now) => ({ ...m, status: "running", connected: false, started: now })).pipe(
         Effect.andThen(log(name, Effect.logInfo("applying"))),
       ),
     // An Item keeps its first failure: a later Step for the same Item must
@@ -337,7 +363,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
     // A Check or Apply still going when the Ship ends was stopped (Ctrl-C or
     // an error). Machines waiting between them keep their state.
     end: Effect.gen(function* () {
-      yield* update((state, now) => ({
+      yield* update(({ resolving: _, ...state }, now) => ({
         ...state,
         ended: now,
         machines: state.machines.map((m) =>

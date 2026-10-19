@@ -388,6 +388,14 @@ const shipPass = Effect.fn("shipPass")(function* (
     items: checked.flatMap(({ machine }) => targetedItems(provider, config, machine)),
   }));
 
+  // Shown live until every Provider has resolved; Items counted once, however
+  // many Machines they target.
+  yield* ledger.resolving(
+    new Set(
+      targeted.flatMap(({ provider, items }) => items.map((i) => `${provider.name}:${i.name}`)),
+    ).size,
+  );
+
   // The Lent Token, only when a repo is targeted, read before resolving so
   // private repos resolve too. Without one, private repos fail and public
   // repos still ship.
@@ -416,6 +424,7 @@ const shipPass = Effect.fn("shipPass")(function* (
       { concurrency: "unbounded" },
     ),
   );
+  yield* ledger.resolved;
 
   const planAll = (cfg: FleetConfig, answer: Context["answer"]): Planned[] =>
     checked.map((g) => ({

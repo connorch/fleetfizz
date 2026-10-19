@@ -145,10 +145,10 @@ const countsOf = (m: MachineEntry) => {
   };
 };
 
-// Nothing left to run: Apply ended, or a dry run never runs it. A Machine
-// with nothing to change still copies the config.
+// Nothing left to run: Apply ended, or a dry run's plan is made (it never
+// runs Apply). A Machine with nothing to change still copies the config.
 const settled = (m: MachineEntry, dryRun: boolean) =>
-  dryRun || m.status === "ok" || m.status === "failed";
+  (dryRun && m.status === "planned") || m.status === "ok" || m.status === "failed";
 
 // Nothing to change, and nothing left to run: its time does not matter.
 const upToDate = (m: MachineEntry, dryRun: boolean) => {
@@ -156,11 +156,16 @@ const upToDate = (m: MachineEntry, dryRun: boolean) => {
   return c.changes === 0 && c.skipped === 0 && settled(m, dryRun);
 };
 
-// A Machine's summary, at the end of its line: how far its items got, in
-// their colors, green only once it is settled. A Machine that was skipped or
-// failed as a whole says so, then why.
-const summaryOf = (m: MachineEntry, dryRun: boolean): ReadonlyArray<Part> => {
-  if (m.status === "checking" || m.status === "waiting") return [{ text: m.status, tone: "dim" }];
+// A Machine's summary, at the end of its line: what it is doing while ssh
+// connects and the Check runs, then how far its items got, in their colors,
+// green only once it is settled. A Machine that was skipped or failed as a
+// whole says so, then why. `glyph` leads what is running.
+const summaryOf = (m: MachineEntry, dryRun: boolean, glyph: string): ReadonlyArray<Part> => {
+  if (m.status === "checking")
+    return [{ text: `${glyph} ${m.connected === true ? "checking" : "connecting"}`, tone: "run" }];
+  if (m.status === "waiting") return [{ text: "✓ checked", tone: "ok" }];
+  if (m.status === "running" && m.connected !== true)
+    return [{ text: `${glyph} connecting`, tone: "run" }];
   if (m.status === "skipped") {
     return [{ text: "– skipped", tone: "skip" }, { text: `  ${m.detail ?? ""}` }];
   }
@@ -168,6 +173,10 @@ const summaryOf = (m: MachineEntry, dryRun: boolean): ReadonlyArray<Part> => {
     return [{ text: "✗ failed", tone: "fail" }, { text: `  ${m.detail}` }];
   }
   const { changes, done, failed, skipped } = countsOf(m);
+  // Nothing to change, but its Apply still runs (the config copy, upkeep).
+  if (changes === 0 && skipped === 0 && m.status === "running") {
+    return [{ text: "applying", tone: "dim" }];
+  }
   if (changes === 0 && skipped === 0) {
     return [{ text: "up to date", tone: settled(m, dryRun) ? "ok" : "dim" }];
   }
@@ -216,6 +225,13 @@ const shipSummary = (state: LedgerState): ReadonlyArray<Part> => {
 
 const elapsed = (started: number | undefined, ended: number | undefined, now: number) =>
   started === undefined ? "" : duration((ended ?? now) - started);
+
+// A Machine's time: its Check (which starts with the Ship) until it is
+// planned, then its Apply.
+const machineTime = (m: MachineEntry, shipStarted: number, now: number) =>
+  m.status === "checking" || m.status === "waiting"
+    ? elapsed(shipStarted, m.checked, now)
+    : elapsed(m.started, m.ended, now);
 
 const Parts = (props: { parts: ReadonlyArray<Part> }) => (
   <Line>
@@ -270,7 +286,14 @@ const outputLines = (
   ];
 };
 
-const MachineLine = (props: { m: MachineEntry; w: Widths; dryRun: boolean; now: number }) => {
+const MachineLine = (props: {
+  m: MachineEntry;
+  w: Widths;
+  dryRun: boolean;
+  shipStarted: number;
+  now: number;
+  glyph: string;
+}) => {
   const { m, w } = props;
   return (
     <Box columnGap={GAP}>
@@ -279,10 +302,10 @@ const MachineLine = (props: { m: MachineEntry; w: Widths; dryRun: boolean; now: 
       </Cell>
       {w.time > 0 && (
         <Cell width={w.time} right tone="dim">
-          {upToDate(m, props.dryRun) ? "" : elapsed(m.started, m.ended, props.now)}
+          {upToDate(m, props.dryRun) ? "" : machineTime(m, props.shipStarted, props.now)}
         </Cell>
       )}
-      <Parts parts={summaryOf(m, props.dryRun)} />
+      <Parts parts={summaryOf(m, props.dryRun, props.glyph)} />
     </Box>
   );
 };
@@ -328,9 +351,35 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
   const { live } = useContext(ModeContext);
   const running = live && state.ended === undefined;
   const glyph = runGlyph(live, now);
+  // An item that does not change shows while one of its Steps runs (a
+  // Managed Clone's upkeep), so the Ledger always says what is running.
   const shownItems = (m: MachineEntry) =>
-    m.items.filter((i) => full || i.changes || i.status === "failed" || i.status === "skipped");
-  const visible = state.machines.flatMap(shownItems);
+    m.items.filter(
+      (i) =>
+        full ||
+        i.changes ||
+        i.status === "failed" ||
+        i.status === "skipped" ||
+        i.status === "running",
+    );
+  // Resolve, while it runs: one line under the Machines, shaped like an item.
+  const resolve: Item | undefined =
+    state.resolving === undefined || state.ended !== undefined
+      ? undefined
+      : {
+          name: "versions and commits",
+          kind: "range",
+          from: `${state.resolving.items} items`,
+          changes: false,
+          status: "running",
+          doing: "resolving",
+          steps: [],
+          started: state.resolving.started,
+        };
+  const visible = [
+    ...state.machines.flatMap(shownItems),
+    ...(resolve === undefined ? [] : [resolve]),
+  ];
   const width = (texts: ReadonlyArray<string>) => Math.max(0, ...texts.map((t) => t.length));
   const item = width(visible.map((i) => i.name));
   const status = width(visible.map((i) => statusOf(i, dryRun, glyph).text));
@@ -345,14 +394,24 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
     ),
     time: width([
       ...visible.map((i) => elapsed(i.started, i.ended, now)),
-      ...state.machines.map((m) => elapsed(m.started, m.ended, now)),
+      ...state.machines.map((m) => machineTime(m, state.started, now)),
     ]),
   };
 
   // Each Machine is its line plus the lines under it.
   const blocks = state.machines.map((m) => ({
     m,
-    head: <MachineLine key={m.name} m={m} w={w} dryRun={dryRun} now={now} />,
+    head: (
+      <MachineLine
+        key={m.name}
+        m={m}
+        w={w}
+        dryRun={dryRun}
+        shipStarted={state.started}
+        now={now}
+        glyph={glyph}
+      />
+    ),
     body: [
       ...(m.output === undefined ? [] : outputLines(m.name, m.output, nameAt(w), running)),
       ...shownItems(m).flatMap((i) => [
@@ -375,9 +434,13 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
     state.ended === undefined
       ? `f ${full ? "changes only" : "full list"}  ·  ctrl-c stop`
       : undefined;
-  // Room for Machines: the frame also has a blank line above them, and a
-  // blank line and the legend below.
-  const room = height === undefined ? Infinity : height - (legend === undefined ? 1 : 3);
+  // Room for Machines: the frame also has a blank line above them, the
+  // resolve line and a blank line before it, and a blank line and the legend
+  // below.
+  const room =
+    height === undefined
+      ? Infinity
+      : height - (legend === undefined ? 1 : 3) - (resolve === undefined ? 0 : 2);
   // A blank line separates Machines.
   const count = (bs: typeof blocks) =>
     bs.reduce((n, b) => n + 1 + b.body.length, Math.max(0, bs.length - 1));
@@ -422,6 +485,11 @@ export const LedgerView = (props: { state: LedgerState } & ViewOptions) => {
     <Box flexDirection="column" marginTop={1}>
       {shown}
       {shown.length < lines.length && <Line tone="dim">…</Line>}
+      {resolve !== undefined && (
+        <Box marginTop={1}>
+          <ItemLine i={resolve} w={w} dryRun={dryRun} now={now} glyph={glyph} />
+        </Box>
+      )}
       {state.ended !== undefined && (
         <Box marginTop={1}>
           <Parts
