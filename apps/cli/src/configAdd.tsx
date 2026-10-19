@@ -243,7 +243,7 @@ export const addHomebrew = Effect.fn("addHomebrew")(function* (input: {
 });
 
 // The origin's default branch: from GitHub without credentials, then through
-// gh for a private repo, else `main`.
+// gh for a private repo, else undefined.
 const defaultBranch = Effect.fn("defaultBranch")(function* (origin: string) {
   const remote = yield* runLocal(
     "git",
@@ -261,7 +261,7 @@ const defaultBranch = Effect.fn("defaultBranch")(function* (origin: string) {
     "--jq",
     ".defaultBranchRef.name",
   ]);
-  return gh.code === 0 && gh.stdout.trim() !== "" ? gh.stdout.trim() : "main";
+  return gh.code === 0 && gh.stdout.trim() !== "" ? gh.stdout.trim() : undefined;
 });
 
 // `fizz config add repos <owner/repo>`.
@@ -276,11 +276,20 @@ export const addRepo = Effect.fn("addRepo")(function* (input: {
 }) {
   const name = input.name ?? input.origin.split("/").at(-1) ?? input.origin;
   const ask = interactive();
+  const found = input.ref === undefined ? yield* defaultBranch(input.origin) : undefined;
   const ref =
     input.ref ??
     (ask
-      ? yield* Prompt.String({ message: "Ref", default: yield* defaultBranch(input.origin) })
-      : yield* defaultBranch(input.origin));
+      ? yield* Prompt.String({
+          message: "Ref",
+          ...(found === undefined ? {} : { default: found }),
+          validate: (v) =>
+            v.trim() === "" ? Effect.fail("a Ref is needed") : Effect.succeed(v.trim()),
+        })
+      : (found ??
+        (yield* new ConfigAddError({
+          reason: `could not find ${input.origin}'s default branch; pass --ref`,
+        }))));
   const install =
     input.install ??
     (ask

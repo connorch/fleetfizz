@@ -154,6 +154,14 @@ export const editConfig = Effect.fn("editConfig")(function* (flags: {
     if (edited === text) return yield* Console.log("no changes");
     const parsed = yield* Effect.result(parseConfig(homeRelative(path), edited));
     if (parsed._tag === "Success") {
+      // Changed by something else while the editor was open: saving the
+      // copy would lose that change.
+      if ((yield* fs.readFileString(path)) !== text) {
+        yield* Console.log(edited);
+        return yield* new ConfigAddError({
+          reason: `${homeRelative(path)} changed while the editor was open, so it is unchanged; your edit is printed above`,
+        });
+      }
       yield* saveConfig(path, edited);
       return yield* Console.log(`saved ${homeRelative(path)} · fizz ship to ship it`);
     }

@@ -150,3 +150,18 @@ describe("removeAt the only member beside a comment", () => {
     );
   });
 });
+
+describe("edits beside block comments", () => {
+  it("inserts after a comment that ends on the closing line", () => {
+    const start = `{\n  "items": { /* why\n    add here */ },\n}\n`;
+    expect(edited(insertAt(start, ["items", "gh"], "*"))).toBe(
+      `{\n  "items": { /* why\n    add here */\n    "gh": "*",\n  },\n}\n`,
+    );
+  });
+
+  it("keeps a comment before the last inline member it removes", () => {
+    expect(edited(removeAt(`{ "gh": "*", /* why */ "jq": "*" }`, ["jq"]))).toBe(
+      `{ "gh": "*" /* why */ }`,
+    );
+  });
+});

@@ -92,6 +92,9 @@ const insertMember = (
       return `${text.slice(0, close).trimEnd()} ${render(indent, close - lineStart(text, close) + 1)} ${text.slice(close)}`;
     const inner = `${indent}  `;
     const at = lineStart(text, close);
+    // A comment that ends on the closing line: the member goes after it.
+    if (text.slice(at, close).trim() !== "")
+      return `${text.slice(0, close).trimEnd()}\n${inner}${render(inner, inner.length)},\n${indent}${text.slice(close)}`;
     return `${text.slice(0, at)}${inner}${render(inner, inner.length)},\n${text.slice(at)}`;
   }
   if (last === undefined) {
@@ -121,9 +124,64 @@ const insertMember = (
 
 export type EditResult = { readonly text: string } | { readonly reason: string };
 
+const valueOf = (text: string): unknown =>
+  jsonc.parse(text, undefined, { allowTrailingComma: true });
+
+// The comments in `text`, in order.
+const commentsOf = (text: string): ReadonlyArray<string> => {
+  const scanner = jsonc.createScanner(text, false);
+  const found: Array<string> = [];
+  for (let kind = scanner.scan(); kind !== jsonc.SyntaxKind.EOF; kind = scanner.scan())
+    if (kind === jsonc.SyntaxKind.LineCommentTrivia || kind === jsonc.SyntaxKind.BlockCommentTrivia)
+      found.push(scanner.getTokenValue());
+  return found;
+};
+
+// `root` with `change` applied to the value that holds the end of `path`,
+// creating the objects on the way.
+const changedAt = (
+  root: unknown,
+  path: JsonPath,
+  change: (parent: Record<string | number, unknown>, key: string | number) => void,
+): unknown => {
+  const copy: unknown = structuredClone(root);
+  let parent = copy as Record<string | number, unknown>;
+  for (const key of path.slice(0, -1)) {
+    parent[key] ??= {};
+    parent = parent[key] as Record<string | number, unknown>;
+  }
+  const key = path.at(-1);
+  if (key !== undefined) change(parent, key);
+  return copy;
+};
+
+// An edit's text only when it means exactly what was asked, with every
+// comment kept for an insert, so a layout these edits do not handle is
+// refused instead of saved wrong.
+const checked = (text: string, result: EditResult, expected: unknown, comments: boolean) =>
+  "reason" in result ||
+  (JSON.stringify(valueOf(result.text)) === JSON.stringify(expected) &&
+    (!comments || commentsOf(result.text).join("\0") === commentsOf(text).join("\0")))
+    ? result
+    : {
+        reason:
+          "this part of the config is written in a way fizz cannot edit; use fizz config edit",
+      };
+
 // Inserts `value` at `path`, creating the objects on the way. The last key
 // must not exist yet; a number appends to an array.
-export const insertAt = (text: string, path: JsonPath, value: unknown): EditResult => {
+export const insertAt = (text: string, path: JsonPath, value: unknown): EditResult =>
+  checked(
+    text,
+    insertText(text, path, value),
+    changedAt(valueOf(text), path, (parent, key) => {
+      if (Array.isArray(parent)) parent.push(value);
+      else parent[key] = value;
+    }),
+    true,
+  );
+
+const insertText = (text: string, path: JsonPath, value: unknown): EditResult => {
   const tree = parse(text);
   // The deepest node on the path that exists.
   let depth = 0;
@@ -158,7 +216,18 @@ export const insertAt = (text: string, path: JsonPath, value: unknown): EditResu
 
 // Removes the property or list element at `path`, with its comma and a line
 // comment after it.
-export const removeAt = (text: string, path: JsonPath): EditResult => {
+export const removeAt = (text: string, path: JsonPath): EditResult =>
+  checked(
+    text,
+    removeText(text, path),
+    changedAt(valueOf(text), path, (parent, key) => {
+      if (Array.isArray(parent)) parent.splice(Number(key), 1);
+      else delete parent[key];
+    }),
+    false,
+  );
+
+const removeText = (text: string, path: JsonPath): EditResult => {
   const found = jsonc.findNodeAtLocation(parse(text), [...path]);
   if (found === undefined) return { reason: `${path.join(".")} is not in the config` };
   const member = memberOf(found);
@@ -193,7 +262,15 @@ export const removeAt = (text: string, path: JsonPath): EditResult => {
           : text.slice(0, start) + text.slice(after.end),
     };
   }
-  return { text: text.slice(0, previous.offset + previous.length) + text.slice(after.end) };
+  // The comma after the previous member goes; a comment before this one stays.
+  const before = tail(text, previous.offset + previous.length);
+  const comma = before.comma ? before.end - 1 : previous.offset + previous.length;
+  return {
+    text:
+      text.slice(0, comma) +
+      text.slice(before.comma ? before.end : comma, start).trimEnd() +
+      text.slice(after.end),
+  };
 };
 
 // Every Targeting list that names `machine`, outside the top-level `machines`:
