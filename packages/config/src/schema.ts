@@ -134,6 +134,9 @@ const NOT_GLOBALS: Readonly<Record<string, string>> = {
   fleetfizz: "a Ship installs the fleetfizz that ships",
 };
 
+// Whether a package can be a Global, or is managed some other way.
+export const isGlobalName = (name: string): boolean => !Object.hasOwn(NOT_GLOBALS, name);
+
 export const VpSection = section(
   {
     // Exact pins are recommended for vp and Node: a change affects every tool.

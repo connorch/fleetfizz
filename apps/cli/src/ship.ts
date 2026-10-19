@@ -12,7 +12,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as References from "effect/References";
-import * as Schema from "effect/Schema";
 
 import {
   bumpConfig,
@@ -20,7 +19,7 @@ import {
   configPath,
   decodeConfigRecord,
   encodeConfigRecord,
-  fleetConfigJsonSchema,
+  fleetConfigSchemaText,
   loadConfig,
   mergeReached,
   parseConfig,
@@ -208,8 +207,6 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
     ];
   });
 });
-
-const schemaJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown, { space: 2 }));
 
 // One Ship, started over each time the person picks a newer config found on
 // another Machine: that config decides what is checked, so the Check runs again.
@@ -683,7 +680,7 @@ export const shipPass = Effect.fn("shipPass")(function* (
   const record = recordFor(planned.map((g) => g.machine.name));
   if (own !== undefined) yield* writeConfigRecord(record);
   yield* Effect.logInfo(`the config's record: ${record}`);
-  const schema = `${schemaJson(fleetConfigJsonSchema())}\n`;
+  const schema = fleetConfigSchemaText();
 
   // Apply, in parallel. No Machine changed before this point. Each Machine's
   // stdin carries the secrets its own Steps need (a Shared File's contents).

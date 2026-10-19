@@ -9,6 +9,7 @@ import packageJson from "../package.json" with { type: "json" };
 import { addFile, addGlobal, addHomebrew, addMachines, addRepo } from "./configAdd.tsx";
 import { editConfig, printPath, removeItem } from "./configEdit.tsx";
 import { showConfig } from "./configView.tsx";
+import { init } from "./init.tsx";
 import { KEEP, logs } from "./log.ts";
 import { report } from "./report.tsx";
 import { ship } from "./ship.ts";
@@ -89,6 +90,25 @@ const shipCommand = Command.make("ship", {
       config: Option.getOrUndefined(flags.config),
       version: packageJson.version,
     }).pipe(printProblems),
+  ),
+);
+
+const initCommand = Command.make("init", {
+  config: Flag.String("config").pipe(
+    Flag.optional,
+    Flag.withMetavar("path"),
+    Flag.withDescription(
+      "Where to write the config. Default: `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`.",
+    ),
+  ),
+}).pipe(
+  Command.withDescription(
+    "Set up this Machine to ship: check what fleetfizz needs here and print any fixes, then pick the Fleet from the tailnet and what to keep in line, and write the config.",
+  ),
+  Command.withHandler((flags) =>
+    init({ config: Option.getOrUndefined(flags.config), version: packageJson.version }).pipe(
+      printProblems,
+    ),
   ),
 );
 
@@ -362,5 +382,12 @@ const configTree = configCommand.pipe(
 // The package is fleetfizz; the command is fizz.
 export const fizz = Command.make("fizz").pipe(
   Command.withDescription("Keep every Machine on your tailnet in line with one config."),
-  Command.withSubcommands([shipCommand, statusCommand, reportCommand, logsCommand, configTree]),
+  Command.withSubcommands([
+    initCommand,
+    shipCommand,
+    statusCommand,
+    reportCommand,
+    logsCommand,
+    configTree,
+  ]),
 );

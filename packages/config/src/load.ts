@@ -32,7 +32,7 @@ export class ConfigNotFound extends Schema.TaggedError<ConfigNotFound>()("Config
   path: Schema.String,
 }) {
   override get message() {
-    return `no config at ${this.path}; write one there (the README has an example) or pass --config`;
+    return `no config at ${this.path}; run fizz init to write one, or pass --config`;
   }
 }
 

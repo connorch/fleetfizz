@@ -15,3 +15,8 @@ export const fleetConfigJsonSchema = () => {
     $defs: document.definitions,
   };
 };
+
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown, { space: 2 }));
+
+// schema.json's text, as a Ship and `fizz init` write it beside the config.
+export const fleetConfigSchemaText = (): string => `${encodeJson(fleetConfigJsonSchema())}\n`;

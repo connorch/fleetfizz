@@ -80,7 +80,7 @@ export const openConfig = Effect.fn("openConfig")(function* (flag: string | unde
   const fs = yield* FileSystem.FileSystem;
   if (!(yield* fs.exists(path))) {
     return yield* new ConfigAddError({
-      reason: `no config at ${homeRelative(path)}; write one there or pass --config`,
+      reason: `no config at ${homeRelative(path)}; run fizz init to write one, or pass --config`,
     });
   }
   const text = yield* fs.readFileString(path);

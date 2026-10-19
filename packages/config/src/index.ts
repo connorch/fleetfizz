@@ -8,7 +8,7 @@ export {
   saveConfig,
   targetingLists,
 } from "./edit.ts";
-export { fleetConfigJsonSchema } from "./jsonSchema.ts";
+export { fleetConfigJsonSchema, fleetConfigSchemaText } from "./jsonSchema.ts";
 export {
   CONFIG_FILE,
   configDir,
@@ -26,6 +26,7 @@ export {
   FilesSection,
   FleetConfig,
   HomebrewRange,
+  isGlobalName,
   isPin,
   PACKAGE_MANAGERS,
   PROVIDER_NAMES,

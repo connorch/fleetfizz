@@ -11,9 +11,10 @@ import { markdownPath } from "../lib/source";
 const SETUP_PAGE = "getting-started.mdx";
 const SETUP_PROMPT = `Help me set up fleetfizz, a CLI that keeps my dev machines in sync over Tailscale SSH. Follow the guide at ${SITE_URL}${markdownPath({ path: SETUP_PAGE })} step by step.
 
-- Do each step you can on this machine yourself. For anything only I can do, like running sudo on another machine or changing the Tailscale admin console, tell me exactly what to do and wait until I say it is done.
-- Before you write the config, ask me which machines to include. Look at what this machine already has (vp globals, Homebrew packages, and the git repos I work in) and suggest what to keep in sync.
-- Run \`fizz ship --dry-run\` and show me the plan before you run \`fizz ship\`.`;
+- Do each step you can on this machine yourself. For anything only I can do, like running sudo, logging in, or changing the Tailscale admin console, tell me exactly what to do and wait until I say it is done.
+- \`fizz init\` asks its questions in the terminal, so I run it myself. Before I do, look at what this machine has (vp globals, Homebrew packages, dotfiles, and the git repos I work in) and suggest what to pick and what to add after.
+- Add what \`fizz init\` does not ask about, like Tracked Repos, with \`fizz config add\`, and run \`fizz config\` to show me the result.
+- Run \`fizz status\` and show me where each machine stands before you run \`fizz ship\`.`;
 
 // Fumadocs' page actions under a docs page's description: copy the page's
 // Markdown, or open it in GitHub or an AI. Getting started adds the setup

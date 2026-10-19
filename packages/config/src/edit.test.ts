@@ -176,3 +176,17 @@ describe("edits beside a block comment after the last member", () => {
     );
   });
 });
+
+describe("insertAt into a line that would grow too long", () => {
+  it("puts one member per line, each as it was written", () => {
+    const start = `{\n  "vp": { "version": "1.1.0", "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3" } },\n}\n`;
+    const result = edited(insertAt(start, ["vp", "items", "@posthog/cli"], "^0.18.9"));
+    expect(result).toBe(`{
+  "vp": {
+    "version": "1.1.0",
+    "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3", "@posthog/cli": "^0.18.9" },
+  },
+}
+`);
+  });
+});
