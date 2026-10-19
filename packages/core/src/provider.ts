@@ -237,7 +237,8 @@ export interface Provider<
     | undefined;
   // For a Question's diff choice, writes the two sides under `dir` (a new,
   // owner-only directory) and names them, relative to it, for
-  // `git diff --no-index old new` run there. Undefined for any other choice.
+  // `git diff --no-index old new` run there, with what differs that git
+  // cannot show (an empty directory, a mode). Undefined for any other choice.
   diff?(
     item: string,
     choice: string,
@@ -245,7 +246,12 @@ export interface Provider<
     dir: string,
   ):
     | Effect.Effect<
-        { readonly old: string; readonly new: string } | { readonly error: string },
+        | {
+            readonly old: string;
+            readonly new: string;
+            readonly notShown: ReadonlyArray<string>;
+          }
+        | { readonly error: string },
         never,
         ChildProcessSpawner.ChildProcessSpawner
       >

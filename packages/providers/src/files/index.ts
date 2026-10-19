@@ -773,6 +773,24 @@ export interface DiffSide {
 const differing = (a: Entries, b: Entries): ReadonlyArray<string> =>
   [...new Set([...a.keys(), ...b.keys()])].filter((rel) => a.get(rel) !== b.get(rel)).toSorted();
 
+// What differs that `git diff` of the two sides leaves out: directories
+// (git lists files, so an empty one is invisible) and file modes (git shows
+// only the executable bit). Paths and modes only, which the Check logs anyway.
+export const notShownByGit = (name: string, old: DiffSide, now: DiffSide): string[] =>
+  differing(old.entries, now.entries).flatMap((rel) => {
+    const a = old.entries.get(rel);
+    const b = now.entries.get(rel);
+    const path = rel === "." ? name : `${name}/${rel}`;
+    const mode = (entry: string) => entry.split(" ")[1] ?? "";
+    if (a?.startsWith("d ") === true && b?.startsWith("d ") === true)
+      return [`${path}/ mode ${mode(a)} → ${mode(b)}`];
+    if (a?.startsWith("d ") === true) return [`${path}/ only on ${old.machine}`];
+    if (b?.startsWith("d ") === true) return [`${path}/ only on ${now.machine}`];
+    if (a?.startsWith("f ") === true && b?.startsWith("f ") === true && mode(a) !== mode(b))
+      return [`${path} mode ${mode(a)} → ${mode(b)}`];
+    return [];
+  });
+
 // Writes each side's version of the paths that differ at
 // `<dir>/<machine>/<item>`, files with their modes and links as links, so
 // `git diff --no-index old new` shows exactly what differs. A directory is
@@ -829,7 +847,8 @@ const diff = (
   resolved: FilesResolved,
   dir: string,
 ): Effect.Effect<
-  { readonly old: string; readonly new: string } | { readonly error: string },
+  | { readonly old: string; readonly new: string; readonly notShown: ReadonlyArray<string> }
+  | { readonly error: string },
   never,
   ChildProcessSpawner.ChildProcessSpawner
 > =>
@@ -845,14 +864,12 @@ const diff = (
       ),
     );
     if ("error" in fetched) return fetched;
-    const step = diffStep({
-      name,
-      dir,
+    const sides = {
       old: { machine, entries: copy.entries, contents: fetched.contents, key: fetched.key },
       new: { machine: resolved.from, entries: source.entries, contents: source.contents },
-    });
-    return (yield* runHere(resolved.from, step))
-      ? { old: machine, new: resolved.from }
+    };
+    return (yield* runHere(resolved.from, diffStep({ name, dir, ...sides })))
+      ? { old: machine, new: resolved.from, notShown: notShownByGit(name, sides.old, sides.new) }
       : { error: `could not write the diff on ${resolved.from}` };
   }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
 

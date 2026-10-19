@@ -25,7 +25,7 @@ import {
   stepStdin,
 } from "@fleetfizz/remote";
 
-import { diffStep, files, type FilesResolved } from "./index.ts";
+import { diffStep, files, notShownByGit, type FilesResolved } from "./index.ts";
 
 const STUDIO: MachineIdentity = { name: "studio", platform: "darwin" };
 const MACBOOK: MachineIdentity = { name: "macbook", platform: "darwin" };
@@ -479,9 +479,7 @@ describe("the files Provider copies", () => {
           `printf '%s' ${text} | FF_KEY=k openssl enc -aes-256-cbc -pbkdf2 -a -A -pass env:FF_KEY`,
           home,
         );
-      const step = diffStep({
-        name: "wovn",
-        dir: `${home}/d`,
+      const sides = {
         old: {
           machine: "macbook",
           entries: new Map([
@@ -490,10 +488,13 @@ describe("the files Provider copies", () => {
             ["config.json", "f 600 old"],
             ["only-there.json", "f 644 t"],
             ["link", "l same.json"],
+            ["empty", "d 755"],
+            ["mode.json", "f 600 m"],
           ]),
           contents: new Map([
             ["config.json", new Hidden(yield* encrypt("old"))],
             ["only-there.json", new Hidden(yield* encrypt("there"))],
+            ["mode.json", new Hidden(yield* encrypt("m"))],
           ]),
           key: new Hidden("k"),
         },
@@ -504,10 +505,15 @@ describe("the files Provider copies", () => {
             ["same.json", "f 600 s"],
             ["config.json", "f 600 new"],
             ["link", "l config.json"],
+            ["mode.json", "f 644 m"],
           ]),
-          contents: new Map([["config.json", new Hidden(btoa("new"))]]),
+          contents: new Map([
+            ["config.json", new Hidden(btoa("new"))],
+            ["mode.json", new Hidden(btoa("m"))],
+          ]),
         },
-      });
+      };
+      const step = diffStep({ name: "wovn", dir: `${home}/d`, ...sides });
       expect(stepScript(step)).not.toContain(btoa("new"));
       const out = yield* sh(stepScript(step), home, stepStdin(step));
       expect(out).toContain('ff-done {"id":"files:wovn:diff","ok":true}');
@@ -520,6 +526,11 @@ describe("the files Provider copies", () => {
         home,
       );
       // Only what differs: a changed file, a removed one, and a link's new target.
+      // git shows neither the empty directory nor the 600 -> 644 mode, so those are listed.
+      expect(notShownByGit("wovn", sides.old, sides.new)).toEqual([
+        "wovn/empty/ only on macbook",
+        "wovn/mode.json mode 600 → 644",
+      ]);
       expect(diff).toMatchInlineSnapshot(`
         "diff --git a/macbook/wovn/config.json b/studio/wovn/config.json
         index 489ce0f..3e5126c 100644
