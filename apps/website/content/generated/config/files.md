@@ -10,4 +10,4 @@ Each Shared File in `items`:
 | Field | Description |
 | --- | --- |
 | `path` | A file or directory, absolute or under `~`, which expands on each Machine. Required. |
-| `exclude` | Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. |
+| `exclude` | Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. Every Variant of one Shared File has the same exclude. |

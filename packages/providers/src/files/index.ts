@@ -143,8 +143,9 @@ const SHELL_FNS = [
   // ff_entry item rel abs
   `ff_entry() {`,
   `  if [ -L "$3" ]; then ff_e="l $(readlink "$3")"; ff_s=0`,
-  `  elif [ -d "$3" ]; then ff_e="d $(ff_mode "$3")"; ff_s=0`,
-  `  elif [ -f "$3" ]; then ff_e="f $(ff_mode "$3") $(ff_sha < "$3")"; ff_s=$(wc -c < "$3" | tr -d " ")`,
+  // One this user cannot read is "?": its contents are unknown, never absent.
+  `  elif [ -d "$3" ]; then if [ -r "$3" ] && [ -x "$3" ]; then ff_e="d $(ff_mode "$3")"; else ff_e="?"; fi; ff_s=0`,
+  `  elif [ -f "$3" ]; then if [ -r "$3" ]; then ff_e="f $(ff_mode "$3") $(ff_sha < "$3")"; ff_s=$(wc -c < "$3" | tr -d " "); else ff_e="?"; ff_s=0; fi`,
   `  else return 0; fi`,
   `  ff_state "{\\"provider\\":\\"files\\",\\"fact\\":\\"entry\\",\\"item\\":\\"$(ff_json "$1")\\",\\"path\\":\\"$(ff_json "$2")\\",\\"entry\\":\\"$(ff_json "$ff_e")\\",\\"size\\":$ff_s}"`,
   `}`,
@@ -201,8 +202,6 @@ const parse = (
 
 // Where an entry sits on the Machine, as a shell word.
 const at = (rel: string): string => (rel === "." ? `"$ff_p"` : `"$ff_p"/${quote(rel)}`);
-const tmp = (rel: string): string =>
-  rel === "." ? `"$ff_p.fftmp"` : `"$ff_p"/${quote(`${rel}.fftmp`)}`;
 
 // The contents of every file the Starting Machine's copy has, read in one
 // local script whose output is never logged: `ff-file <n> <base64>`, by the
@@ -253,6 +252,14 @@ const resolveSources = Effect.fn("resolveSources")(function* (
     }
     if (copy === undefined) {
       sources.set(item.name, { kind: "missing" });
+      continue;
+    }
+    const unreadable = [...copy.entries].find(([, entry]) => entry === "?")?.[0];
+    if (unreadable !== undefined) {
+      sources.set(item.name, {
+        kind: "unreadable",
+        reason: `cannot read ${unreadable === "." ? item.path : unreadable} here`,
+      });
       continue;
     }
     if (copy.size > SIZE_LIMIT) {
@@ -369,17 +376,8 @@ const decideFile = (
     };
   const fromAt = short(current);
   const subject = address("files", item.name);
-  const rebuild = ctx.rebuild(subject);
-  const why = rebuild ? undefined : askWhy(current, record, source, from);
-  if (why === undefined)
-    return {
-      kind: "change",
-      item: item.name,
-      from: fromAt,
-      to,
-      ...(rebuild ? { reason: "--rebuild" } : {}),
-      change,
-    };
+  const why = askWhy(current, record, source, from);
+  if (why === undefined) return { kind: "change", item: item.name, from: fromAt, to, change };
   const answer = ctx.answer("file", subject);
   if (answer === "skip") return { kind: "skip", item: item.name, at: fromAt, reason: why };
   if (answer === "overwrite")
@@ -399,10 +397,12 @@ const writeRecord = (name: string, entries: Entries, at: string): string[] => {
 };
 
 // Mirrors the Starting Machine's copy onto the Machine, then writes the
-// record. Each file lands in a temporary file beside it, created owner-only
-// before any byte is written, then takes its mode and is renamed into place.
-// An entry whose type changed, or that the Starting Machine no longer has, is
-// deleted first. Directories take their modes last, deepest first, so a
+// record. Each file lands in a new temporary file beside it (mktemp creates
+// it owner-only before any byte is written), then takes its mode and is
+// renamed into place. An entry whose type changed, or that the Starting
+// Machine no longer has, is deleted first, one entry at a time: a directory
+// only once it is empty, so an excluded path inside it stops the Step rather
+// than being deleted. Directories take their modes last, deepest first, so a
 // read-only one can still be filled. One `set -e` subshell.
 const copyStep = (change: FileChange): Step => {
   const { item, entries, current, contents } = change;
@@ -412,8 +412,7 @@ const copyStep = (change: FileChange): Step => {
       const ours = entries.get(rel);
       return ours === undefined || typeOf(ours) !== typeOf(entry);
     })
-    .map(([rel]) => rel)
-    .toSorted((a, b) => depth(b) - depth(a));
+    .toSorted(([a], [b]) => depth(b) - depth(a));
   const writes = [...entries]
     .filter(([rel, entry]) => current?.get(rel) !== entry)
     .toSorted(([a], [b]) => depth(a) - depth(b));
@@ -424,10 +423,10 @@ const copyStep = (change: FileChange): Step => {
     if (type === "l") return [`rm -f ${at(rel)}`, `ln -s ${quote(entry.slice(2))} ${at(rel)}`];
     const n = input.push(contents.get(rel) ?? new Hidden("")) - 1;
     return [
-      `rm -f ${tmp(rel)}`,
-      `(umask 077 && printf '%s' "$ff_input_${n}" | base64 -d > ${tmp(rel)})`,
-      `chmod ${mode} ${tmp(rel)}`,
-      `mv -f ${tmp(rel)} ${at(rel)}`,
+      `ff_t=$(mktemp "$(dirname ${at(rel)})/.fftmp.XXXXXX")`,
+      `printf '%s' "$ff_input_${n}" | base64 -d > "$ff_t"`,
+      `chmod ${mode} "$ff_t"`,
+      `mv -f "$ff_t" ${at(rel)}`,
     ];
   };
   const modes = writes
@@ -446,7 +445,9 @@ const copyStep = (change: FileChange): Step => {
       "  set -e",
       ...[
         `mkdir -p "$(dirname "$ff_p")"`,
-        ...deletes.map((rel) => `rm -rf ${at(rel)}`),
+        ...deletes.map(([rel, entry]) =>
+          entry.startsWith("d ") ? `rmdir ${at(rel)}` : `rm -f ${at(rel)}`,
+        ),
         ...writes.flatMap(write),
         ...modes,
         ...writeRecord(item.name, entries, change.at),

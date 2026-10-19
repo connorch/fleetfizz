@@ -160,7 +160,7 @@
                         },
                         "allOf": [
                           {
-                            "description": "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded."
+                            "description": "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. Every Variant of one Shared File has the same exclude."
                           }
                         ]
                       }
@@ -241,7 +241,7 @@
                             },
                             "allOf": [
                               {
-                                "description": "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded."
+                                "description": "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. Every Variant of one Shared File has the same exclude."
                               }
                             ]
                           }
@@ -321,7 +321,7 @@
                           },
                           "allOf": [
                             {
-                              "description": "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded."
+                              "description": "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. Every Variant of one Shared File has the same exclude."
                             }
                           ]
                         }

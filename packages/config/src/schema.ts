@@ -247,10 +247,14 @@ export const SharedFile = Schema.Struct({
   }),
   exclude: Schema.optionalKey(Schema.Array(Schema.NonEmptyString)).annotateKey({
     description:
-      "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded.",
+      "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. Every Variant of one Shared File has the same exclude.",
   }),
 });
 export type SharedFile = typeof SharedFile.Type;
+
+const sameExclude = (a: SharedFile, b: SharedFile) =>
+  [...new Set(a.exclude ?? [])].toSorted().join("\n") ===
+  [...new Set(b.exclude ?? [])].toSorted().join("\n");
 
 export const FilesSection = section(
   {},
@@ -261,6 +265,26 @@ export const FilesSection = section(
         decode: (path) => ({ path }),
         encode: (file) => file.path,
       }),
+    ),
+  ).check(
+    // A name names the Item's Install Record file, so it is one path segment.
+    // One exclude for every Variant, so the Starting Machine and a target
+    // leave the same paths alone (a path only one side excluded would be
+    // deleted, or copied and never seen again).
+    Schema.makeFilter(
+      (items) => {
+        const badName = Object.keys(items).find((n) => n.includes("/") || n === "." || n === "..");
+        if (badName !== undefined)
+          return `"${badName}": a Shared File's name has no / and is not . or ..`;
+        const name = Object.entries(items).find(
+          ([, item]) => Array.isArray(item) && item.some((v) => !sameExclude(v, item[0])),
+        )?.[0];
+        return name === undefined || `"${name}": every Variant needs the same exclude`;
+      },
+      {
+        title: "Shared Files",
+        description: "names without /, and one exclude across a Shared File's Variants",
+      },
     ),
   ),
   `Shared Files, keyed by name, which names the \`files:<name>\` Item. Each is a path, \`{ path, exclude?, platforms?, machines? }\`, ${VARIANTS}.`,

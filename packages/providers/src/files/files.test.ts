@@ -32,6 +32,7 @@ const decide = (input: {
   readonly machine?: MachineIdentity;
   readonly answer?: string;
   readonly config?: FleetConfig;
+  readonly rebuild?: boolean;
 }) => {
   const p = planMachine({
     providers: [files],
@@ -41,7 +42,7 @@ const decide = (input: {
       machine: input.machine ?? MACBOOK,
       config: input.config ?? configOf({ items: { wovn: "~/.config/wovn" } }),
       self: "0.9.0",
-      rebuild: () => false,
+      rebuild: () => input.rebuild ?? false,
       answer: (kind) => (kind === "file" ? input.answer : undefined),
     },
   });
@@ -126,6 +127,10 @@ describe("the files Provider decides", () => {
     expect(
       kinds(decide({ state: state(theirs), resolved: source(), answer: "overwrite" })),
     ).toEqual([["change", "differs, and no Ship wrote it"]]);
+    // --rebuild all still asks: only an answer overwrites.
+    expect(kinds(decide({ state: state(theirs), resolved: source(), rebuild: true }))).toEqual([
+      ["ask", "differs, and no Ship wrote it"],
+    ]);
   });
 
   it("only records a copy a Machine already has, and leaves it once recorded", () => {
@@ -173,6 +178,50 @@ describe("the files Provider copies", () => {
       return (yield* Stream.runCollect(Stream.decodeText(handle.stdout))).join("");
     }).pipe(Effect.scoped);
 
+  // Resolves the Studio's copy in `home`, and Checks and plans the MacBook.
+  const shipFrom = Effect.fn(function* (home: string, config: FleetConfig) {
+    const env = { HOME: process.env.HOME, SHELL: process.env.SHELL };
+    process.env.HOME = home;
+    process.env.SHELL = "/bin/sh";
+    const provider: AnyProvider = files;
+    const resolved = yield* provider
+      .resolve([], {
+        starting: { machine: STUDIO, config, items: targetedItems(files, config, STUDIO) },
+      })
+      .pipe(Effect.ensuring(Effect.sync(() => Object.assign(process.env, env))));
+
+    const check = Effect.fn(function* () {
+      const items = targetedItems(files, config, MACBOOK);
+      const out = yield* sh(
+        checkScript({
+          scope: { machine: MACBOOK, config },
+          providers: [{ provider: files, items }],
+        }),
+        home,
+      );
+      return assembleState(
+        out.split("\n").flatMap((line) => {
+          const parsed = parseLine(line);
+          return parsed.kind === "state" ? [parsed.fact] : [];
+        }),
+      );
+    });
+    const planFor = (state: MachineState, answer?: string) =>
+      planMachine({
+        providers: [files],
+        state,
+        resolved: { files: resolved },
+        ctx: {
+          machine: MACBOOK,
+          config,
+          self: "0.9.0",
+          rebuild: () => false,
+          answer: (kind) => (kind === "file" ? answer : undefined),
+        },
+      });
+    return { check, planFor };
+  });
+
   it.effect("mirrors a directory with its modes and links, keeps excludes, and records it", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -198,45 +247,7 @@ describe("the files Provider copies", () => {
         home,
       );
 
-      const env = { HOME: process.env.HOME, SHELL: process.env.SHELL };
-      process.env.HOME = home;
-      process.env.SHELL = "/bin/sh";
-      const provider: AnyProvider = files;
-      const resolved = yield* provider
-        .resolve([], {
-          starting: { machine: STUDIO, config, items: targetedItems(files, config, STUDIO) },
-        })
-        .pipe(Effect.ensuring(Effect.sync(() => Object.assign(process.env, env))));
-
-      const check = Effect.fn(function* () {
-        const items = targetedItems(files, config, MACBOOK);
-        const out = yield* sh(
-          checkScript({
-            scope: { machine: MACBOOK, config },
-            providers: [{ provider: files, items }],
-          }),
-          home,
-        );
-        return assembleState(
-          out.split("\n").flatMap((line) => {
-            const parsed = parseLine(line);
-            return parsed.kind === "state" ? [parsed.fact] : [];
-          }),
-        );
-      });
-      const planFor = (state: MachineState, answer?: string) =>
-        planMachine({
-          providers: [files],
-          state,
-          resolved: { files: resolved },
-          ctx: {
-            machine: MACBOOK,
-            config,
-            self: "0.9.0",
-            rebuild: () => false,
-            answer: (kind) => (kind === "file" ? answer : undefined),
-          },
-        });
+      const { check, planFor } = yield* shipFrom(home, config);
 
       // The first Ship: the MacBook's copy differs and no Ship wrote it.
       const first = planFor(yield* check(), "overwrite");
@@ -264,6 +275,51 @@ describe("the files Provider copies", () => {
       expect(edited?.kind === "ask" && edited.question.problem).toBe(
         "was edited there (sub/b.txt)",
       );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("stops rather than delete an excluded path inside a directory it removes", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const exclude = ["gone/keep.txt"];
+      const config = configOf({
+        items: {
+          k: [
+            { machines: ["studio"], path: `${home}/src`, exclude },
+            { machines: ["macbook"], path: `${home}/dst`, exclude },
+          ],
+        },
+      });
+      yield* sh(
+        'cd "$HOME" && mkdir -p src dst/gone && printf a > src/a && printf x > dst/gone/x && printf keep > dst/gone/keep.txt',
+        home,
+      );
+      const { check, planFor } = yield* shipFrom(home, config);
+      const plan = planFor(yield* check(), "overwrite");
+      const out = yield* sh(applyScript(plan), home, applyStdin(undefined, "{}", "{}", plan));
+      expect(out).toContain('ff-done {"id":"files:k:copy","ok":false');
+      expect(yield* fs.readFileString(`${home}/dst/gone/keep.txt`)).toBe("keep");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("fails an Item with a file it cannot read here, rather than treat it as removed", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const config = configOf({
+        items: {
+          k: [
+            { machines: ["studio"], path: `${home}/src` },
+            { machines: ["macbook"], path: `${home}/dst` },
+          ],
+        },
+      });
+      yield* sh('cd "$HOME" && mkdir -p src && printf a > src/a && chmod 000 src/a', home);
+      const { check, planFor } = yield* shipFrom(home, config);
+      const decision = planFor(yield* check()).providers[0]?.decisions[0];
+      expect(decision?.kind === "fail" && decision.reason).toBe("studio: cannot read a here");
+      yield* sh('chmod 600 "$HOME/src/a"', home);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

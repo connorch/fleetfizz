@@ -112,6 +112,20 @@ describe("FleetConfig", () => {
     expect(ok({ machines: ["a"], brew: { items: { brew: "*" } } })).toBe(false);
   });
 
+  it("takes Shared File names of one path segment, and one exclude across Variants", () => {
+    const files = (items: unknown) => ok({ machines: ["a"], files: { items } });
+    expect(files({ "editor.settings": "~/.config/editor" })).toBe(true);
+    for (const name of ["editor/settings", "..", "."])
+      expect(files({ [name]: "~/x" }), name).toBe(false);
+    const variant = (platform: string, exclude?: string[]) => ({
+      platforms: [platform],
+      path: "~/x",
+      ...(exclude === undefined ? {} : { exclude }),
+    });
+    expect(files({ x: [variant("darwin", ["a", "b"]), variant("linux", ["b", "a"])] })).toBe(true);
+    expect(files({ x: [variant("darwin", ["backups"]), variant("linux")] })).toBe(false);
+  });
+
   it("rejects an unknown Provider in dependsOn", () => {
     expect(ok({ machines: ["a"], vp: { dependsOn: ["repos"] } })).toBe(true);
     expect(ok({ machines: ["a"], vp: { dependsOn: ["npm"] } })).toBe(false);
