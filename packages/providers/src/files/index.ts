@@ -420,7 +420,7 @@ const copyStep = (change: FileChange): Step => {
   const write = ([rel, entry]: [string, string]): string[] => {
     const [type, mode = ""] = entry.split(" ");
     if (type === "d") return [`mkdir -p ${at(rel)}`];
-    if (type === "l") return [`rm -f ${at(rel)}`, `ln -s ${quote(entry.slice(2))} ${at(rel)}`];
+    if (type === "l") return [`rm -f ${at(rel)}`, `ln -s -- ${quote(entry.slice(2))} ${at(rel)}`];
     const n = input.push(contents.get(rel) ?? new Hidden("")) - 1;
     return [
       `ff_t=$(mktemp "$(dirname ${at(rel)})/.fftmp.XXXXXX")`,
@@ -493,7 +493,9 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
       const sources =
         starting.items.length === 0
           ? new Map<string, Source>()
-          : yield* resolveSources(starting.items, starting).pipe(
+          : // A path on a stalled mount must not hold the Ship forever.
+            yield* resolveSources(starting.items, starting).pipe(
+              Effect.timeout("2 minutes"),
               Effect.orElseSucceed(
                 () =>
                   new Map<string, Source>(

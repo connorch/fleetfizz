@@ -238,11 +238,27 @@ const HomePath = Schema.NonEmptyString.check(
   }),
 );
 
+// fleetfizz's own directories, which a Ship writes itself: a Shared File
+// may not be one, hold one, or sit inside one.
+const OWN_DIRS = ["~/.config/fleetfizz", "~/.local/state/fleetfizz"];
+const SharedFilePath = HomePath.check(
+  Schema.makeFilter(
+    (path) => {
+      const p = path.replace(/\/+$/, "");
+      const dir = OWN_DIRS.find(
+        (d) => p === "~" || d === p || d.startsWith(`${p}/`) || p.startsWith(`${d}/`),
+      );
+      return dir === undefined || `overlaps ${dir}, which a Ship writes itself`;
+    },
+    { title: "Shared File path", description: "a path outside fleetfizz's own directories" },
+  ),
+);
+
 // A Shared File: a file or directory a Ship copies from the Starting Machine
 // (ADR 0016). Its name is its key in `files.items`.
 export const SharedFile = Schema.Struct({
   ...Targeting,
-  path: HomePath.annotateKey({
+  path: SharedFilePath.annotateKey({
     description: "A file or directory, absolute or under `~`, which expands on each Machine.",
   }),
   exclude: Schema.optionalKey(Schema.Array(Schema.NonEmptyString)).annotateKey({
@@ -261,7 +277,7 @@ export const FilesSection = section(
   Schema.Record(
     Schema.NonEmptyString,
     variants(
-      withShorthand(SharedFile, HomePath, {
+      withShorthand(SharedFile, SharedFilePath, {
         decode: (path) => ({ path }),
         encode: (file) => file.path,
       }),

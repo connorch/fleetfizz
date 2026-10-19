@@ -124,6 +124,8 @@ describe("FleetConfig", () => {
     });
     expect(files({ x: [variant("darwin", ["a", "b"]), variant("linux", ["b", "a"])] })).toBe(true);
     expect(files({ x: [variant("darwin", ["backups"]), variant("linux")] })).toBe(false);
+    for (const path of ["~/.config", "~/.config/fleetfizz/", "~/.local/state/fleetfizz/x", "~"])
+      expect(files({ x: path }), path).toBe(false);
   });
 
   it("rejects an unknown Provider in dependsOn", () => {
