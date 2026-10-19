@@ -126,7 +126,7 @@ describe("the Ledger", () => {
           "            vp:vercel       59.25.4",
           "✗ failed    repos:t3code    3f1a2b0 → 9e02bb1  1m 30s  exit 1",
           "            │ ERR_PNPM_OUTDATED_LOCKFILE",
-          "            repos:dotfiles  a41c0d2              0.0s  up to date",
+          "            repos:dotfiles  a41c0d2              0.0s",
           "✓ copied    config          3eca7d1 → 9f8e7d6    2.0s",
         ].join("\n"),
       );
@@ -188,7 +188,7 @@ describe("an Item planned to latest", () => {
             "✓ done    brew:gh    + 2.80.0     0.0s",
             "          brew:tmux  3.5a         0.0s",
             "✓ done    brew:jq    1.7 → 1.8.1  0.0s",
-            "          config     9f8e7d6            up to date",
+            "          config     9f8e7d6",
             "",
             "1 updated  in 0.0s",
           ].join("\n"),

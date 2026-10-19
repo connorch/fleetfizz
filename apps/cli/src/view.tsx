@@ -94,20 +94,18 @@ const runGlyph = (live: boolean, now: number): string =>
   (live ? SPINNER.frames[Math.floor(now / SPINNER.interval) % SPINNER.frames.length] : undefined) ??
   "▸";
 
-// An unchanged item has no status; a record Item says so at the end instead.
-const unchanged = (i: Item) => ({
-  text: "",
-  detail: i.kind === "record" || i.kind === "config" ? "up to date" : undefined,
-});
+// An unchanged item has no status, and its line is dim, even when its upkeep ran.
+const UNCHANGED = { text: "", quiet: true } as const;
 
 // An item's status, first on its line, and the detail at its end. Outcomes
 // are past tense, work in progress ends in -ing, and `queued` (a Ship) or
-// `planned` (a dry run) has not started. `glyph` leads a running item.
+// `planned` (a dry run) has not started. `glyph` leads a running item; a
+// `quiet` item (unchanged, or not started) draws its line dim.
 const statusOf = (
   i: Item,
   dryRun: boolean,
   glyph: string,
-): Part & { readonly detail?: string | undefined } => {
+): Part & { readonly detail?: string | undefined; readonly quiet?: boolean } => {
   switch (i.status) {
     case "running":
       return { text: `${glyph} ${i.doing ?? "running"}`, tone: "run" };
@@ -118,7 +116,7 @@ const statusOf = (
     case "ok":
       // Only its upkeep ran (a Managed Clone's reset, an upgrade that found
       // nothing newer): still unchanged.
-      if (!i.changes) return unchanged(i);
+      if (!i.changes) return UNCHANGED;
       if (i.kind === "config") return { text: "✓ copied", tone: "ok" };
       if (i.kind === "record") {
         return i.from !== undefined && i.from === i.to
@@ -128,8 +126,13 @@ const statusOf = (
       return { text: "✓ done", tone: "ok", detail: i.reason };
     case "idle":
       if (i.changes)
-        return { text: dryRun ? "· planned" : "· queued", tone: "dim", detail: i.reason };
-      return unchanged(i);
+        return {
+          text: dryRun ? "· planned" : "· queued",
+          tone: "dim",
+          detail: i.reason,
+          quiet: true,
+        };
+      return UNCHANGED;
   }
 };
 
@@ -313,7 +316,7 @@ const MachineLine = (props: {
 const ItemLine = (props: { i: Item; w: Widths; dryRun: boolean; now: number; glyph: string }) => {
   const { i, w } = props;
   const status = statusOf(i, props.dryRun, props.glyph);
-  const quiet = i.status === "idle" ? "dim" : undefined;
+  const quiet = status.quiet === true ? "dim" : undefined;
   return (
     <Box columnGap={GAP}>
       <Cell width={w.status} tone={status.tone}>
