@@ -47,7 +47,7 @@ const decide = (input: {
     resolved: { files: input.resolved },
     ctx: {
       machine: input.machine ?? MACBOOK,
-      config: input.config ?? configOf({ items: { wovn: "~/.config/wovn" } }),
+      config: input.config ?? configOf({ items: { vaut: "~/.config/vaut" } }),
       self: "0.9.0",
       rebuild: () => input.rebuild ?? false,
       answer: (kind) => (kind === "file" ? input.answer : undefined),
@@ -62,7 +62,7 @@ describe("the files Provider decides", () => {
     ["config.json", "f 600 aaa"],
   ]);
   const theirs = { ".": "d 700", "config.json": "f 600 bbb" };
-  const item = { name: "wovn", path: "~/.config/wovn", exclude: [] };
+  const item = { name: "vaut", path: "~/.config/vaut", exclude: [] };
   const copy = (machine: string, entries: Readonly<Record<string, string>>, openssl = true) => ({
     machine,
     item,
@@ -71,7 +71,7 @@ describe("the files Provider decides", () => {
   });
   const source = (
     record?: { at: string; entries: Record<string, string> },
-    copies: FilesResolved["copies"] = new Map([["wovn", [copy("macbook", theirs)]]]),
+    copies: FilesResolved["copies"] = new Map([["vaut", [copy("macbook", theirs)]]]),
   ): FilesResolved => ({
     from: "studio",
     at: "2026-10-20T10:00:00.000Z",
@@ -79,7 +79,7 @@ describe("the files Provider decides", () => {
     openssl: true,
     sources: new Map([
       [
-        "wovn",
+        "vaut",
         {
           item,
           kind: "present",
@@ -98,14 +98,14 @@ describe("the files Provider decides", () => {
       ...Object.entries(entries ?? {}).map(([path, entry]) => ({
         provider: "files",
         fact: "entry",
-        item: "wovn",
+        item: "vaut",
         path,
         entry,
         size: 1,
       })),
       ...(record === undefined
         ? []
-        : [{ fact: "record", provider: "files", item: "wovn", record }]),
+        : [{ fact: "record", provider: "files", item: "vaut", record }]),
       { fact: "end" },
     ]);
   const kinds = (plan: ReturnType<typeof decide>) =>
@@ -164,7 +164,7 @@ describe("the files Provider decides", () => {
     const same = Object.fromEntries(ours);
     const plan = decide({ state: state(same), resolved: source() });
     expect(kinds(plan)).toEqual([["leave", undefined]]);
-    expect(plan.steps.map((s) => s.id)).toEqual(["files:wovn:record"]);
+    expect(plan.steps.map((s) => s.id)).toEqual(["files:vaut:record"]);
     const recorded = { at: "2026-10-20T10:00:00.000Z", entries: same };
     expect(decide({ state: state(same, recorded), resolved: source() }).steps).toEqual([]);
   });
@@ -173,7 +173,7 @@ describe("the files Provider decides", () => {
     const missing: FilesResolved = {
       from: "studio",
       at: "",
-      sources: new Map([["wovn", { item, kind: "missing" }]]),
+      sources: new Map([["vaut", { item, kind: "missing" }]]),
       copies: new Map(),
       openssl: true,
     };
@@ -194,7 +194,7 @@ describe("the files Provider decides", () => {
 });
 
 describe("the files Provider pulls", () => {
-  const item = { name: "wovn", path: "~/.config/wovn", exclude: [] };
+  const item = { name: "vaut", path: "~/.config/vaut", exclude: [] };
   const entries = { ".": "d 700", "config.json": "f 600 bbb" };
   const copy = (machine: string, openssl = true) => ({
     machine,
@@ -208,15 +208,15 @@ describe("the files Provider pulls", () => {
   ): FilesResolved => ({
     from: "studio",
     at: "",
-    sources: new Map([["wovn", { item, kind: "missing" }]]),
-    copies: new Map([["wovn", copies]]),
+    sources: new Map([["vaut", { item, kind: "missing" }]]),
+    copies: new Map([["vaut", copies]]),
     openssl,
   });
   const there = assembleState([
     ...Object.entries(entries).map(([path, entry]) => ({
       provider: "files",
       fact: "entry",
-      item: "wovn",
+      item: "vaut",
       path,
       entry,
       size: 1,
@@ -240,11 +240,11 @@ describe("the files Provider pulls", () => {
 
   it.effect("never offers a copy with a path that Machine cannot read", () =>
     Effect.gen(function* () {
-      const config = configOf({ items: { wovn: "~/.config/wovn" } });
+      const config = configOf({ items: { vaut: "~/.config/vaut" } });
       const fact = (path: string, entry: string) => ({
         provider: "files",
         fact: "entry",
-        item: "wovn",
+        item: "vaut",
         path,
         entry,
         size: 1,
@@ -260,7 +260,7 @@ describe("the files Provider pulls", () => {
           },
         ],
       });
-      expect(resolved.copies.get("wovn")).toBeUndefined();
+      expect(resolved.copies.get("vaut")).toBeUndefined();
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -517,13 +517,13 @@ describe("the files Provider copies", () => {
           ]),
         },
       };
-      const step = diffStep({ name: "wovn", dir: `${home}/d`, ...sides });
+      const step = diffStep({ name: "vaut", dir: `${home}/d`, ...sides });
       expect(stepScript(step)).not.toContain(btoa("new"));
       const out = yield* sh(stepScript(step), home, stepStdin(step));
-      expect(out).toContain('ff-done {"id":"files:wovn:diff","ok":true}');
-      expect(yield* fs.exists(`${home}/d/studio/wovn/same.json`)).toBe(false);
+      expect(out).toContain('ff-done {"id":"files:vaut:diff","ok":true}');
+      expect(yield* fs.exists(`${home}/d/studio/vaut/same.json`)).toBe(false);
       expect(
-        ((yield* fs.stat(`${home}/d/macbook/wovn/config.json`)).mode & 0o777).toString(8),
+        ((yield* fs.stat(`${home}/d/macbook/vaut/config.json`)).mode & 0o777).toString(8),
       ).toBe("600");
       const diff = yield* sh(
         'cd "$HOME/d" && git diff --no-index --no-color -- macbook studio',
@@ -532,38 +532,38 @@ describe("the files Provider copies", () => {
       // Only what differs: a changed file, a removed one, and a link's new target.
       // git shows neither the empty directory nor the 600 -> 644 mode, so those
       // are listed; it shows run.sh becoming executable itself.
-      expect(notShownByGit("wovn", sides.old, sides.new)).toEqual([
-        "wovn/empty/ only on macbook",
-        "wovn/mode.json mode 600 → 644",
+      expect(notShownByGit("vaut", sides.old, sides.new)).toEqual([
+        "vaut/empty/ only on macbook",
+        "vaut/mode.json mode 600 → 644",
       ]);
       expect(diff).toMatchInlineSnapshot(`
-        "diff --git a/macbook/wovn/config.json b/studio/wovn/config.json
+        "diff --git a/macbook/vaut/config.json b/studio/vaut/config.json
         index 489ce0f..3e5126c 100644
-        --- a/macbook/wovn/config.json
-        +++ b/studio/wovn/config.json
+        --- a/macbook/vaut/config.json
+        +++ b/studio/vaut/config.json
         @@ -1 +1 @@
         -old
         \\ No newline at end of file
         +new
         \\ No newline at end of file
-        diff --git a/macbook/wovn/link b/studio/wovn/link
+        diff --git a/macbook/vaut/link b/studio/vaut/link
         index 20479d8..0cffcb3 120000
-        --- a/macbook/wovn/link
-        +++ b/studio/wovn/link
+        --- a/macbook/vaut/link
+        +++ b/studio/vaut/link
         @@ -1 +1 @@
         -same.json
         \\ No newline at end of file
         +config.json
         \\ No newline at end of file
-        diff --git a/macbook/wovn/only-there.json b/macbook/wovn/only-there.json
+        diff --git a/macbook/vaut/only-there.json b/macbook/vaut/only-there.json
         deleted file mode 100644
         index c78ee1a..0000000
-        --- a/macbook/wovn/only-there.json
+        --- a/macbook/vaut/only-there.json
         +++ /dev/null
         @@ -1 +0,0 @@
         -there
         \\ No newline at end of file
-        diff --git a/macbook/wovn/run.sh b/studio/wovn/run.sh
+        diff --git a/macbook/vaut/run.sh b/studio/vaut/run.sh
         old mode 100644
         new mode 100755
         "

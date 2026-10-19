@@ -94,14 +94,14 @@ describe("what the live Ledger says is running", () => {
 
   it("shows an item that does not change while its Step runs", () => {
     const fetching: Item = {
-      ...item("repos:wovn", "running"),
+      ...item("repos:vaut", "running"),
       kind: "record",
       changes: false,
       doing: "fetching",
       started: 0,
     };
     const lines = at([{ name: "macbook", status: "running", connected: true, items: [fetching] }]);
-    expect(lines.some((l) => l.startsWith(`${spin} fetching`) && l.includes("repos:wovn"))).toBe(
+    expect(lines.some((l) => l.startsWith(`${spin} fetching`) && l.includes("repos:vaut"))).toBe(
       true,
     );
   });
