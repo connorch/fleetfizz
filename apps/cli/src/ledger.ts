@@ -14,7 +14,8 @@
 // The state is plain data, a Schema so `fizz report` can save it. Ship events
 // update it through the `Ledger` interface, and view.tsx draws it, live or
 // once. Notes (Questions, their answers, and other Fleet lines) are not part
-// of that drawing: they print once, above it, as they happen.
+// of that drawing: they print once, above it, as they happen. Every event also
+// goes in the Ship Log (log.ts), under its Machine.
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -234,13 +235,23 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
     },
     tick: update((state) => state),
   };
+  // Writes a Machine's event to the Ship Log.
+  const log = (name: string, entry: Effect.Effect<void>) =>
+    Effect.annotateLogs(entry, { machine: name });
   const ledger: Ledger = {
     note: Effect.fn("ledger.note")(function* (kind, text) {
       yield* update((state) => ({ ...state, notes: [...state.notes, { kind, text }] }));
       yield* input.print({ kind, text });
+      yield* Effect.logInfo(`${kind}: ${text}`);
     }),
-    checked: (name) => machine(name, (m) => ({ ...m, status: "waiting" })),
-    skip: (name, reason) => machine(name, (m) => ({ ...m, status: "skipped", detail: reason })),
+    checked: (name) =>
+      machine(name, (m) => ({ ...m, status: "waiting" })).pipe(
+        Effect.andThen(log(name, Effect.logInfo("checked"))),
+      ),
+    skip: (name, reason) =>
+      machine(name, (m) => ({ ...m, status: "skipped", detail: reason })).pipe(
+        Effect.andThen(log(name, Effect.logWarning(`skipped: ${reason}`))),
+      ),
     fail: (name, [reason = "failed", ...output]) =>
       machine(name, (m, now) => ({
         ...m,
@@ -248,9 +259,21 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         detail: reason,
         ...(output.length === 0 ? {} : { output }),
         ended: now,
-      })),
-    plan: (name, p) => machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p) })),
-    start: (name) => machine(name, (m, now) => ({ ...m, status: "running", started: now })),
+      })).pipe(Effect.andThen(log(name, Effect.logError(`failed: ${reason}`)))),
+    plan: (name, p) =>
+      machine(name, (m) => ({ ...m, status: "planned", items: itemsOf(p) })).pipe(
+        Effect.andThen(
+          Effect.forEach(
+            p.providers.flatMap((pp) => pp.decisions.map((d) => ({ pp, d }))),
+            ({ pp, d }) => log(name, Effect.logInfo(`plan ${address(pp.name, d.item)}:`, d)),
+            { discard: true },
+          ),
+        ),
+      ),
+    start: (name) =>
+      machine(name, (m, now) => ({ ...m, status: "running", started: now })).pipe(
+        Effect.andThen(log(name, Effect.logInfo("applying"))),
+      ),
     // An Item keeps its first failure: a later Step for the same Item must
     // not hide it.
     stepStarted: (name, id) =>
@@ -263,7 +286,7 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
               doing: item.steps.find((step) => step.id === id)?.doing ?? "running",
               started: item.started ?? now,
             },
-      ),
+      ).pipe(Effect.andThen(log(name, Effect.logInfo(`step ${id}`)))),
     stepDone: (name, id, result) =>
       items(name, id, (item, now) => {
         if (item.status === "failed" || item.status === "skipped") return item;
@@ -281,13 +304,22 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         if (item.steps.at(-1)?.id !== id) return item;
         const { doing: _, ...rest } = item;
         return { ...rest, status: "ok", ended: now };
-      }),
+      }).pipe(
+        Effect.andThen(
+          log(
+            name,
+            result.ok
+              ? Effect.logInfo(`step ${id}: done`)
+              : Effect.logWarning(`step ${id}: ${result.detail}`),
+          ),
+        ),
+      ),
     stepSkipped: (name, id, reason) =>
       items(name, id, (item, now) => {
         if (item.status === "failed") return item;
         const { doing: _, ...rest } = item;
         return { ...rest, status: "skipped", detail: reason, ended: now };
-      }),
+      }).pipe(Effect.andThen(log(name, Effect.logInfo(`step ${id}: skipped, ${reason}`)))),
     // "latest" becomes the version reached. An Item already there did not change.
     reached: (name, item, at) =>
       machine(name, (m) => ({
@@ -295,13 +327,13 @@ export const makeLedger = Effect.fn("makeLedger")(function* (input: {
         items: m.items.map((i) =>
           i.name !== item ? i : { ...i, to: at, changes: i.status === "failed" || i.from !== at },
         ),
-      })),
+      })).pipe(Effect.andThen(log(name, Effect.logInfo(`${item} reached ${at}`)))),
     finish: (name, outcome) =>
       machine(name, (m, now) => ({
         ...m,
         status: m.status === "failed" ? "failed" : outcome,
         ended: m.ended ?? now,
-      })),
+      })).pipe(Effect.andThen(log(name, Effect.logInfo(`finished: ${outcome}`)))),
     // A Check or Apply still going when the Ship ends was stopped (Ctrl-C or
     // an error). Machines waiting between them keep their state.
     end: Effect.gen(function* () {

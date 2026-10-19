@@ -16,6 +16,8 @@ export interface CheckInput {
 
 export const STATE_DIR = "~/.local/state/fleetfizz";
 export const RECORDS_DIR = `${STATE_DIR}/records`;
+// Ship Logs, on the Machine that started each Ship (ADR 0015).
+export const LOGS_DIR = `${STATE_DIR}/logs`;
 // The config directory on a Machine, as a shell expression (ADR 0008).
 export const CONFIG_DIR_SH = '"${XDG_CONFIG_HOME:-$HOME/.config}/fleetfizz"';
 

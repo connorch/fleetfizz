@@ -61,6 +61,17 @@ const markdownFormatter: CliOutput.Formatter = {
   formatHelpDoc: (doc) =>
     [
       doc.description,
+      ...(doc.args !== undefined && doc.args.length > 0
+        ? [
+            table(
+              ["Argument", "Description"],
+              doc.args.map((arg) => [
+                `\`<${arg.name}>\`${arg.required ? "" : " (optional)"}`,
+                Option.getOrElse(arg.description, () => ""),
+              ]),
+            ),
+          ]
+        : []),
       ...(doc.flags.length > 0
         ? [
             table(

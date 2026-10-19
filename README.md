@@ -61,9 +61,12 @@ Then:
 fizz ship --dry-run   # check every Machine and print its plan; change nothing
 fizz ship             # apply the plan everywhere, in parallel
 fizz report           # print the full Ledger of the last Ship from this Machine
+fizz logs             # print the Ship Log of the latest Ship that started on or reached this Machine
 ```
 
 The Ledger lists each Machine and, under it, what changes there, by address: `vp:node`, `repos:t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
+
+To debug a Ship, read its Ship Log: every script each Machine ran, every line it printed, every decision, and full errors. Each Ship ends by printing its id (`log: fizz logs <ship-id>`). The log lives on the Machine that started the Ship, and `fizz logs` reads it from any Machine over Tailscale SSH.
 
 Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs its own fleetfizz version there, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`; a Ship installs vp on it if it has none. If another Machine holds a config that was shipped more recently than this one, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
 

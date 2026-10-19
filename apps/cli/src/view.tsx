@@ -490,3 +490,6 @@ export const ledgerText = (state: LedgerState, options: ViewOptions, color?: boo
   toText(<LedgerView state={state} {...options} />, color);
 
 export const noteText = (note: Note, color?: boolean) => toText(<NoteLine note={note} />, color);
+
+// A dim line after the Ledger, pointing somewhere ("log: fizz logs <id>").
+export const hintText = (text: string, color?: boolean) => toText(<T tone="dim">{text}</T>, color);

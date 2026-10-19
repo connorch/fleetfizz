@@ -2,11 +2,24 @@
 // bin.ts runs it; the docs' Commands reference is generated from it.
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
-import { Command, Flag } from "effect/cli";
+import * as Option from "effect/Option";
+import { Argument, Command, Flag } from "effect/cli";
 
 import packageJson from "../package.json" with { type: "json" };
+import { KEEP, logs } from "./log.ts";
 import { report } from "./report.tsx";
 import { ship } from "./ship.ts";
+
+// Problems the person can fix print as one message, not a trace.
+const printProblems = <A, E extends Error, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(
+    Effect.catch((e) =>
+      Effect.gen(function* () {
+        yield* Console.error(e.message);
+        process.exitCode = 1;
+      }),
+    ),
+  );
 
 const shipCommand = Command.make("ship", {
   dryRun: Flag.Boolean("dry-run").pipe(
@@ -69,17 +82,9 @@ const shipCommand = Command.make("ship", {
         ...(flags.enforce ? ["range=downgrade"] : []),
         ...(flags.overwriteConfig ? ["config=overwrite"] : []),
       ],
-      config: flags.config._tag === "Some" ? flags.config.value : undefined,
+      config: Option.getOrUndefined(flags.config),
       version: packageJson.version,
-    }).pipe(
-      // Problems the person can fix print as one message, not a trace.
-      Effect.catch((e) =>
-        Effect.gen(function* () {
-          yield* Console.error(e.message);
-          process.exitCode = 1;
-        }),
-      ),
-    ),
+    }).pipe(printProblems),
   ),
 );
 
@@ -88,8 +93,37 @@ const reportCommand = Command.make("report", {}).pipe(
   Command.withHandler(() => report()),
 );
 
+const logsCommand = Command.make("logs", {
+  ship: Argument.String("ship").pipe(
+    Argument.optional,
+    Argument.withDescription("The Ship id, printed at the end of every Ship."),
+  ),
+  machine: Flag.String("machine").pipe(
+    Flag.optional,
+    Flag.withMetavar("machine"),
+    Flag.withDescription("Print only this Machine's lines."),
+  ),
+  list: Flag.Boolean("list").pipe(
+    Flag.withDefault(false),
+    Flag.withDescription(
+      `List the Ships started here whose logs this Machine keeps (its last ${KEEP}).`,
+    ),
+  ),
+}).pipe(
+  Command.withDescription(
+    "Print the Ship Log of a Ship: every script, every line each Machine printed, and every decision. Without a Ship id, the latest Ship that started on or reached this Machine, read over tailscale ssh when another Machine started it.",
+  ),
+  Command.withHandler((flags) =>
+    logs({
+      id: Option.getOrUndefined(flags.ship),
+      machine: Option.getOrUndefined(flags.machine),
+      list: flags.list,
+    }).pipe(printProblems),
+  ),
+);
+
 // The package is fleetfizz; the command is fizz.
 export const fizz = Command.make("fizz").pipe(
   Command.withDescription("Keep every Machine on your tailnet in line with one config."),
-  Command.withSubcommands([shipCommand, reportCommand]),
+  Command.withSubcommands([shipCommand, reportCommand, logsCommand]),
 );

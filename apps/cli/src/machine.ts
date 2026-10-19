@@ -1,5 +1,7 @@
 // Running one generated script on one Machine and folding its marker lines
-// into Ledger events. Check and Apply differ only in what they fold.
+// into Ledger events. Check and Apply differ only in what they fold. The
+// script and every line it prints, markers included, go in the Ship Log.
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -19,7 +21,7 @@ import {
   type Target,
 } from "@fleetfizz/remote";
 
-import type { Ledger, Outcome } from "./ledger.ts";
+import { duration, type Ledger, type Outcome } from "./ledger.ts";
 
 const decodeAt = Schema.decodeUnknownOption(AtFact);
 
@@ -39,15 +41,21 @@ const runOn = Effect.fn("runOn")(function* (
 ) {
   // The first plain line, which is tailscale's reason when ssh fails.
   let first: string | undefined;
+  yield* Effect.logDebug(`script:\n${script}`);
+  const started = yield* Clock.currentTimeMillis;
   const run: Run = yield* runScript(target, script, secrets, (line) => {
     const parsed = parseLine(line);
     if (parsed.kind === "text" && first === undefined && line.trim() !== "") first = line.trim();
-    return onLine(parsed);
+    return Effect.logDebug(`> ${line}`).pipe(Effect.andThen(onLine(parsed)));
   }).pipe(
     Effect.map((exitCode) => ({ kind: "ran", exitCode }) as const),
     Effect.catch((e) =>
       ledger.fail(target.name, [e.message]).pipe(Effect.as({ kind: "failed" } as const)),
     ),
+  );
+  const ended = yield* Clock.currentTimeMillis;
+  yield* Effect.logInfo(
+    `${run.kind === "ran" ? `exit ${run.exitCode}` : "could not start"} after ${duration(ended - started)}`,
   );
   if (!target.local && run.kind === "ran" && run.exitCode === SSH_UNREACHABLE) {
     yield* ledger.skip(
