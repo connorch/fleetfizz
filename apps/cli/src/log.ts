@@ -122,35 +122,39 @@ export interface LogsFlags {
 }
 
 // `fizz logs`: prints one Ship Log, by default the latest Ship that started
-// on or reached this Machine.
+// on or reached this Machine. The tailnet is read only to reach another
+// Machine, so the logs here stay readable when Tailscale is down.
 export const logs = Effect.fn("logs")(function* (flags: LogsFlags) {
-  const tailnet = yield* readTailnet();
-  const self = tailnet.self.name;
-  const here: Target = { name: self, local: true };
-  const targetOf = (name: string): Effect.Effect<Target, LogsError> => {
-    if (name === self) return Effect.succeed(here);
-    const machine = tailnet.fleet.find((m) => m.name === name);
+  const here: Target = { name: "this Machine", local: true };
+  const local = yield* shipIds(here);
+  // This Machine's name, from its own logs (only a Starting Machine has any).
+  const self = parseShipId(local.at(-1) ?? "")?.from;
+  const tailnet = yield* Effect.cached(readTailnet());
+  const targetOf = Effect.fn("targetOf")(function* (name: string) {
+    if (name === self) return here;
+    const { self: me, fleet } = yield* tailnet;
+    if (name === me.name) return here;
+    const machine = fleet.find((m) => m.name === name);
     if (machine === undefined)
-      return Effect.fail(new LogsError(`no Machine ${name} on the tailnet`));
+      return yield* Effect.fail(new LogsError(`no Machine ${name} on the tailnet`));
     if (!machine.online)
-      return Effect.fail(new LogsError(`${name} is offline; its logs are there`));
-    return Effect.succeed({ name, local: false });
-  };
+      return yield* Effect.fail(new LogsError(`${name} is offline; its logs are there`));
+    return { name, local: false } satisfies Target;
+  });
 
   if (flags.list) {
-    const ids = yield* shipIds(here);
-    if (ids.length === 0) return yield* Console.log("no Ship Log on this Machine yet");
-    for (const id of ids.toReversed()) yield* Console.log(id);
+    if (local.length === 0) return yield* Console.log("no Ship Log on this Machine yet");
+    for (const id of local.toReversed()) yield* Console.log(id);
     return;
   }
 
-  const id = flags.id ?? (yield* latestShip(here, targetOf));
+  const id = flags.id ?? (yield* latestShip(local, self, targetOf));
   const ship = parseShipId(id);
   if (ship === undefined)
     return yield* Effect.fail(new LogsError(`not a Ship id: ${id} (fizz logs --list shows them)`));
   let missing = false;
   yield* read(
-    yield* targetOf(ship.from),
+    local.includes(id) ? here : yield* targetOf(ship.from),
     `ff_log=${quotePath(LOGS_DIR)}/${quote(`${id}.log`)}\nif [ -f "$ff_log" ]; then cat "$ff_log"; else echo ${MISSING}; fi`,
     (line) => {
       if (line === MISSING) return Effect.sync(() => void (missing = true));
@@ -165,21 +169,22 @@ export const logs = Effect.fn("logs")(function* (flags: LogsFlags) {
 });
 
 // The latest Ship that started on or reached this Machine: the newest log
-// here, unless this Machine's config stamp says a Ship from another Machine
-// reached it later. That Ship is the newest log there that started before
-// its stamp.
-const latestShip = Effect.fn("latestShip")(function* (
-  here: Target,
-  targetOf: (name: string) => Effect.Effect<Target, LogsError>,
+// here (`local`, oldest first), unless this Machine's config stamp says a
+// Ship from another Machine reached it later. That Ship is the newest log
+// there that started before its stamp.
+const latestShip = Effect.fn("latestShip")(function* <E, R>(
+  local: ReadonlyArray<string>,
+  self: string | undefined,
+  targetOf: (name: string) => Effect.Effect<Target, E, R>,
 ) {
-  const local = (yield* shipIds(here)).at(-1);
+  const newest = local.at(-1);
   const config = Option.getOrUndefined(
     yield* loadConfig(configPath(process.env)).pipe(Effect.option),
   );
   const from = config?.shippedFrom;
   const at = Date.parse(config?.shippedAt ?? "");
-  const localStarted = local === undefined ? -Infinity : (parseShipId(local)?.started ?? -Infinity);
-  if (from !== undefined && from !== here.name && at > localStarted) {
+  const newestStarted = parseShipId(newest ?? "")?.started ?? -Infinity;
+  if (from !== undefined && from !== self && at > newestStarted) {
     const there = (yield* shipIds(yield* targetOf(from)))
       .filter((id) => (parseShipId(id)?.started ?? Infinity) <= at)
       .at(-1);
@@ -191,7 +196,7 @@ const latestShip = Effect.fn("latestShip")(function* (
       );
     return there;
   }
-  if (local === undefined)
+  if (newest === undefined)
     return yield* Effect.fail(new LogsError("no Ship Log on this Machine yet"));
-  return local;
+  return newest;
 });

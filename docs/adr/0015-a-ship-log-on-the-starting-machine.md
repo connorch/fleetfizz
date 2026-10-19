@@ -21,5 +21,5 @@ It is written through Effect's logger, which during a Ship writes only to the fi
 ## Consequences
 
 - ADR 0009's "a Ship started on another Machine is not visible here" holds for `fizz report`, not for `fizz logs`.
-- A Ship Log is readable only while its Starting Machine is online.
+- A Ship Log is readable only while its Starting Machine is online. `fizz logs` reads the tailnet only to reach another Machine, so this Machine's own logs stay readable when Tailscale is down.
 - The tailnet is read before the log opens, since the Starting Machine names it; a failure reading it prints as before and leaves no log.
