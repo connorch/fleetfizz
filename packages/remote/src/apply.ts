@@ -145,3 +145,19 @@ export const applyScript = (plan: MachinePlan): string => {
     doneLine(END_STEP, true),
   ].join("\n");
 };
+
+// One Step alone, with its inputs on stdin as `stepStdin` gives them: for a
+// change the Starting Machine makes to itself before the Ship goes on (a
+// pulled Shared File).
+export const stepScript = (step: Step): string =>
+  [
+    prelude,
+    fingerprintFn,
+    `ff_lit() { printf '%s' "$1"; }`,
+    ...(step.input ?? []).flatMap((_, i) => [
+      `IFS= read -r ff_in_${i} || ff_in_${i}=""`,
+      `ff_input_${i}="$ff_in_${i}"`,
+    ]),
+    ...marked(step.id, step.run),
+  ].join("\n");
+export const stepStdin = (step: Step): string[] => (step.input ?? []).map((i) => i.reveal());

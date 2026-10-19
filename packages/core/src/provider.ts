@@ -159,6 +159,15 @@ export interface Step {
   readonly input?: ReadonlyArray<Hidden>;
 }
 
+// One checked Machine as a Provider's resolve sees it: its targeted Items,
+// and this Provider's Facts and Install Records from its Check.
+export interface Checked<Item> {
+  readonly machine: MachineIdentity;
+  readonly items: ReadonlyArray<Item>;
+  readonly facts: ReadonlyArray<unknown>;
+  readonly records: Readonly<Record<string, unknown>>;
+}
+
 // A Provider. Methods (not function properties) so a Provider with its own
 // Item, Observed, Resolved, and Change types is still an AnyProvider: method
 // parameters are compared bivariantly.
@@ -190,12 +199,13 @@ export interface Provider<
   // Runs once on the Starting Machine for every Machine's targeted Items,
   // so every Machine gets the same version or commit during one Ship.
   // `starting` is the Starting Machine and its own Items, which it has
-  // whether or not this Ship targets it.
+  // whether or not this Ship targets it; `checked` is every checked Machine.
   resolve(
     items: ReadonlyArray<Item>,
     ctx: {
       readonly token?: string;
       readonly starting: Scope & { readonly items: ReadonlyArray<Item> };
+      readonly checked: ReadonlyArray<Checked<Item>>;
     },
   ): Effect.Effect<Resolved, never, ChildProcessSpawner.ChildProcessSpawner>;
   // One Decision per targeted Item, in config order.
@@ -207,6 +217,21 @@ export interface Provider<
   }): ReadonlyArray<Decision<Change, Change>>;
   // The Steps for the decisions, in order. Never sees a held Provider.
   act(decisions: ReadonlyArray<Decision<Change, Change>>, ctx: Context): ReadonlyArray<Step>;
+  // For an answer that changes the Starting Machine itself (pull a Shared
+  // File's copy here), the change: it runs once every Question is answered,
+  // and the Ship starts over from the Check, as when a Stale Config is
+  // adopted. Undefined for any other answer.
+  adopt?(
+    item: string,
+    answer: string,
+    resolved: Resolved,
+  ):
+    | Effect.Effect<
+        { readonly done: string } | { readonly error: string },
+        never,
+        ChildProcessSpawner.ChildProcessSpawner
+      >
+    | undefined;
 }
 
 export type AnyProvider = Provider<ProviderName, Named, unknown, unknown, unknown>;

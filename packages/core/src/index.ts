@@ -18,6 +18,7 @@ export {
   parseAddress,
   QUESTION_CHOICES,
   type AnyProvider,
+  type Checked,
   type Context,
   type Decision,
   type Definition,
