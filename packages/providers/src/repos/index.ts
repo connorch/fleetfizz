@@ -236,17 +236,21 @@ const decideRepo = (
 };
 
 // Brings the Managed Clone to the commit: clone when missing, check the
-// origin, reset, and clean. One `set -e` subshell.
+// origin, fetch only when the clone is not at the commit already (most Ships
+// change nothing, and a fetch is a network round trip per repo), reset, and
+// clean. One `set -e` subshell.
 const fetchStep = ({ item, root, commit }: RepoChange): Step => {
   const url = originUrl(item.origin);
+  const fetch = (what: string) =>
+    `if [ "$(git -C "$ff_d" rev-parse HEAD)" != ${quote(commit)} ]; then ff_git -C "$ff_d" fetch --quiet origin ${quote(what)}; fi`;
   const sync = isPin(item.ref)
     ? [
-        `if [ "$(git -C "$ff_d" rev-parse HEAD)" != ${quote(commit)} ]; then ff_git -C "$ff_d" fetch --quiet origin ${quote(commit)}; fi`,
+        fetch(commit),
         `git -C "$ff_d" checkout --quiet --detach ${quote(commit)}`,
         `git -C "$ff_d" reset --quiet --hard ${quote(commit)}`,
       ]
     : [
-        `ff_git -C "$ff_d" fetch --quiet origin ${quote(item.ref)}`,
+        fetch(item.ref),
         // The commit resolved for this Ship, not origin's tip now.
         `git -C "$ff_d" reset --quiet --hard ${quote(commit)}`,
       ];
