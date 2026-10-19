@@ -1,6 +1,6 @@
 {
   "name": "fleetfizz",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Keep every Machine on your tailnet in line with one config.",
   "license": "MIT",
   "repository": {

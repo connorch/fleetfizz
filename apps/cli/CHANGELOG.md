@@ -1,5 +1,15 @@
 # fleetfizz
 
+## 0.12.0
+
+### Minor Changes
+
+- [#60](https://github.com/connorch/fleetfizz/pull/60) [`32d5635`](https://github.com/connorch/fleetfizz/commit/32d56358ec44dd9f188fbc881491f6ffd9c15138) Thanks [@connorch](https://github.com/connorch)! - New `fizz config` commands. `fizz config` shows each Provider's Items, the Targeting on each, and when a Ship last reached each Machine. `fizz config add machines|vp|brew|cask|repos|files` adds a Machine or an Item, `fizz config remove <provider:item>` removes one, and `fizz config edit` opens the config in your editor. Every edit keeps the config's comments and layout, and is saved only when the config still loads.
+
+- [#62](https://github.com/connorch/fleetfizz/pull/62) [`0902e2f`](https://github.com/connorch/fleetfizz/commit/0902e2f493cb035264c35fa02efc04e0596ba73f) Thanks [@connorch](https://github.com/connorch)! - New `fizz init`: checks that this Machine can ship (vp, Tailscale connected with Tailscale SSH, and Homebrew and `gh` when needed) and prints the fix for each problem, then asks which Machines on the tailnet are in the Fleet, whether to pin vp and Node, and which Globals, Formulae, Casks, and common dotfiles to keep in line, and writes the config and `schema.json`. Getting started and its setup prompt now use it. A missing config now says to run `fizz init`.
+
+- [#61](https://github.com/connorch/fleetfizz/pull/61) [`13e53a0`](https://github.com/connorch/fleetfizz/commit/13e53a0ed09217aede53b790ed15574923951020) Thanks [@connorch](https://github.com/connorch)! - New `fizz status`: checks every reachable Machine and shows where each Item stands, in line, to change, a Question, or failing, with a column per Machine and what differs on each. It plans like `fizz ship --dry-run`, changes nothing, asks nothing, and writes no Ship Log. `fizz config` points to it.
+
 ## 0.11.0
 
 ### Minor Changes
