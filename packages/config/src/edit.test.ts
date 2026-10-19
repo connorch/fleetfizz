@@ -123,3 +123,22 @@ describe("targetingLists", () => {
     ]);
   });
 });
+
+describe("insertAt into an object with only a comment", () => {
+  it("keeps the comment", () => {
+    expect(
+      edited(insertAt(`{ "brew": { "items": { /* add here */ } } }`, ["brew", "items", "gh"], "*")),
+    ).toBe(`{ "brew": { "items": { /* add here */ "gh": "*" } } }`);
+    expect(
+      edited(
+        insertAt(
+          `{\n  "brew": {\n    "items": {\n      // add here\n    },\n  },\n}\n`,
+          ["brew", "items", "gh"],
+          "*",
+        ),
+      ),
+    ).toBe(
+      `{\n  "brew": {\n    "items": {\n      // add here\n      "gh": "*",\n    },\n  },\n}\n`,
+    );
+  });
+});

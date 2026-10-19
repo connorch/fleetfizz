@@ -83,6 +83,17 @@ const insertMember = (
   const close = container.offset + container.length - 1;
   const members = container.children ?? [];
   const last = members.at(-1);
+  const inside = text.slice(open + 1, close);
+  if (last === undefined && inside.trim() !== "") {
+    // Empty but for comments: the member goes after them, on its own line
+    // when they span lines.
+    const indent = indentAt(text, open);
+    if (!inside.includes("\n"))
+      return `${text.slice(0, close).trimEnd()} ${render(indent, close - lineStart(text, close) + 1)} ${text.slice(close)}`;
+    const inner = `${indent}  `;
+    const at = lineStart(text, close);
+    return `${text.slice(0, at)}${inner}${render(inner, inner.length)},\n${text.slice(at)}`;
+  }
   if (last === undefined) {
     // An empty `{}` or `[]` gets its one member on the same line when it fits.
     const indent = indentAt(text, open);
@@ -206,8 +217,11 @@ export const targetingLists = (text: string, machine: string) => {
 export const saveConfig = Effect.fn("saveConfig")(function* (path: string, text: string) {
   const config = yield* parseConfig(path, text);
   const fs = yield* FileSystem.FileSystem;
-  yield* fs.makeDirectory((yield* Path.Path).dirname(path), { recursive: true });
-  yield* fs.writeFileString(`${path}.tmp`, text);
-  yield* fs.rename(`${path}.tmp`, path);
+  // Through a symlink (a config kept in a dotfiles repo) to the file it
+  // names, so the link stays a link.
+  const target = (yield* fs.exists(path)) ? yield* fs.realPath(path) : path;
+  yield* fs.makeDirectory((yield* Path.Path).dirname(target), { recursive: true });
+  yield* fs.writeFileString(`${target}.tmp`, text);
+  yield* fs.rename(`${target}.tmp`, target);
   return config;
 });

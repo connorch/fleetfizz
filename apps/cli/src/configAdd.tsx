@@ -124,12 +124,22 @@ const addItem = Effect.fn("addItem")(function* (input: {
       reason: `not in machines: ${unknown.join(", ")} (add it with fizz config add machines)`,
     });
   }
-  const at: JsonPath = [input.provider, "items", input.name];
-  const result = insertAt(text, at, input.entry);
-  if ("reason" in result) return yield* new ConfigAddError({ reason: result.reason });
-  yield* saveConfig(path, result.text);
   const tailnet = yield* readTailnet();
-  const to = reach(config, tailnet, input.provider, input.targeting);
+  // A Cask fails on Linux, so with a Linux Machine in the Fleet the cask
+  // section targets darwin, unless it already says where it goes.
+  const linux = config.machines.some(
+    (m) => tailnet.fleet.find((f) => f.name === m)?.platform === "linux",
+  );
+  const start =
+    input.provider === "cask" && linux && config.cask?.platforms === undefined
+      ? insertAt(text, ["cask", "platforms"], ["darwin"])
+      : { text };
+  if ("reason" in start) return yield* new ConfigAddError({ reason: start.reason });
+  const at: JsonPath = [input.provider, "items", input.name];
+  const result = insertAt(start.text, at, input.entry);
+  if ("reason" in result) return yield* new ConfigAddError({ reason: result.reason });
+  const saved = yield* saveConfig(path, result.text);
+  const to = reach(saved, tailnet, input.provider, input.targeting);
   yield* Console.log(
     changeText(
       path,
@@ -204,6 +214,10 @@ export const addHomebrew = Effect.fn("addHomebrew")(function* (input: {
   readonly targeting: TargetingFlags;
 }) {
   const noun = input.provider === "brew" ? "Formula" : "Cask";
+  if (input.provider === "cask" && input.targeting.platforms.includes("linux"))
+    return yield* new ConfigAddError({
+      reason: "a Cask is macOS only; leave out --platform linux",
+    });
   const notes: string[] = [];
   if (input.name.includes("/")) notes.push(`${input.name} is a tapped name, so it was not checked`);
   else {

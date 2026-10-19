@@ -1,4 +1,9 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+
+import { saveConfig } from "@fleetfizz/config";
 
 import { fileEntry, fileName, parseSpec, rangeEntry, targetingOf } from "./configAdd.tsx";
 import { pathOf } from "./configEdit.tsx";
@@ -43,4 +48,18 @@ describe("pathOf", () => {
     expect(pathOf("vp", "vercel")).toEqual(["vp", "items", "vercel"]);
     expect(pathOf("nope", "x")).toBeUndefined();
   });
+});
+
+describe("saveConfig", () => {
+  it.effect("writes through a symlink, so the link stays a link", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(`${dir}/real.jsonc`, `{ "machines": ["a"] }`);
+      yield* fs.symlink(`${dir}/real.jsonc`, `${dir}/config.jsonc`);
+      yield* saveConfig(`${dir}/config.jsonc`, `{ "machines": ["b"] }`);
+      expect(yield* fs.readLink(`${dir}/config.jsonc`)).toBe(`${dir}/real.jsonc`);
+      expect(yield* fs.readFileString(`${dir}/real.jsonc`)).toBe(`{ "machines": ["b"] }`);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });
