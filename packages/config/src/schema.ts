@@ -370,11 +370,16 @@ export const SkillsSection = section(
 );
 export type SkillsSection = typeof SkillsSection.Type;
 
+// Whether `version` is a fleetfizz from before the config's `version` (ADR
+// 0019): one that cannot read this config, or switch away from it.
+export const predatesVersion = (version: string): boolean =>
+  semver.valid(version) !== null && semver.lt(version, "0.14.0");
+
 // An exact version, as `version` takes: what a Ship and every fizz run.
 export const ExactVersion = Schema.String.check(
   Schema.makeFilter(
-    (version) => semver.valid(version) === version || 'an exact version, like "0.13.0"',
-    { title: "version", description: 'an exact version, like "0.13.0"' },
+    (version) => semver.valid(version) === version || 'an exact version, like "0.14.0"',
+    { title: "version", description: 'an exact version, like "0.14.0"' },
   ),
 );
 

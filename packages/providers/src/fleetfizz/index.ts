@@ -113,7 +113,7 @@ export const fleetfizz: Provider<
             const parsed = parseLine(line);
             if (parsed.kind === "state") facts.push(parsed.fact);
           }),
-      );
+      ).pipe(Effect.timeout("2 minutes"));
       const { fizz } = parse(assembleState(facts).facts.fleetfizz ?? []);
       return {
         from: starting.machine.name,

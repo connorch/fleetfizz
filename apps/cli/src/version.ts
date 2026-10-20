@@ -17,6 +17,7 @@ import {
   saveConfig,
   SELF_PACKAGE,
   setVersion,
+  predatesVersion,
 } from "@fleetfizz/config";
 import { installerOf, installWith, MANAGERS } from "@fleetfizz/providers";
 
@@ -129,6 +130,10 @@ export const selfUpdate = Effect.fn("selfUpdate")(function* (input: {
       reason: `no config at ${homeRelative(path)}; run fizz init to write one, or pass --config`,
     });
   const version = input.version ?? (yield* latest());
+  if (predatesVersion(version))
+    return yield* new VersionError({
+      reason: `fleetfizz ${version} cannot read this config, which needs 0.14.0 or newer`,
+    });
   const text = yield* fs.readFileString(path);
   const named = readVersion(text) === version;
   if (named && version === input.running) {

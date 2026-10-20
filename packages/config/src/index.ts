@@ -26,6 +26,7 @@ export {
   CaskSection,
   DEFAULT_CLONE_ROOT,
   ExactVersion,
+  predatesVersion,
   FilesSection,
   FleetConfig,
   GlobalsSection,
