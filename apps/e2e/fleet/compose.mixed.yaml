@@ -1,0 +1,14 @@
+# Joins the Linux Fleet to a mixed Fleet whose Starting Machine is a Tart VM
+# (src/mixed.ts): the Machines' sshd and Verdaccio are published on Tart's
+# bridge address (E2E_BRIDGE) only, which the host and its VMs reach and
+# nothing on the host's own networks does.
+services:
+  verdaccio:
+    ports: !override
+      - "${E2E_BRIDGE:?}::4873"
+  linux-b:
+    ports:
+      - "${E2E_BRIDGE:?}::22"
+  linux-c:
+    ports:
+      - "${E2E_BRIDGE:?}::22"

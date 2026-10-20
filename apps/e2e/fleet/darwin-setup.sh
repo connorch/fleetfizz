@@ -15,7 +15,7 @@ node_dir=/usr/local/fleetfizz-e2e/node
 
 rm -rf "$node_dir"
 mkdir -p "$(dirname "$node_dir")"
-cp -R "$E2E_NODE_DIR" "$node_dir"
+cp -RH "$E2E_NODE_DIR" "$node_dir"
 
 if ! id "$remote" >/dev/null 2>&1; then
   sysadminctl -addUser "$remote" -shell /bin/zsh -password "$(openssl rand -hex 16)" 2>&1

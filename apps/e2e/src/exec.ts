@@ -58,3 +58,14 @@ export const execOk = Effect.fn("execOk")(function* (
     });
   return ran.output;
 });
+
+// The output of a command run elsewhere (on a Machine, in a VM) that must
+// succeed.
+export const succeeded =
+  (what: string) =>
+  (ran: Ran): Effect.Effect<string, E2EError> =>
+    ran.exitCode === 0
+      ? Effect.succeed(ran.output)
+      : Effect.fail(
+          new E2EError({ message: `${what} exited with ${ran.exitCode}:\n${ran.output}` }),
+        );

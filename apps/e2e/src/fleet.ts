@@ -35,6 +35,8 @@ export class Fleet extends Context.Service<
   }
 >()("@fleetfizz/e2e/fleet") {}
 
+export type SshKeys = Effect.Success<typeof sshKeys>;
+
 // A throwaway ed25519 key pair for one run: every Machine trusts the public
 // key, and the Starting Machine signs in with the private one.
 export const sshKeys = Effect.gen(function* () {
