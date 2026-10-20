@@ -1,12 +1,12 @@
 // What the suite ships: the fixture Config for a Fleet, and the Shared File
-// the Starting Machine holds. The Tracked Repo and the Skill come from this
-// repo on GitHub, at `ref`: fixtures/skills holds the Skill.
+// the Starting Machine holds. The Tracked Repo is this repo on GitHub, at
+// `ref`, and the Skill is the one it publishes (skills/fleetfizz).
 import type { FleetConfig } from "@fleetfizz/config";
 
 import type { FleetMachine } from "./fleet.ts";
 
 export const FIXTURE_ORIGIN = "connorch/fleetfizz";
-export const SKILL = "fleetfizz-e2e";
+export const SKILL = "fleetfizz";
 
 // The Shared File: a directory, so mirroring and mode bits are both covered.
 export const SHARED_DIR = "~/.config/fleetfizz-e2e";
@@ -35,7 +35,7 @@ export const fixtureConfig = (
 ): typeof FleetConfig.Encoded => ({
   version,
   machines: machines.map((m) => m.name),
-  // As the README says: pnpm 11+ keeps its Globals in PNPM_HOME/bin.
+  // pnpm 12, as in the README: from pnpm 11 its Globals live in PNPM_HOME/bin.
   npm: { items: { pnpm: "^12" } },
   pnpm: {
     dependsOn: ["npm"],
