@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.15.1
+
+### Patch Changes
+
+- [#98](https://github.com/connorch/fleetfizz/pull/98) [`9478148`](https://github.com/connorch/fleetfizz/commit/947814885c2628d1920d9dfefc0df8aae289bfe9) Thanks [@connorch](https://github.com/connorch)! - Fixed: `fizz self-update`, `fizz config add` for a Global, and a Ship's Globals read published versions from the npm registry directly, so they work on a Machine without npm. A fizz installed with npm under a Node from `pnpm env use` is now updated with npm, not pnpm.
+
 ## 0.15.0
 
 ### Minor Changes
