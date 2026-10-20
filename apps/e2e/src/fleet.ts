@@ -1,7 +1,7 @@
 // A Fleet the suite ships to: real Machines that the Starting Machine reaches
 // over plain ssh, through the `tailscale` shim (fleet/tailscale). Each kind of
-// Fleet (Docker containers, users on one Mac) is a layer of this service, and
-// the scenarios run the same against every one.
+// Fleet (Docker containers, users on one Mac, a Tart VM with containers) is a
+// layer of this service, and the scenarios run the same against every one.
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";

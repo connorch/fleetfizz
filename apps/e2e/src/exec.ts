@@ -14,7 +14,7 @@ export interface Ran {
   readonly output: string;
 }
 
-export interface ExecOptions {
+interface ExecOptions {
   readonly stdin?: string;
   readonly env?: Readonly<Record<string, string>>;
   readonly cwd?: string;
