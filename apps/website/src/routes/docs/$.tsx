@@ -11,7 +11,7 @@ import { GITHUB_URL, GithubLink } from "../../components/nav-buttons";
 import { PageActions } from "../../components/page-actions";
 import { ThemeToggle } from "../../components/theme-toggle";
 import { Wordmark } from "../../components/wordmark";
-import { docs, source } from "../../lib/source";
+import { docs, markdownPath, source } from "../../lib/source";
 
 // Every docs page. The loader runs on the server when the page is prerendered
 // and in the browser on client navigation, so there is no server function to
@@ -32,6 +32,10 @@ export const Route = createFileRoute("/docs/$")({
             ? [{ name: "description", content: loaderData.description }]
             : []),
         ]
+      : [],
+    // Points agents that fetch the HTML at the page's Markdown copy.
+    links: loaderData
+      ? [{ rel: "alternate", type: "text/markdown", href: markdownPath(loaderData) }]
       : [],
   }),
   component: DocsRoute,
