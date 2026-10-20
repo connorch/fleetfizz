@@ -1,4 +1,4 @@
-import { FIZZ, GLYPH, INK } from "@fleetfizz/brand-assets";
+import { FIZZ, GLYPH, INK } from "../index.ts";
 
 // The icons: the glyph, hand-written as SVG since it is three circles. The
 // generator rasterizes it for the sizes that need a bitmap.

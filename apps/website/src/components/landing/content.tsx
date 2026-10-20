@@ -1,3 +1,4 @@
+import { INSTALL } from "@fleetfizz/brand-assets";
 import { Button } from "@fleetfizz/ui/components/button";
 import { CheckIcon } from "@fleetfizz/ui/components/check-icon";
 import { CopyIcon } from "@fleetfizz/ui/components/copy-icon";
@@ -33,8 +34,6 @@ export const COMMANDS = [
   ["fizz ship", "apply the plan everywhere, in parallel"],
   ["fizz report", "print the full Ledger of the last Ship"],
 ] as const;
-
-const INSTALL = "vp install -g fleetfizz";
 
 // The install command with a copy button. The copy icon plays on the click,
 // not on hover, and a check takes its place for a moment once the text is on

@@ -1,6 +1,6 @@
 # Motion graphics are Remotion compositions in packages/video
 
-fleetfizz.com's motion graphics are React components rendered by Remotion. They live in `packages/video`, not `apps/`: the package is never deployed, it produces files the website imports to show them (`@fleetfizz/video/renders/<id>.webm` and `.mov`), the way `packages/og-image` produces the share image.
+fleetfizz.com's motion graphics are React components rendered by Remotion. They live in `packages/video`, not `apps/`: the package is never deployed, it produces files the website imports to show them (`@fleetfizz/video/renders/<id>.webm` and `.mov`), the way `packages/brand-assets` produces the share image.
 
 Every graphic sits on the page's own background, so every render is transparent. No one format carries alpha in every browser: Chrome and Firefox play VP9 WebM with alpha, and Safari plays HEVC with alpha but ignores WebM's. `pnpm video:render` writes both. Remotion cannot encode HEVC with alpha, so it renders ProRes 4444 and macOS's `avconvert` re-encodes it, which makes rendering a macOS step. Renders run on a developer's machine and are committed, like the share image; CI does not render. A graphic's colors are baked into its frames, so a graphic drawn in the site's colors is one composition per theme, and the page shows the one matching the theme.
 

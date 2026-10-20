@@ -1,4 +1,4 @@
-# fleetfizz
+![fleetfizz: Your machines, in sync.](https://fleetfizz.com/readme-banner.png)
 
 Your machines, in sync. One command, and every machine on your tailnet has the same tools, versions, and repos.
 
