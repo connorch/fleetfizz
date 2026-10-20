@@ -14,6 +14,7 @@ import { Box, Text } from "ink";
 
 import {
   configPath,
+  type EditResult,
   fleetConfigSchemaText,
   insertAt,
   type JsonPath,
@@ -55,25 +56,27 @@ export interface Picks {
   readonly linux: boolean;
 }
 
-// The config's text for `picks`, built with the edits `fizz config add` makes.
-export const draftText = (picks: Picks): string => {
-  const edits: ReadonlyArray<readonly [JsonPath, unknown]> = [
-    ...picks.globals.map((g) => [[g.pm, "items", g.name], `^${g.version}`] as const),
-    ...picks.formulae.map((f) => [["brew", "items", f], "*"] as const),
+// The config's text for `picks`, built with the edits `fizz config add` makes,
+// or the reason a pick could not be added.
+export const draftText = (picks: Picks): EditResult => {
+  // Each edit: the pick it adds, where, and its entry.
+  const edits: ReadonlyArray<readonly [string, JsonPath, unknown]> = [
+    ...picks.machines.map((m, i) => [m, ["machines", i], m] as const),
+    ...picks.globals.map((g) => [g.name, [g.pm, "items", g.name], `^${g.version}`] as const),
+    ...picks.formulae.map((f) => [f, ["brew", "items", f], "*"] as const),
     ...(picks.casks.length > 0 && picks.linux
-      ? [[["cask", "platforms"], ["darwin"]] as const]
+      ? [["the cask platforms", ["cask", "platforms"], ["darwin"]] as const]
       : []),
-    ...picks.casks.map((c) => [["cask", "items", c], "*"] as const),
-    ...picks.files.map((f) => [["files", "items", fileName(f)], f] as const),
+    ...picks.casks.map((c) => [c, ["cask", "items", c], "*"] as const),
+    ...picks.files.map((f) => [f, ["files", "items", fileName(f)], f] as const),
   ];
-  const start = `{\n  "$schema": "./${SCHEMA_FILE}",\n  "version": ${JSON.stringify(picks.version)},\n  "machines": [],\n}\n`;
-  return [...picks.machines.map((m, i) => [["machines", i], m] as const), ...edits].reduce<string>(
-    (text, [path, value]) => {
-      const result = insertAt(text, path, value);
-      return "text" in result ? result.text : text;
-    },
-    start,
-  );
+  let text = `{\n  "$schema": "./${SCHEMA_FILE}",\n  "version": ${JSON.stringify(picks.version)},\n  "machines": [],\n}\n`;
+  for (const [pick, path, value] of edits) {
+    const result = insertAt(text, path, value);
+    if ("reason" in result) return { reason: `fizz init could not add ${pick}: ${result.reason}` };
+    text = result.text;
+  }
+  return { text };
 };
 
 const CheckLine = (props: { check: Check }) => (
@@ -219,7 +222,7 @@ export const init = Effect.fn("init")(function* (flags: {
     present.map((f) => ({ title: f, value: f })),
   );
 
-  const text = draftText({
+  const draft = draftText({
     version: flags.version,
     machines,
     globals,
@@ -228,7 +231,8 @@ export const init = Effect.fn("init")(function* (flags: {
     files,
     linux: machines.some((m) => tailnet.fleet.find((f) => f.name === m)?.platform === "linux"),
   });
-  const config = yield* saveConfig(path, text);
+  if ("reason" in draft) return yield* new ConfigAddError({ reason: draft.reason });
+  const config = yield* saveConfig(path, draft.text);
   const paths = yield* Path.Path;
   yield* fs.writeFileString(paths.join(paths.dirname(path), SCHEMA_FILE), fleetConfigSchemaText());
   yield* Console.log(
