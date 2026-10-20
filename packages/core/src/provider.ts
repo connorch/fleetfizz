@@ -4,6 +4,7 @@
 // (engine.ts) does everything that is the same for every Provider: Targeting,
 // Variants, dependsOn, Questions, and holding back dependents.
 import type * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import type { ChildProcessSpawner } from "effect/process";
 
 import type { FleetConfig, ProviderName, SectionName } from "@fleetfizz/config";
@@ -212,7 +213,11 @@ export interface Provider<
       readonly starting: Scope & { readonly items: ReadonlyArray<Item> };
       readonly checked: ReadonlyArray<Checked<Item>>;
     },
-  ): Effect.Effect<Resolved, never, ChildProcessSpawner.ChildProcessSpawner>;
+  ): Effect.Effect<
+    Resolved,
+    never,
+    ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem
+  >;
   // One Decision per targeted Item, in config order.
   decide(input: {
     readonly items: ReadonlyArray<Item>;

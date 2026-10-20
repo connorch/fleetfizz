@@ -19,7 +19,7 @@ import {
   setVersion,
   predatesVersion,
 } from "@fleetfizz/config";
-import { installerOf, installWith, MANAGERS } from "@fleetfizz/providers";
+import { installWith, MANAGERS, ownInstaller } from "@fleetfizz/providers";
 
 import { homeRelative, runLocal } from "./local.ts";
 
@@ -33,15 +33,6 @@ export class VersionError extends Schema.TaggedError<VersionError>()("VersionErr
 
 // Set on the fizz a switch runs, so it never switches again.
 const SWITCHED = "FLEETFIZZ_SWITCHED";
-
-// The package manager that installed the running fizz, from the path it was
-// started at and the file behind it.
-const ownInstaller = Effect.fn("ownInstaller")(function* () {
-  const fs = yield* FileSystem.FileSystem;
-  const main = process.argv[1] ?? "";
-  const real = yield* fs.realPath(main).pipe(Effect.orElseSucceed(() => main));
-  return { at: main, installer: installerOf([main, real]) };
-});
 
 // Runs `command` with this terminal, for its exit code.
 const runHere = Effect.fn("runHere")(function* (

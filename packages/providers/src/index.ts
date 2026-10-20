@@ -28,6 +28,7 @@ export {
   type FleetfizzObserved,
   type FleetfizzResolved,
   installerOf,
+  ownInstaller,
 } from "./fleetfizz/index.ts";
 export {
   bun,
