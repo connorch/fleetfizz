@@ -77,7 +77,7 @@ Then it asks:
 
 - **Which Machines are in the Fleet**, from your tailnet. This Machine is always one. A Machine that is offline or has no Tailscale SSH yet can still be picked; a Ship skips it until it can reach it.
 - **Which Globals, Formulae, and Casks to keep in line**, from what this Machine has installed with vp, npm, bun, pnpm, and Homebrew.
-- **Which skills to keep in line**, from the ones the [skills CLI](https://github.com/vercel-labs/skills) installed here from GitHub, all picked to start, and which agents they are for. The skills CLI joins the config as a Global too, so a Ship can install them.
+- **Which skills to keep in line**, from the ones the [skills CLI](https://github.com/vercel-labs/skills) installed here from GitHub, all picked to start, and which agents they are for. When a package manager here has the skills CLI, it joins the config as a Global of that one, so a Ship can install them; otherwise `init` says to add it with `fizz config add <package manager> skills`.
 - **Which Shared Files to copy**, from common dotfiles like `~/.gitconfig` and `~/.zshrc` that exist here.
 
 It writes `~/.config/fleetfizz/config.jsonc`, with the fleetfizz `version` that is running and `schema.json` beside it, so your editor checks the config as you edit it, and shows what each Machine gets. Add more at any time:
