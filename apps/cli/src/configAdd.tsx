@@ -179,7 +179,10 @@ export const addGlobal = Effect.fn("addGlobal")(function* (input: {
     given ??
     (yield* Effect.gen(function* () {
       const manager = MANAGERS[input.pm];
-      const listed = yield* runLocal("sh", ["-c", manager.list]);
+      // A mise shim for a tool that is not installed fails instead of installing it.
+      const listed = yield* runLocal("sh", ["-c", manager.list], {
+        MISE_NOT_FOUND_AUTO_INSTALL: "false",
+      });
       const here = manager.parse(listed.stdout).get(name);
       const published = here === undefined ? ((yield* resolveVersions([name]))[name] ?? []) : [];
       const range = addedRange(here, published);

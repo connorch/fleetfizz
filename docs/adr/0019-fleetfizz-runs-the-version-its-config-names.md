@@ -35,6 +35,6 @@ A Ship pinned fleetfizz to the shipper's version as an implicit vp Global (ADR 0
 ## Consequences
 
 - Supersedes ADR 0008's implicit pin; the rest of ADR 0008 stands. "Upgrade here first" is gone: the config decides in both directions.
-- A Machine where `self-update` ran holds an edited config, so a Ship of the older config from elsewhere asks before overwriting it (a Stale Config).
+- A Machine where `self-update` ran holds an edited config, so a Ship of the older config from elsewhere asks before overwriting it (a Stale Config), even when that config uses a schema the older fizz cannot read. Using it here writes it and stops: the next `fizz ship` runs its version.
 - With `--only` another Machine, the Starting Machine is not checked, so a Machine without fizz is skipped rather than given one.
 - A Machine needs Node and a package manager only to run fizz itself; one that only receives Ships needs neither.

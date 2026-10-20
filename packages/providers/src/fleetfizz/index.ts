@@ -9,7 +9,7 @@ import * as Schema from "effect/Schema";
 import { PACKAGE_MANAGERS, SELF_PACKAGE, type PackageManager } from "@fleetfizz/config";
 import type { Decision, Named, Provider } from "@fleetfizz/core";
 
-import { installedHere, installWith } from "../globals/index.ts";
+import { installedHere, installWith, MANAGER_PACKAGE } from "../globals/index.ts";
 
 // Which package manager installed a fizz, from the paths of its bin and the
 // files behind it: vp's shims and packages, pnpm's home and global store,
@@ -68,7 +68,7 @@ const OBSERVE = [
   `  ff_state "{\\"provider\\":\\"fleetfizz\\",\\"fact\\":\\"fizz\\",\\"path\\":\\"$(ff_json "$ff_b")\\",\\"real\\":\\"$(ff_json "$ff_rp")\\",\\"version\\":\\"$(ff_json "$ff_v")\\"}"`,
   "fi",
   `for ff_pm in ${PACKAGE_MANAGERS.join(" ")}; do`,
-  `  if command -v "$ff_pm" >/dev/null 2>&1; then ff_state "{\\"provider\\":\\"fleetfizz\\",\\"fact\\":\\"manager\\",\\"name\\":\\"$ff_pm\\"}"; fi`,
+  `  if command "$ff_pm" --version >/dev/null 2>&1; then ff_state "{\\"provider\\":\\"fleetfizz\\",\\"fact\\":\\"manager\\",\\"name\\":\\"$ff_pm\\"}"; fi`,
   "done",
 ].join("\n");
 
@@ -117,7 +117,8 @@ export const fleetfizz: Provider<
     const at = fizz === undefined || fizz.version === "" ? {} : { at: fizz.version };
     // On PATH here, or installed by a section in this Ship, before this Step.
     const usable = (pm: PackageManager) =>
-      observed.managers.has(pm) || installedHere(ctx.config, ctx.machine, pm) !== undefined;
+      observed.managers.has(pm) ||
+      installedHere(ctx.config, ctx.machine, MANAGER_PACKAGE[pm]) !== undefined;
     if (fizz !== undefined) {
       const installer = installerOf([fizz.path, fizz.real]);
       if (installer === undefined)

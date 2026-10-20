@@ -237,6 +237,22 @@ describe("the package-manager Providers", () => {
       item: "vercel",
       reason: "waits for pnpm, which npm installs in this Ship; ship again",
     });
+    // vp's command comes from the vite-plus package.
+    const vp = Schema.decodeSync(FleetConfig)({
+      version: "0.2.0",
+      machines: written.machines,
+      npm: { items: { "vite-plus": "*" } },
+      vp: { items: { vercel: "^59.25.4" } },
+    });
+    expect(
+      provider(
+        plan({ config: vp, state: facts({ globals: [{ provider: "vp", fact: "missing" }] }) }),
+        "vp",
+      ).decisions[0],
+    ).toMatchObject({
+      kind: "skip",
+      reason: "waits for vp, which npm installs in this Ship; ship again",
+    });
   });
 
   it("asks about a Global above its Range, and honors answers", () => {

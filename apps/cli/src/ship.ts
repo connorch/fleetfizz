@@ -137,7 +137,9 @@ const unshippable = (
 interface Stale {
   readonly text: string;
   readonly sha: string;
-  readonly config: FleetConfig;
+  // Undefined for a config another fleetfizz version wrote that this one
+  // cannot read: the next run, at its version, does.
+  readonly config: FleetConfig | undefined;
   readonly machines: ReadonlyArray<string>;
   readonly reached: Reached;
   readonly description: string;
@@ -150,7 +152,8 @@ const minute = (iso: string | undefined) =>
 // must ask about (staleWhy), grouped by text. `base` is when this config last
 // reached each Machine. `own` is the Machine whose file `text` is, never
 // asked about: the Starting Machine, unless --config named another file. A
-// copy that does not parse is reported and then overwritten.
+// copy that does not parse is reported and then overwritten, unless it names
+// another fleetfizz version, whose schema may differ: that one is asked about.
 const staleConfigs = Effect.fn("staleConfigs")(function* (
   text: string,
   base: Reached,
@@ -162,14 +165,16 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
     readonly machine: string;
     readonly text: string;
     readonly sha: string;
-    readonly config: FleetConfig;
+    readonly config: FleetConfig | undefined;
     readonly record: ConfigRecord | undefined;
     readonly why: string;
   }> = [];
+  const version = readVersion(text);
   for (const { machine, state } of checked) {
     if (machine.name === own || state.config === undefined || state.config.text === text) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config.text));
-    if (parsed._tag === "Failure") {
+    const theirs = readVersion(state.config.text);
+    if (parsed._tag === "Failure" && (theirs === undefined || theirs === version)) {
       yield* ledger.note(
         "info",
         `the config on ${machine.name} does not parse; it will be overwritten`,
@@ -183,7 +188,7 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
       machine: machine.name,
       text: state.config.text,
       sha: state.config.sha,
-      config: parsed.success,
+      config: parsed._tag === "Success" ? parsed.success : undefined,
       record,
       why:
         why === "unrecorded"
@@ -427,7 +432,10 @@ export const shipPass = Effect.fn("shipPass")(function* (
       // Only a config this Machine can ship is offered; the others say why not.
       const usable: Stale[] = [];
       for (const s of stale) {
-        const why = unshippable(s.config, tailnet, flags.only, `the config on ${s.machines[0]}`);
+        const why =
+          s.config === undefined
+            ? undefined
+            : unshippable(s.config, tailnet, flags.only, `the config on ${s.machines[0]}`);
         if (why === undefined) usable.push(s);
         else yield* ledger.note("info", `cannot ship from here: ${why}`);
       }
@@ -448,6 +456,16 @@ export const shipPass = Effect.fn("shipPass")(function* (
       else {
         yield* ledger.note("answer", `use the config on ${choice.machines[0]}`);
         yield* fs.writeFileString(path, choice.text);
+        // This fizz only ships the version it is (ADR 0019): the next run
+        // switches to the adopted config's, checks it, and ships it. Until
+        // then it has no record here, so a Ship from elsewhere asks first.
+        const wanted = readVersion(choice.text);
+        if (wanted !== flags.version || choice.config === undefined)
+          return yield* Effect.fail(
+            new ShipError(
+              `the config here now names fleetfizz ${wanted ?? "no version"}, not ${flags.version}; run fizz ship again to switch to it`,
+            ),
+          );
         // Adopting it here is when it reached this Machine, so a later Ship
         // from elsewhere asks before overwriting it.
         if (own !== undefined)
@@ -462,15 +480,6 @@ export const shipPass = Effect.fn("shipPass")(function* (
                 choice.config.machines,
               ),
             }),
-          );
-        // This fizz only ships the version it is (ADR 0019): the next run
-        // switches to the adopted config's.
-        const wanted = readVersion(choice.text);
-        if (wanted !== flags.version)
-          return yield* Effect.fail(
-            new ShipError(
-              `the config here now names fleetfizz ${wanted ?? "no version"}, not ${flags.version}; run fizz ship again to switch to it`,
-            ),
           );
         adopted = true;
         return "adopted" as const;

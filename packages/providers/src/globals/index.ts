@@ -82,6 +82,15 @@ export const MANAGERS: Readonly<Record<PackageManager, Manager>> = {
   },
 };
 
+// The npm package each package manager's command comes from, as a Global of
+// another package manager installs it.
+export const MANAGER_PACKAGE: Readonly<Record<PackageManager, string>> = {
+  vp: "vite-plus",
+  npm: "npm",
+  bun: "bun",
+  pnpm: "pnpm",
+};
+
 // The shell that installs `specs` (`name@version`) with `pm`.
 export const installWith = (pm: PackageManager, specs: ReadonlyArray<string>): string =>
   `( command ${MANAGERS[pm].install} ${specs.map(quote).join(" ")} )`;
@@ -140,7 +149,7 @@ const globals = (
   const manager = MANAGERS[name];
   // An Item's Decision when the package manager is not on the Machine.
   const missing = (item: GlobalItem, ctx: Context): Decision<GlobalChange> => {
-    const by = installedHere(ctx.config, ctx.machine, name);
+    const by = installedHere(ctx.config, ctx.machine, MANAGER_PACKAGE[name]);
     return by === undefined
       ? { kind: "fail", item: item.name, reason: `${name} is not installed` }
       : {
@@ -164,7 +173,9 @@ const globals = (
       items.length === 0
         ? ""
         : [
-            `if command -v ${name} >/dev/null 2>&1; then`,
+            // `--version`, not `command -v`: a mise shim is on PATH even when
+            // its tool is not installed, and then fails to run.
+            `if command ${name} --version >/dev/null 2>&1; then`,
             `  ff_l=$(command ${manager.list} 2>/dev/null | base64 | tr -d '\\n')`,
             `  ff_state "{\\"provider\\":\\"${name}\\",\\"fact\\":\\"list\\",\\"base64\\":\\"$ff_l\\"}"`,
             "else",
