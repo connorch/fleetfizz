@@ -208,7 +208,7 @@ const decideSkill = (
           item: item.name,
           reason: "waits for the skills CLI this Ship installs; ship again",
         }
-      : { kind: "fail", item: item.name, ...at, reason: NO_CLI };
+      : { kind: "fail", item: item.name, reason: NO_CLI };
   if (observed.error !== undefined)
     return { kind: "fail", item: item.name, ...at, reason: observed.error };
 
