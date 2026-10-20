@@ -25,7 +25,7 @@ import {
   SELF_PACKAGE,
 } from "@fleetfizz/config";
 import { MANAGERS } from "@fleetfizz/providers";
-import { readTailnet, type Tailnet } from "@fleetfizz/remote";
+import { CHECK_ENV, readTailnet, type Tailnet } from "@fleetfizz/remote";
 
 import { ConfigAddError, fileName, machineNote } from "./configAdd.tsx";
 import { configText } from "./configView.tsx";
@@ -190,8 +190,7 @@ export const init = Effect.fn("init")(function* (flags: {
   // Every package manager's Globals here, each kept by the one that has it;
   // fleetfizz itself is the config's `version`.
   const installed = (yield* Effect.forEach(PACKAGE_MANAGERS, (pm) =>
-    // A mise shim for a tool that is not installed fails instead of installing it.
-    runLocal("sh", ["-c", MANAGERS[pm].list], { MISE_NOT_FOUND_AUTO_INSTALL: "false" }).pipe(
+    runLocal("sh", ["-c", MANAGERS[pm].list], CHECK_ENV).pipe(
       Effect.map((ran) =>
         [...MANAGERS[pm].parse(ran.stdout)].map(([name, version]) => ({ pm, name, version })),
       ),

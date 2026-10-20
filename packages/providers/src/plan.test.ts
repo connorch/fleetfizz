@@ -237,6 +237,15 @@ describe("the package-manager Providers", () => {
       item: "vercel",
       reason: "waits for pnpm, which npm installs in this Ship; ship again",
     });
+    // pnpm in its own section keeps itself updated, and cannot install itself.
+    const own = Schema.decodeSync(FleetConfig)({
+      version: "0.2.0",
+      machines: written.machines,
+      pnpm: { items: { pnpm: "^10", vercel: "^59.25.4" } },
+    });
+    expect(
+      provider(plan({ config: own, state: facts({ globals: missing }) }), "pnpm").decisions[0],
+    ).toMatchObject({ kind: "fail", reason: "pnpm is not installed" });
     // vp's command comes from the vite-plus package.
     const vp = Schema.decodeSync(FleetConfig)({
       version: "0.2.0",

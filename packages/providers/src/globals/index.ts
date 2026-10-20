@@ -97,13 +97,16 @@ export const installWith = (pm: PackageManager, specs: ReadonlyArray<string>): s
 
 // The package manager whose section installs `pkg` on this Machine in this
 // Ship, if any: the section and the Global both target it. Whatever needs
-// `pkg` waits for the next Ship, whose Check can see it.
+// `pkg` waits for the next Ship, whose Check can see it. A package manager
+// never counts for its own package: `pnpm` in `pnpm.items` keeps pnpm
+// updated where it is, and cannot install it where it is not.
 export const installedHere = (
   config: FleetConfig,
   machine: MachineIdentity,
   pkg: string,
 ): PackageManager | undefined =>
   PACKAGE_MANAGERS.find((pm) => {
+    if (MANAGER_PACKAGE[pm] === pkg) return false;
     const section = config[pm];
     const global = section?.items?.[pkg];
     return (

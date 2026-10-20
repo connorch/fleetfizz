@@ -40,11 +40,18 @@ const recordFact = (provider: string, item: string): string[] => [
   `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"record\\",\\"provider\\":\\"${provider}\\",\\"item\\":\\"$(ff_json ${quote(item)})\\",\\"record\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
 ];
 
+// What every Check, and every listing of Globals on the Starting Machine,
+// runs with. A Check changes nothing: a mise shim for a tool that is not
+// installed, or a Corepack proxy for a package manager it has not cached,
+// fails instead of installing it.
+export const CHECK_ENV = {
+  MISE_NOT_FOUND_AUTO_INSTALL: "false",
+  COREPACK_ENABLE_NETWORK: "0",
+} as const;
+
 export const checkScript = (input: CheckInput): string => {
   const lines = [
-    // A Check changes nothing: a mise shim for a tool that is not installed
-    // fails instead of installing it.
-    "export MISE_NOT_FOUND_AUTO_INSTALL=false",
+    ...Object.entries(CHECK_ENV).map(([name, value]) => `export ${name}=${value}`),
     preludeFor(shellInitFor(input.scope.config, input.scope.machine)),
     fingerprintFn,
     `ff_state "{\\"fact\\":\\"home\\",\\"path\\":\\"$(ff_json "$HOME")\\"}"`,

@@ -24,7 +24,7 @@ import {
 } from "@fleetfizz/config";
 import { address, targets, type Targeting } from "@fleetfizz/core";
 import { MANAGERS } from "@fleetfizz/providers";
-import { readTailnet, resolveVersions, type Tailnet } from "@fleetfizz/remote";
+import { CHECK_ENV, readTailnet, resolveVersions, type Tailnet } from "@fleetfizz/remote";
 
 import { changeText } from "./configView.tsx";
 import { expandHome, homeRelative, interactive, runLocal } from "./local.ts";
@@ -179,10 +179,7 @@ export const addGlobal = Effect.fn("addGlobal")(function* (input: {
     given ??
     (yield* Effect.gen(function* () {
       const manager = MANAGERS[input.pm];
-      // A mise shim for a tool that is not installed fails instead of installing it.
-      const listed = yield* runLocal("sh", ["-c", manager.list], {
-        MISE_NOT_FOUND_AUTO_INSTALL: "false",
-      });
+      const listed = yield* runLocal("sh", ["-c", manager.list], CHECK_ENV);
       const here = manager.parse(listed.stdout).get(name);
       const published = here === undefined ? ((yield* resolveVersions([name]))[name] ?? []) : [];
       const range = addedRange(here, published);

@@ -2,6 +2,7 @@
 export { applyScript, applyStdin, CONFIG_STEP, END_STEP, stepScript, stepStdin } from "./apply.ts";
 export {
   CONFIG_DIR_SH,
+  CHECK_ENV,
   checkScript,
   CONFIG_RECORD,
   LOGS_DIR,

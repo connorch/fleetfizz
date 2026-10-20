@@ -7,7 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { PACKAGE_MANAGERS, SELF_PACKAGE, type PackageManager } from "@fleetfizz/config";
-import type { Decision, Named, Provider } from "@fleetfizz/core";
+import { assembleState, type Decision, type Named, type Provider } from "@fleetfizz/core";
+import { checkScript, parseLine, runScript } from "@fleetfizz/remote";
 
 import { installedHere, installWith, MANAGER_PACKAGE } from "../globals/index.ts";
 
@@ -33,9 +34,9 @@ export interface FleetfizzObserved {
 }
 
 // The Starting Machine, and the package manager that installed its fizz,
-// read from its own Check: after fizz checks its version (ADR 0019), the
-// fizz on its PATH is the one running. Undefined when it was not checked
-// (`--only` another Machine) or no package manager fleetfizz knows installed it.
+// read there as its Check would: after fizz checks its version (ADR 0019),
+// the fizz on its PATH is the one running. Undefined when no package manager
+// fleetfizz knows installed it.
 export interface FleetfizzResolved {
   readonly from: string;
   readonly installer: PackageManager | undefined;
@@ -60,8 +61,8 @@ const decodeFact = Schema.decodeUnknownOption(FleetfizzFact);
 const OBSERVE = [
   "if command -v fizz >/dev/null 2>&1; then",
   "  ff_b=$(command -v fizz)",
-  // A mise shim is a link to mise itself; `mise which` names the real bin.
-  `  case "$ff_b" in */mise/shims/*) ff_b=$(mise which fizz 2>/dev/null || printf '%s' "$ff_b") ;; esac`,
+  // mise and Volta shims run their tool's own bin, which `which` names.
+  `  case "$ff_b" in */mise/shims/*) ff_b=$(mise which fizz 2>/dev/null || printf '%s' "$ff_b") ;; */.volta/bin/*) ff_b=$(volta which fizz 2>/dev/null || printf '%s' "$ff_b") ;; esac`,
   // macOS before 13 has neither realpath nor readlink -f.
   `  ff_rp=$(realpath "$ff_b" 2>/dev/null || readlink -f "$ff_b" 2>/dev/null || printf '%s' "$ff_b")`,
   `  ff_v=$(command fizz --version 2>/dev/null | sed -n 's/^fizz v\\{0,1\\}\\([^ ]*\\).*/\\1/p' | head -n 1)`,
@@ -99,14 +100,27 @@ export const fleetfizz: Provider<
   items: () => [{ name: ITEM }],
   observe: () => OBSERVE,
   parse,
-  resolve: (_items, { starting, checked }) => {
-    const own = checked.find((c) => c.machine.name === starting.machine.name);
-    const fizz = own === undefined ? undefined : parse(own.facts).fizz;
-    return Effect.succeed({
-      from: starting.machine.name,
-      installer: fizz === undefined ? undefined : installerOf([fizz.path, fizz.real]),
-    });
-  },
+  // Reads the Starting Machine's fizz here, as its Check would, so a Ship
+  // with --only another Machine still knows what to install fizz with.
+  resolve: (items, { starting }) =>
+    Effect.gen(function* () {
+      const facts: unknown[] = [];
+      yield* runScript(
+        { name: starting.machine.name, local: true },
+        checkScript({ scope: starting, providers: [{ provider: fleetfizz, items }] }),
+        [],
+        (line) =>
+          Effect.sync(() => {
+            const parsed = parseLine(line);
+            if (parsed.kind === "state") facts.push(parsed.fact);
+          }),
+      );
+      const { fizz } = parse(assembleState(facts).facts.fleetfizz ?? []);
+      return {
+        from: starting.machine.name,
+        installer: fizz === undefined ? undefined : installerOf([fizz.path, fizz.real]),
+      };
+    }).pipe(Effect.orElseSucceed(() => ({ from: starting.machine.name, installer: undefined }))),
   decide({ observed, resolved, ctx }): ReadonlyArray<Decision<FleetfizzChange>> {
     const version = ctx.config.version;
     const { fizz } = observed;
