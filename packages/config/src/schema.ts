@@ -408,6 +408,8 @@ export const FleetConfig = Schema.Struct({
   $schema: Schema.optionalKey(Schema.String),
   // Read from the raw text before anything else, by every fizz (ADR 0019).
   version: ExactVersion.annotateKey({
+    messageMissingKey:
+      'add "version", the fleetfizz every Machine runs, such as the one fizz --version prints',
     description:
       "The fleetfizz version every Machine runs. A fizz of any other version installs this one before it does anything else.",
   }),

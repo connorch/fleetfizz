@@ -82,8 +82,9 @@ const install = Effect.fn("install")(function* (version: string, why: string) {
 
 // Runs `effect` only when this fizz is the version the config at `flag` (or
 // the default path) names. Otherwise installs that version and runs this
-// command again with it, exiting with its code. A config that is missing, or
-// names a version that is not exact, is left for the command to report.
+// command again with it, exiting with its code. A config that is missing,
+// does not parse, or has no exact version is left for the command's own
+// load to report (and for `fizz config edit` to open).
 export const atConfigVersion = <A, E, R>(
   flag: string | undefined,
   running: string,
@@ -94,12 +95,8 @@ export const atConfigVersion = <A, E, R>(
     const path = flag ?? configPath(process.env);
     if (!(yield* fs.exists(path))) return yield* effect;
     const wanted = readVersion(yield* fs.readFileString(path));
-    if (wanted === undefined)
-      return yield* new VersionError({
-        reason: `${homeRelative(path)} has no "version": add "version": "${running}"`,
-      });
-    // A version that is not exact is the schema's to report.
-    if (wanted === running || !Schema.is(ExactVersion)(wanted)) return yield* effect;
+    if (wanted === undefined || wanted === running || !Schema.is(ExactVersion)(wanted))
+      return yield* effect;
     if (process.env[SWITCHED] !== undefined)
       return yield* new VersionError({
         reason: `${homeRelative(path)} needs fleetfizz ${wanted}, but the fizz on PATH is still ${running} after installing it; see which fizz comes first (command -v fizz)`,

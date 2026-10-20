@@ -331,7 +331,9 @@ describe("the fleetfizz Provider", () => {
 
   it("moves fizz to the config's version with the package manager that installed it", () => {
     expect(
-      decide({ fizz: [fizz("/Users/connor/.local/share/vite-plus/bin/fizz", "0.1.0")] }),
+      decide({
+        fizz: [fizz("/Users/connor/.local/share/vite-plus/bin/fizz", "0.1.0"), ...managers("vp")],
+      }),
     ).toEqual([
       expect.objectContaining({ kind: "change", from: "0.1.0", to: "0.2.0" }),
       "( command vp install -g 'fleetfizz@0.2.0' )",
@@ -345,6 +347,7 @@ describe("the fleetfizz Provider", () => {
             "0.3.0",
             "/opt/homebrew/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
           ),
+          ...managers("npm"),
         ],
       }),
     ).toEqual([
@@ -362,6 +365,11 @@ describe("the fleetfizz Provider", () => {
         reason: expect.stringContaining("install fleetfizz@0.2.0 there"),
       },
     );
+    // The package manager that installed it is gone.
+    expect(decide({ fizz: [fizz("/Users/connor/.bun/bin/fizz", "0.1.0")] })[0]).toMatchObject({
+      kind: "fail",
+      reason: "bun installed fizz here but is not on PATH; install fleetfizz@0.2.0 there",
+    });
   });
 
   it("installs a missing fizz with the Starting Machine's package manager, when it is here", () => {

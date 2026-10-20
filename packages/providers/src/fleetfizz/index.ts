@@ -60,6 +60,8 @@ const decodeFact = Schema.decodeUnknownOption(FleetfizzFact);
 const OBSERVE = [
   "if command -v fizz >/dev/null 2>&1; then",
   "  ff_b=$(command -v fizz)",
+  // A mise shim is a link to mise itself; `mise which` names the real bin.
+  `  case "$ff_b" in */mise/shims/*) ff_b=$(mise which fizz 2>/dev/null || printf '%s' "$ff_b") ;; esac`,
   // macOS before 13 has neither realpath nor readlink -f.
   `  ff_rp=$(realpath "$ff_b" 2>/dev/null || readlink -f "$ff_b" 2>/dev/null || printf '%s' "$ff_b")`,
   `  ff_v=$(command fizz --version 2>/dev/null | sed -n 's/^fizz v\\{0,1\\}\\([^ ]*\\).*/\\1/p' | head -n 1)`,
@@ -113,6 +115,9 @@ export const fleetfizz: Provider<
     if (ctx.machine.name === resolved.from || fizz?.version === version)
       return [{ kind: "leave", item: ITEM, at: version }];
     const at = fizz === undefined || fizz.version === "" ? {} : { at: fizz.version };
+    // On PATH here, or installed by a section in this Ship, before this Step.
+    const usable = (pm: PackageManager) =>
+      observed.managers.has(pm) || installedHere(ctx.config, ctx.machine, pm) !== undefined;
     if (fizz !== undefined) {
       const installer = installerOf([fizz.path, fizz.real]);
       if (installer === undefined)
@@ -122,6 +127,15 @@ export const fleetfizz: Provider<
             item: ITEM,
             ...at,
             reason: `fizz at ${fizz.path} was not installed by ${PACKAGE_MANAGERS.join(", ")}; install ${SELF_PACKAGE}@${version} there`,
+          },
+        ];
+      if (!usable(installer))
+        return [
+          {
+            kind: "fail",
+            item: ITEM,
+            ...at,
+            reason: `${installer} installed fizz here but is not on PATH; install ${SELF_PACKAGE}@${version} there`,
           },
         ];
       return [
@@ -143,11 +157,7 @@ export const fleetfizz: Provider<
           reason: `fizz on ${resolved.from} was not installed by ${PACKAGE_MANAGERS.join(", ")}, so there is none to install it with here`,
         },
       ];
-    if (
-      !observed.managers.has(installer) &&
-      installedHere(ctx.config, ctx.machine, installer) === undefined
-    )
-      return [{ kind: "skip", item: ITEM, reason: `no ${installer} here` }];
+    if (!usable(installer)) return [{ kind: "skip", item: ITEM, reason: `no ${installer} here` }];
     return [{ kind: "change", item: ITEM, to: version, change: { version, with: installer } }];
   },
   act: (decisions) =>

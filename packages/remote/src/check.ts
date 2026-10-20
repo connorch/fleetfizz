@@ -42,6 +42,9 @@ const recordFact = (provider: string, item: string): string[] => [
 
 export const checkScript = (input: CheckInput): string => {
   const lines = [
+    // A Check changes nothing: a mise shim for a tool that is not installed
+    // fails instead of installing it.
+    "export MISE_NOT_FOUND_AUTO_INSTALL=false",
     preludeFor(shellInitFor(input.scope.config, input.scope.machine)),
     fingerprintFn,
     `ff_state "{\\"fact\\":\\"home\\",\\"path\\":\\"$(ff_json "$HOME")\\"}"`,
