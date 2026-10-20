@@ -537,15 +537,20 @@ const decideFile = (
   const same =
     ctx.machine.name === from || (current !== undefined && fingerprint(current) === ours);
   // `after` runs again on a Machine that already has the copy when its record
-  // is not this copy's (the last `after` failed, so the record stayed old), or
-  // with --rebuild. The copy Step writes nothing there but its record.
+  // is not this copy's, or with --rebuild. An old record means the last `after`
+  // failed. No record means the copy was there before any Ship wrote it, or the
+  // first Ship's `after` failed (the record is written after it), so the reason
+  // claims only that it has not succeeded. The copy Step writes nothing there
+  // but its record.
   const rerun =
     same && item.after !== undefined
       ? ctx.rebuild(subject)
         ? "--rebuild"
-        : ctx.machine.name !== from && recorded !== ours
-          ? "its after has not finished"
-          : undefined
+        : ctx.machine.name === from || recorded === ours
+          ? undefined
+          : recorded === undefined
+            ? "its after has not succeeded here"
+            : "its after has not finished"
       : undefined;
   if (rerun !== undefined)
     return {
