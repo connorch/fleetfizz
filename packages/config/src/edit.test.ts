@@ -1,6 +1,10 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 
-import { insertAt, removeAt, targetingLists } from "./edit.ts";
+import { insertAt, removeAt, saveConfig, targetingLists } from "./edit.ts";
+import { loadConfig } from "./load.ts";
 
 const text = `{
   // the Fleet
@@ -196,4 +200,41 @@ describe("insertAt next to a comment inside a one-line object", () => {
     const start = `{\n  "vp": { "version": "1.1.0" /* pinned */, "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3" } },\n}\n`;
     expect(edited(insertAt(start, ["vp", "items", "turbo"], "^2.11.3"))).toContain("/* pinned */");
   });
+});
+
+describe("saveConfig", () => {
+  it.effect("refuses a symlink, working or dangling, and leaves it as it is", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const text = `{ "version": "0.2.0", "machines": ["a"] }`;
+      yield* fs.writeFileString(`${dir}/real.jsonc`, text);
+      yield* fs.symlink(`${dir}/real.jsonc`, `${dir}/working.jsonc`);
+      yield* fs.symlink(`${dir}/missing.jsonc`, `${dir}/dangling.jsonc`);
+      for (const link of ["working", "dangling"]) {
+        const path = `${dir}/${link}.jsonc`;
+        expect((yield* Effect.flip(loadConfig(path)))._tag).toBe("ConfigIsLink");
+        const saved = yield* Effect.flip(
+          saveConfig(path, `{ "version": "0.2.0", "machines": ["b"] }`),
+        );
+        expect(saved._tag).toBe("ConfigIsLink");
+        expect(yield* fs.readLink(path)).toBe(
+          `${dir}/${link === "working" ? "real" : "missing"}.jsonc`,
+        );
+      }
+      expect(yield* fs.readFileString(`${dir}/real.jsonc`)).toBe(text);
+      expect(yield* fs.exists(`${dir}/missing.jsonc`)).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("keeps the file's permissions", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["a"] }`);
+      yield* fs.chmod(`${dir}/config.jsonc`, 0o600);
+      yield* saveConfig(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["b"] }`);
+      expect((yield* fs.stat(`${dir}/config.jsonc`)).mode & 0o777).toBe(0o600);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });

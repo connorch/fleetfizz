@@ -5,7 +5,6 @@
 // the config to another version the same way.
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -13,6 +12,7 @@ import {
   configPath,
   PACKAGE_MANAGERS,
   parseConfig,
+  readConfigText,
   readVersion,
   saveConfig,
   SELF_PACKAGE,
@@ -76,17 +76,18 @@ const install = Effect.fn("install")(function* (version: string, why: string) {
 // the default path) names. Otherwise installs that version and runs this
 // command again with it, exiting with its code. A config that is missing,
 // does not parse, or has no exact version is left for the command's own
-// load to report (and for `fizz config edit` to open).
+// load to report (and for `fizz config edit` to open). A symlink is refused
+// here, so every command that reads the config refuses it.
 export const atConfigVersion = <A, E, R>(
   flag: string | undefined,
   running: string,
   effect: Effect.Effect<A, E, R>,
 ) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = flag ?? configPath(process.env);
-    if (!(yield* fs.exists(path))) return yield* effect;
-    const wanted = readVersion(yield* fs.readFileString(path));
+    const text = yield* readConfigText(path);
+    if (text === undefined) return yield* effect;
+    const wanted = readVersion(text);
     if (wanted === undefined || wanted === running) return yield* effect;
     if (process.env[SWITCHED] !== undefined)
       return yield* new VersionError({
@@ -114,9 +115,9 @@ export const selfUpdate = Effect.fn("selfUpdate")(function* (input: {
   readonly version: string | undefined;
   readonly running: string;
 }) {
-  const fs = yield* FileSystem.FileSystem;
   const path = input.config ?? configPath(process.env);
-  if (!(yield* fs.exists(path)))
+  const text = yield* readConfigText(path);
+  if (text === undefined)
     return yield* new VersionError({
       reason: `no config at ${homeRelative(path)}; run fizz init to write one, or pass --config`,
     });
@@ -125,7 +126,6 @@ export const selfUpdate = Effect.fn("selfUpdate")(function* (input: {
     return yield* new VersionError({
       reason: `fleetfizz ${version} cannot read this config, which needs 0.14.0 or newer`,
     });
-  const text = yield* fs.readFileString(path);
   const named = readVersion(text) === version;
   if (named && version === input.running) {
     yield* Console.log(`fleetfizz ${version} already`);

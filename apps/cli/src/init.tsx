@@ -20,9 +20,10 @@ import {
   fleetConfigSchemaText,
   insertAt,
   type JsonPath,
-  loadConfig,
   PACKAGE_MANAGERS,
   type PackageManager,
+  parseConfig,
+  readConfigText,
   SCHEMA_FILE,
   saveConfig,
   SELF_PACKAGE,
@@ -258,8 +259,9 @@ export const init = Effect.fn("init")(function* (flags: {
   }
 
   const tailnet = yield* readTailnet();
-  if (yield* fs.exists(path)) {
-    const config = yield* loadConfig(path);
+  const existing = yield* readConfigText(path);
+  if (existing !== undefined) {
+    const config = yield* parseConfig(path, existing);
     yield* Console.log(
       `\n${configText({
         path,

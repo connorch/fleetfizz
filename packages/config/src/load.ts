@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as jsonc from "jsonc-parser";
@@ -33,6 +34,18 @@ export class ConfigNotFound extends Schema.TaggedError<ConfigNotFound>()("Config
 }) {
   override get message() {
     return `no config at ${this.path}; run fizz init to write one, or pass --config`;
+  }
+}
+
+// The config path is a symlink. A Ship copies the config's text to every
+// Machine, and following a link would make it a second way the same file is
+// synced (into a dotfiles clone, a Managed Clone, a Shared File), so the
+// config must be a regular file. History goes through git in its directory.
+export class ConfigIsLink extends Schema.TaggedError<ConfigIsLink>()("ConfigIsLink", {
+  path: Schema.String,
+}) {
+  override get message() {
+    return `${this.path} is a symlink. fleetfizz copies the config to every Machine itself, so it must be a regular file; to keep its history, put its directory under git instead`;
   }
 }
 
@@ -134,11 +147,27 @@ export const parseConfig = Effect.fn("parseConfig")(function* (path: string, tex
 
 const formatIssue = SchemaIssue.makeFormatterDefault();
 
-// Loads the config at `path`. A missing file is ConfigNotFound; any other
-// read error is reported as it is.
-export const loadConfig = Effect.fn("loadConfig")(function* (path: string) {
+// Fails with ConfigIsLink when `path` is a symlink, working or dangling.
+// Every command that reads or writes the config checks this first.
+export const refuseLink = Effect.fn("refuseLink")(function* (path: string) {
   const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists(path))) return yield* new ConfigNotFound({ path });
-  const text = yield* fs.readFileString(path);
+  // readLink succeeds only on a symlink.
+  if (Option.isSome(yield* Effect.option(fs.readLink(path))))
+    return yield* new ConfigIsLink({ path });
+});
+
+// The config's text, or undefined when there is no file at `path`. A symlink
+// is ConfigIsLink; any other read error is reported as it is.
+export const readConfigText = Effect.fn("readConfigText")(function* (path: string) {
+  yield* refuseLink(path);
+  const fs = yield* FileSystem.FileSystem;
+  if (!(yield* fs.exists(path))) return undefined;
+  return yield* fs.readFileString(path);
+});
+
+// Loads the config at `path`. A missing file is ConfigNotFound.
+export const loadConfig = Effect.fn("loadConfig")(function* (path: string) {
+  const text = yield* readConfigText(path);
+  if (text === undefined) return yield* new ConfigNotFound({ path });
   return yield* parseConfig(path, text);
 });
