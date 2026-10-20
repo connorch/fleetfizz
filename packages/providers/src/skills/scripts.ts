@@ -34,18 +34,9 @@ const [names, agents] = JSON.parse(process.argv[1]);
 const lock = readLock();
 const paths = new Map();
 const text = (value) => (typeof value === "string" && value !== "" ? value : undefined);
-const { existsSync } = require("node:fs");
 try {
   const list = JSON.parse(execFileSync("skills", ["ls", "-g", "-a", ...agents, "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   for (const s of list) if (names.includes(s.name) && !paths.has(s.name)) paths.set(s.name, s.path);
-  // \`skills ls\` leaves out a folder whose SKILL.md it cannot parse (deleted,
-  // or edited badly), which an install would still replace. The CLI's
-  // shared folder is checked directly, so such a folder is never taken as
-  // missing.
-  for (const name of names) {
-    const shared = join(homedir(), ".agents", "skills", name);
-    if (!paths.has(name) && existsSync(shared)) paths.set(name, shared);
-  }
 } catch (e) {
   // The CLI prints an unknown agent id on stdout: "Invalid agents: x".
   const error = String(e.stderr || e.stdout || e.message).replace(/\\u001b\\[[0-9;]*m/g, "").trim().split("\\n")[0];

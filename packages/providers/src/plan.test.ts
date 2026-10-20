@@ -17,7 +17,7 @@ import {
 } from "@fleetfizz/core";
 
 import { PROVIDERS } from "./index.ts";
-import { REPORT } from "./skills/scripts.ts";
+import { OBSERVE, REPORT } from "./skills/scripts.ts";
 
 // A config as written, decoded as the CLI decodes it.
 const decode = Schema.decodeSync(FleetConfig);
@@ -757,6 +757,48 @@ describe("the skills Provider", () => {
       ],
     ]);
   });
+
+  // The Check's program, against a stand-in skills CLI that lists one folder.
+  it.effect("observes each skill's folder, lock entry, and tree hash", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const folder = `${home}/.agents/skills/grilling`;
+      yield* fs.makeDirectory(`${home}/bin`, { recursive: true });
+      yield* fs.makeDirectory(folder, { recursive: true });
+      yield* fs.writeFileString(`${folder}/SKILL.md`, "---\nname: grilling\n---\n");
+      yield* fs.writeFileString(
+        `${home}/bin/skills`,
+        `#!/bin/sh\nprintf '[{"name":"grilling","path":"${folder}","agents":[]}]'\n`,
+      );
+      yield* fs.chmod(`${home}/bin/skills`, 0o755);
+      // The tree hash git itself gives the folder, as GitHub would.
+      const tree = yield* exec(
+        "sh",
+        ["-c", `cd "${folder}" && git init -q && git add -A && git write-tree`],
+        home,
+      );
+      yield* fs.remove(`${folder}/.git`, { recursive: true });
+      yield* fs.writeFileString(
+        `${home}/.agents/.skill-lock.json`,
+        `{"version":3,"skills":{"grilling":{"source":"mattpocock/skills","sourceType":"github","skillPath":"skills/grilling/SKILL.md","skillFolderHash":"${tree.out}"}}}`,
+      );
+      const { out } = yield* exec(
+        "sh",
+        [
+          "-c",
+          `PATH="$HOME/bin:$PATH" node -e "$1" '[["grilling","grill-me"],["claude-code"]]'`,
+          "sh",
+          OBSERVE,
+        ],
+        home,
+      );
+      expect(out.split("\n")).toEqual([
+        `ff-state {"provider":"skills","fact":"skill","name":"grilling","path":"${folder}","hash":"${tree.out}","lock":{"source":"mattpocock/skills","sourceType":"github","skillPath":"skills/grilling/SKILL.md","hash":"${tree.out}"}}`,
+        'ff-state {"provider":"skills","fact":"skill","name":"grill-me"}',
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 
   // The report the install Step pipes the CLI's --json result into.
   it.effect("records only skills the CLI installed for every agent, and fails otherwise", () =>
