@@ -9,6 +9,8 @@ import { SiteNav } from "../components/site-nav";
 import { themeInitScript } from "../components/theme-toggle";
 import appCss from "../styles/app.css?url";
 
+// The home page's title; each docs page sets its own.
+const TITLE = `${NAME} - Keep your dev machines in sync over Tailscale`;
 const DESCRIPTION = `${TAGLINE.lead} ${TAGLINE.rest}`;
 // The share image and the icons are rendered by `pnpm og` (packages/og-image).
 const IMAGE = `${SITE_URL}/og.png`;
@@ -18,7 +20,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: NAME },
+      { title: TITLE },
       { name: "description", content: DESCRIPTION },
       { name: "theme-color", content: INK },
       { property: "og:type", content: "website" },
