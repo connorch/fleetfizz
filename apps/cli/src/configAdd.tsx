@@ -66,7 +66,7 @@ export const fileEntry = (path: string, exclude: ReadonlyArray<string>, targetin
     ? path
     : { path, ...(exclude.length > 0 ? { exclude } : {}), ...targeting };
 
-// A skill: its source, or `{ source, ref, agents, ... }`.
+/** A Skill's entry: its source alone, or `{ source, ref, agents, ... }` when it has more. */
 export const skillEntry = (
   source: string,
   ref: string | undefined,
@@ -263,7 +263,7 @@ export const addHomebrew = Effect.fn("addHomebrew")(function* (input: {
   });
 });
 
-// The section's first `agents`, picked from the ones the skills CLI sees here.
+/** The skills section's first `agents`, picked from the Agents the skills CLI sees here. */
 const pickHere = Effect.fn("pickHere")(function* () {
   const here = yield* localAgents();
   if (here.length === 0)
@@ -273,10 +273,12 @@ const pickHere = Effect.fn("pickHere")(function* () {
   return yield* pickAgents(here);
 });
 
-// `fizz config add skills <name>`. The source and ref default to the ones
-// the skills CLI installed it from here. A skill needs agents: the first one
-// also writes the section's `agents`, from --agent or a pick of the agents
-// here; after that, --agent is the skill's own.
+/**
+ * `fizz config add skills <name>`. The source and ref default to the ones the
+ * skills CLI installed it from here. The first Skill also writes the section's
+ * `agents`, from --agent or a pick of the Agents here; after that, --agent is
+ * the Skill's own.
+ */
 export const addSkill = Effect.fn("addSkill")(function* (input: {
   readonly config: string | undefined;
   readonly name: string;
@@ -289,7 +291,7 @@ export const addSkill = Effect.fn("addSkill")(function* (input: {
   const ask = interactive();
   const here =
     input.source === undefined
-      ? (yield* localSkills()).find((s) => s.name === input.name)
+      ? (yield* localSkills()).find((skill) => skill.name === input.name)
       : undefined;
   const source =
     input.source ??
@@ -297,8 +299,8 @@ export const addSkill = Effect.fn("addSkill")(function* (input: {
     (ask
       ? yield* Prompt.String({
           message: "Source (`owner/repo` on GitHub, or any source skills add takes)",
-          validate: (v) =>
-            v.trim() === "" ? Effect.fail("a source is needed") : Effect.succeed(v.trim()),
+          validate: (value) =>
+            value.trim() === "" ? Effect.fail("a source is needed") : Effect.succeed(value.trim()),
         })
       : yield* needs("--source"));
   const ref = input.ref ?? here?.ref;

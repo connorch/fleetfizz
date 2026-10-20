@@ -1,6 +1,8 @@
 // What the skills CLI has installed on this Machine, for `fizz init` and
-// `fizz config add skills` (ADR 0018): the skills it installed from GitHub,
-// and the agents it sees them installed for.
+// `fizz config add skills` (ADR 0018): the Skills it installed from GitHub,
+// and the Agents it sees them installed for.
+import { stripVTControlCharacters } from "node:util";
+
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
@@ -10,7 +12,7 @@ import { isItemName } from "@fleetfizz/config";
 
 import { expandHome, runLocal } from "./local.ts";
 
-// A skill the CLI installed here from GitHub, as a config writes it.
+/** A Skill the CLI installed here from GitHub, as a config writes it. */
 export interface LocalSkill {
   readonly name: string;
   readonly source: string;
@@ -33,23 +35,12 @@ const decodeLock = Schema.decodeUnknownOption(
   ),
 );
 
-// The lock's skills with a GitHub source, which every Machine can install
-// from, and a name the config can hold. One from a path here, or a folder
-// the CLI did not install, has no source another Machine has.
-export const lockSkills = (text: string): ReadonlyArray<LocalSkill> => {
-  const lock = decodeLock(text);
-  if (lock._tag === "None" || lock.value.version < 3) return [];
-  return Object.entries(lock.value.skills)
-    .filter(([name, entry]) => entry.sourceType === "github" && isItemName(name))
-    .map(([name, entry]) => ({
-      name,
-      source: entry.source,
-      ...(entry.ref === undefined ? {} : { ref: entry.ref }),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-};
-
-// The skills in the CLI's lock, where the CLI itself keeps it.
+/**
+ * The Skills in the CLI's lock, read where the CLI keeps it, that every
+ * Machine can install: a GitHub source and a name the config can hold. One
+ * from a path here, or a folder the CLI did not install, has no source another
+ * Machine has. None when the lock is missing or from an older CLI.
+ */
 export const localSkills = Effect.fn("localSkills")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const state = process.env.XDG_STATE_HOME;
@@ -57,7 +48,16 @@ export const localSkills = Effect.fn("localSkills")(function* () {
     state === undefined || state === ""
       ? expandHome("~/.agents/.skill-lock.json")
       : `${state}/skills/.skill-lock.json`;
-  return lockSkills(yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => "")));
+  const lock = decodeLock(yield* fs.readFileString(path).pipe(Effect.orElseSucceed(() => "")));
+  if (lock._tag === "None" || lock.value.version < 3) return [];
+  return Object.entries(lock.value.skills)
+    .filter(([name, entry]) => entry.sourceType === "github" && isItemName(name))
+    .map(([name, entry]): LocalSkill => ({
+      name,
+      source: entry.source,
+      ...(entry.ref === undefined ? {} : { ref: entry.ref }),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 });
 
 const NO_TELEMETRY = { DISABLE_TELEMETRY: "1" };
@@ -66,42 +66,42 @@ const decodeList = Schema.decodeUnknownOption(
   Schema.fromJsonString(Schema.Array(Schema.Struct({ agents: Schema.Array(Schema.String) }))),
 );
 
-// The ids of the agents `skills ls --json` names for display ("Claude Code"
-// is `claude-code`), the way most ids are written. A few ids are not
-// (`roo` is "Roo Code"); the CLI rejects those, and localAgents drops them.
-export const agentIds = (list: string): ReadonlyArray<string> => {
-  const skills = decodeList(list);
-  return skills._tag === "None"
-    ? []
-    : [
-        ...new Set(
-          skills.value.flatMap((s) => s.agents.map((a) => a.toLowerCase().replace(/\s+/g, "-"))),
-        ),
-      ];
-};
-
-// The agents the skills CLI sees skills installed for here, as the ids
-// `skills add -a` takes, or none when the CLI is not here.
+/**
+ * The Agents the skills CLI sees Skills installed for here, as the ids
+ * `skills add -a` takes, or none when the CLI is not here. `skills ls --json`
+ * names them for display ("Claude Code" is `claude-code`), the way most ids
+ * are written; the few that are not (`roo` is "Roo Code") the CLI rejects,
+ * and they are dropped.
+ */
 export const localAgents = Effect.fn("localAgents")(function* () {
   const listed = yield* runLocal("skills", ["ls", "-g", "--json"], NO_TELEMETRY);
-  const ids = listed.code === 0 ? agentIds(listed.stdout) : [];
+  const list = listed.code === 0 ? decodeList(listed.stdout) : undefined;
+  const ids =
+    list === undefined || list._tag === "None"
+      ? []
+      : [
+          ...new Set(
+            list.value.flatMap((skill) =>
+              skill.agents.map((agent) => agent.toLowerCase().replace(/\s+/g, "-")),
+            ),
+          ),
+        ];
   if (ids.length === 0) return ids;
   // The CLI prints the ids it does not know: "Invalid agents: a, b".
-  const probe = yield* runLocal("skills", ["ls", "-g", "-a", ...ids, "--json"], NO_TELEMETRY);
+  const validated = yield* runLocal("skills", ["ls", "-g", "-a", ...ids, "--json"], NO_TELEMETRY);
   const invalid =
-    probe.code === 0
+    validated.code === 0
       ? []
       : (/Invalid agents: (.*)/
-          .exec(probe.stdout.replace(/\u001b\[[0-9;]*m/g, ""))?.[1]
+          .exec(stripVTControlCharacters(validated.stdout))?.[1]
           ?.split(", ") ?? ids);
   return ids.filter((id) => !invalid.includes(id));
 });
 
-// The agents a skills section installs every skill for, picked from
-// `agents`, all picked to start.
+/** The skills section's `agents`, picked from `agents`, all picked to start. */
 export const pickAgents = (agents: ReadonlyArray<string>) =>
   Prompt.MultiSelect({
     message: "Which agents are skills installed for? (skills CLI ids)",
-    choices: agents.map((a) => ({ title: a, value: a, selected: true })),
+    choices: agents.map((agent) => ({ title: agent, value: agent, selected: true })),
     min: 1,
   });

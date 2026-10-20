@@ -88,7 +88,7 @@ fizz ship             # apply the plan everywhere, in parallel
 fizz report           # print the full Ledger of the last Ship from this Machine
 fizz logs             # print the Ship Log of the latest Ship that started on or reached this Machine
 fizz config           # show each Provider's Items and the Machines they target
-fizz config add brew tmux --platform linux   # add an Item; also machines, vp, npm, bun, pnpm, cask, repos, files
+fizz config add brew tmux --platform linux   # add an Item; also machines, vp, npm, bun, pnpm, cask, skills, repos, files
 fizz config remove brew:tmux                 # remove one; a Ship never uninstalls it
 fizz self-update      # set the config's version to the newest fleetfizz and install it here
 ```

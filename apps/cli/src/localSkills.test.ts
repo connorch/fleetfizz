@@ -1,36 +1,46 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 
-import { agentIds, lockSkills } from "./localSkills.ts";
+import { localSkills } from "./localSkills.ts";
 
-describe("lockSkills", () => {
-  it("is the lock's GitHub skills the config can name, with their refs", () => {
-    const lock = JSON.stringify({
-      version: 3,
-      skills: {
-        "wait-what": { source: "mattpocock/skills", sourceType: "github", skillFolderHash: "a" },
-        taste: { source: "Leonxlnx/taste-skill", sourceType: "github", ref: "v2" },
-        mine: { source: "/Users/c/skills/mine", sourceType: "local" },
-        "Convex Best Practices": { source: "get-convex/agent-skills", sourceType: "github" },
-      },
-    });
-    expect(lockSkills(lock)).toEqual([
-      { name: "taste", source: "Leonxlnx/taste-skill", ref: "v2" },
-      { name: "wait-what", source: "mattpocock/skills" },
-    ]);
-  });
+// localSkills with `lock` as the CLI's lock, under a temporary XDG_STATE_HOME.
+const withLock = (lock: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const state = yield* fs.makeTempDirectoryScoped();
+    yield* fs.makeDirectory(`${state}/skills`);
+    yield* fs.writeFileString(`${state}/skills/.skill-lock.json`, lock);
+    const before = process.env.XDG_STATE_HOME;
+    process.env.XDG_STATE_HOME = state;
+    return yield* localSkills().pipe(
+      Effect.ensuring(Effect.sync(() => (process.env.XDG_STATE_HOME = before))),
+    );
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
-  it("is nothing for a lock the CLI no longer reads, or none", () => {
-    expect(lockSkills(JSON.stringify({ version: 2, skills: {} }))).toEqual([]);
-    expect(lockSkills("")).toEqual([]);
-  });
-});
+describe("localSkills", () => {
+  it.effect("is the lock's GitHub skills the config can name, with their refs", () =>
+    Effect.gen(function* () {
+      const skills = yield* withLock(`{
+        "version": 3,
+        "skills": {
+          "wait-what": { "source": "mattpocock/skills", "sourceType": "github", "skillFolderHash": "a" },
+          "taste": { "source": "Leonxlnx/taste-skill", "sourceType": "github", "ref": "v2" },
+          "mine": { "source": "/Users/c/skills/mine", "sourceType": "local" },
+          "Convex Best Practices": { "source": "get-convex/agent-skills", "sourceType": "github" }
+        }
+      }`);
+      expect(skills).toEqual([
+        { name: "taste", source: "Leonxlnx/taste-skill", ref: "v2" },
+        { name: "wait-what", source: "mattpocock/skills" },
+      ]);
+    }),
+  );
 
-describe("agentIds", () => {
-  it("writes the display names skills ls gives as ids, once each", () => {
-    const list = JSON.stringify([
-      { name: "a", agents: ["Claude Code", "Codex"] },
-      { name: "b", agents: ["Codex", "Roo Code"] },
-    ]);
-    expect(agentIds(list)).toEqual(["claude-code", "codex", "roo-code"]);
-  });
+  it.effect("is nothing for a lock the CLI no longer reads", () =>
+    Effect.gen(function* () {
+      expect(yield* withLock(`{ "version": 2, "skills": {} }`)).toEqual([]);
+    }),
+  );
 });

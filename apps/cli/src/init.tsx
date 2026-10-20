@@ -89,7 +89,12 @@ export const draftText = (picks: Picks): EditResult => {
       ? [["the skills agents", ["skills", "agents"], picks.agents] as const]
       : []),
     ...picks.skills.map(
-      (s) => [s.name, ["skills", "items", s.name], skillEntry(s.source, s.ref, [], {})] as const,
+      (skill) =>
+        [
+          skill.name,
+          ["skills", "items", skill.name],
+          skillEntry(skill.source, skill.ref, [], {}),
+        ] as const,
     ),
     ...picks.files.map((f) => [f, ["files", "items", fileName(f)], f] as const),
   ];
@@ -333,18 +338,20 @@ export const init = Effect.fn("init")(function* (flags: {
   const fromGitHub = agentsHere.length === 0 ? [] : yield* localSkills();
   const skills = yield* pickSome(
     `Which skills from this Machine? (${fromGitHub.length} installed from GitHub)`,
-    fromGitHub.map((s) => ({
-      title: `${s.name}  ${s.source}${s.ref === undefined ? "" : `#${s.ref}`}`,
-      value: s,
+    fromGitHub.map((skill) => ({
+      title: `${skill.name}  ${skill.source}${skill.ref === undefined ? "" : `#${skill.ref}`}`,
+      value: skill,
       selected: true,
     })),
   );
   const agents = skills.length === 0 ? [] : yield* pickAgents(agentsHere);
   // A Ship installs skills with the skills CLI, so the config keeps the CLI
   // too, with the package manager that has it here.
-  const cli = installed.find((g) => g.name === "skills");
+  const cli = installed.find((global) => global.name === "skills");
   const addCli =
-    cli !== undefined && skills.length > 0 && !pickedGlobals.some((g) => g.name === "skills");
+    cli !== undefined &&
+    skills.length > 0 &&
+    !pickedGlobals.some((global) => global.name === "skills");
   const globals = addCli ? [...pickedGlobals, cli] : pickedGlobals;
   if (addCli)
     yield* Console.log(

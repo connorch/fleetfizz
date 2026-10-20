@@ -225,8 +225,8 @@ export type ReposSection = typeof ReposSection.Type;
 // An Item name that names a file: an Install Record, a Step's markers, a
 // skill's folder. One path segment of letters, digits, ".", "_" and "-".
 const ITEM_NAME = /^[A-Za-z0-9._-]+$/;
-export const isItemName = (n: string) => ITEM_NAME.test(n) && n !== "." && n !== "..";
-const badName = (names: ReadonlyArray<string>) => names.find((n) => !isItemName(n));
+export const isItemName = (name: string) => ITEM_NAME.test(name) && name !== "." && name !== "..";
+const badName = (names: ReadonlyArray<string>) => names.find((name) => !isItemName(name));
 
 // A path on a Machine: absolute, or under its home.
 const HomePath = Schema.NonEmptyString.check(
