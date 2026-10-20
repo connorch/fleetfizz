@@ -236,8 +236,9 @@ export const insertAt = (text: string, path: JsonPath, value: unknown): EditResu
     true,
   );
 
-// When an insert makes a line longer than WIDTH, the outermost object on it is
-// spread over lines first.
+// When the first line an insert changes is longer than WIDTH afterwards,
+// whether the insert made it long or it already was, the outermost container
+// written on that line is spread over lines first, again until the line fits.
 const insertSpread = (text: string, path: JsonPath, value: unknown): EditResult => {
   const result = insertText(text, path, value);
   if (!("text" in result)) return result;
