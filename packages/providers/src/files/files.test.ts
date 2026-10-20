@@ -172,6 +172,40 @@ describe("the files Provider decides", () => {
     expect(decide({ state: state(same, recorded), resolved: source() }).steps).toEqual([]);
   });
 
+  it("runs after again where the copy is there but its record is not, as a failed after leaves it", () => {
+    const same = Object.fromEntries(ours);
+    const config = configOf({
+      items: { vaut: { path: "~/.config/vaut", after: "mise install" } },
+    });
+    const withAfter = (resolved: FilesResolved): FilesResolved => ({
+      ...resolved,
+      sources: new Map(
+        [...resolved.sources].map(([name, s]) => [
+          name,
+          { ...s, item: { ...item, after: "mise install" } },
+        ]),
+      ),
+    });
+    const old = { at: "2026-10-01T00:00:00.000Z", entries: theirs };
+    expect(
+      kinds(decide({ state: state(same, old), resolved: withAfter(source()), config })),
+    ).toEqual([["change", "its after has not finished"]]);
+    const recorded = { at: "2026-10-20T10:00:00.000Z", entries: same };
+    expect(
+      kinds(decide({ state: state(same, recorded), resolved: withAfter(source()), config })),
+    ).toEqual([["leave", undefined]]);
+    expect(
+      kinds(
+        decide({
+          state: state(same, recorded),
+          resolved: withAfter(source()),
+          config,
+          rebuild: true,
+        }),
+      ),
+    ).toEqual([["change", "--rebuild"]]);
+  });
+
   it("skips an Item the Starting Machine lacks or has no Variant for, and fails a kind mismatch", () => {
     const missing: FilesResolved = {
       from: "studio",

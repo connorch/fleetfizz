@@ -265,7 +265,7 @@ export const SharedFile = Schema.Struct({
   }),
   after: Schema.optionalKey(Schema.NonEmptyString).annotateKey({
     description:
-      "A command run after a Ship writes the file there, in a login shell in its directory (`mise install`). If it fails, the next Ship copies the file again and runs it again.",
+      "A command run after a Ship writes the file there, in a login shell in its directory (`mise install`). If it fails, the next Ship runs it again.",
   }),
 });
 export type SharedFile = typeof SharedFile.Type;

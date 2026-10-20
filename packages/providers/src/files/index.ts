@@ -15,6 +15,7 @@ import {
   address,
   assembleState,
   Hidden,
+  shellInitFor,
   type Checked,
   type Context,
   type Decision,
@@ -27,7 +28,7 @@ import {
 import {
   checkScript,
   parseLine,
-  prelude,
+  preludeFor,
   quote,
   quotePath,
   recordDir,
@@ -109,6 +110,8 @@ interface Copy {
   readonly entries: Entries;
   readonly record?: FileRecord;
   readonly openssl: boolean;
+  // Its Machine's `shell.init`, which its Check ran too.
+  readonly init?: string;
 }
 
 export interface FilesResolved {
@@ -343,12 +346,13 @@ const resolveSources = Effect.fn("resolveSources")(function* (
 // path that Machine cannot read.
 const copiesOf = (
   checked: ReadonlyArray<Checked<FileItem>>,
-  from: string,
+  starting: Scope,
 ): ReadonlyMap<string, ReadonlyArray<Copy>> => {
   const copies = new Map<string, Copy[]>();
   for (const { machine, items, facts, records } of checked) {
-    if (machine.name === from) continue;
+    if (machine.name === starting.machine.name) continue;
     const observed = parse(facts, records);
+    const init = shellInitFor(starting.config, machine);
     for (const item of items) {
       const copy = observed.items.get(item.name);
       if (copy === undefined || copy.size > SIZE_LIMIT || [...copy.entries.values()].includes("?"))
@@ -362,6 +366,7 @@ const copiesOf = (
           entries: copy.entries,
           ...(record === undefined ? {} : { record }),
           openssl: observed.openssl,
+          ...(init === undefined ? {} : { init }),
         },
       ]);
     }
@@ -529,15 +534,24 @@ const decideFile = (
   const recorded = record === undefined ? undefined : fingerprint(recordEntries(record));
   const same =
     ctx.machine.name === from || (current !== undefined && fingerprint(current) === ours);
-  // --rebuild runs `after` again on a Machine that already has the copy:
-  // the copy Step writes nothing there but its record.
-  if (same && item.after !== undefined && ctx.rebuild(subject))
+  // `after` runs again on a Machine that already has the copy when its record
+  // is not this copy's (the last `after` failed, so the record stayed old), or
+  // with --rebuild. The copy Step writes nothing there but its record.
+  const rerun =
+    same && item.after !== undefined
+      ? ctx.rebuild(subject)
+        ? "--rebuild"
+        : ctx.machine.name !== from && recorded !== ours
+          ? "its after has not finished"
+          : undefined
+      : undefined;
+  if (rerun !== undefined)
     return {
       kind: "change",
       item: item.name,
       from: short(source.entries),
       to: short(source.entries),
-      reason: "--rebuild",
+      reason: rerun,
       change: { ...change, current: source.entries },
     };
   // The same copy: only its record may need writing.
@@ -661,7 +675,7 @@ const copyStep = (change: FileChange): Step => {
         ...modes,
         // In a login shell, as an Install Command runs (ADR 0020). It runs
         // before the record, so a failure leaves the old record and the next
-        // Ship copies and runs it again.
+        // Ship runs it again (decideFile).
         ...(item.after === undefined
           ? []
           : [
@@ -701,7 +715,7 @@ const fetchFiles = (copy: Copy, rels: ReadonlyArray<string>) =>
       { name: copy.machine, local: false },
       [
         // The Check's PATH, which found openssl there.
-        prelude,
+        preludeFor(copy.init),
         `IFS= read -r FF_KEY || FF_KEY=""`,
         "export FF_KEY",
         `ff_p=${quotePath(copy.item.path)}`,
@@ -954,7 +968,7 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
         from: starting.machine.name,
         at,
         sources,
-        copies: copiesOf(checked, starting.machine.name),
+        copies: copiesOf(checked, starting),
         openssl,
       };
     }),

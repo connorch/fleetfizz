@@ -26,6 +26,7 @@ import {
   type ProviderName,
   type Reached,
   reachedAfter,
+  readVersion,
   shaOf,
   staleWhy,
   type FleetConfig,
@@ -461,6 +462,15 @@ export const shipPass = Effect.fn("shipPass")(function* (
                 choice.config.machines,
               ),
             }),
+          );
+        // This fizz only ships the version it is (ADR 0019): the next run
+        // switches to the adopted config's.
+        const wanted = readVersion(choice.text);
+        if (wanted !== flags.version)
+          return yield* Effect.fail(
+            new ShipError(
+              `the config here now names fleetfizz ${wanted ?? "no version"}, not ${flags.version}; run fizz ship again to switch to it`,
+            ),
           );
         adopted = true;
         return "adopted" as const;
