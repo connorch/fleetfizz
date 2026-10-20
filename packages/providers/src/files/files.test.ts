@@ -172,7 +172,7 @@ describe("the files Provider decides", () => {
     expect(decide({ state: state(same, recorded), resolved: source() }).steps).toEqual([]);
   });
 
-  it("runs after again where the copy is there but its record is not, as a failed after leaves it", () => {
+  it("runs after again where the copy is there but its record is not", () => {
     const same = Object.fromEntries(ours);
     const config = configOf({
       items: { vaut: { path: "~/.config/vaut", after: "mise install" } },
@@ -190,6 +190,10 @@ describe("the files Provider decides", () => {
     expect(
       kinds(decide({ state: state(same, old), resolved: withAfter(source()), config })),
     ).toEqual([["change", "its after has not finished"]]);
+    // No record: the copy was there before any Ship, so after never ran.
+    expect(kinds(decide({ state: state(same), resolved: withAfter(source()), config }))).toEqual([
+      ["change", "its after has not run here"],
+    ]);
     const recorded = { at: "2026-10-20T10:00:00.000Z", entries: same };
     expect(
       kinds(decide({ state: state(same, recorded), resolved: withAfter(source()), config })),
