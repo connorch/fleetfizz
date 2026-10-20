@@ -14,8 +14,8 @@ A Ship pinned fleetfizz to the shipper's version as an implicit vp Global (ADR 0
   | Path contains                             | Package manager |
   | ----------------------------------------- | --------------- |
   | `/vite-plus/packages/`, `/vite-plus/bin/` | vp              |
-  | `/pnpm/`                                  | pnpm            |
-  | `/.bun/`                                  | bun             |
+  | `/pnpm/`, `/.pnpm/`                       | pnpm            |
+  | `/.bun/`, `/install/global/node_modules/` | bun             |
   | `/lib/node_modules/`                      | npm             |
 
   vp is first because vp's own Node keeps npm's Globals in a `lib/node_modules` too. A bin behind a mise or Volta shim is read through `mise which fizz` or `volta which fizz`, since the shim runs the tool's own bin.
