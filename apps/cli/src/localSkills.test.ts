@@ -3,13 +3,14 @@ import { describe, expect, it } from "@effect/vitest";
 import { agentIds, lockSkills } from "./localSkills.ts";
 
 describe("lockSkills", () => {
-  it("is the lock's GitHub skills, with their refs", () => {
+  it("is the lock's GitHub skills the config can name, with their refs", () => {
     const lock = JSON.stringify({
       version: 3,
       skills: {
         "wait-what": { source: "mattpocock/skills", sourceType: "github", skillFolderHash: "a" },
         taste: { source: "Leonxlnx/taste-skill", sourceType: "github", ref: "v2" },
         mine: { source: "/Users/c/skills/mine", sourceType: "local" },
+        "Convex Best Practices": { source: "get-convex/agent-skills", sourceType: "github" },
       },
     });
     expect(lockSkills(lock)).toEqual([

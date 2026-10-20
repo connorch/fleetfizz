@@ -350,6 +350,10 @@ export const init = Effect.fn("init")(function* (flags: {
     yield* Console.log(
       `The skills CLI is in the config too, as a ${cli.pm} Global: a Ship installs skills with it.`,
     );
+  if (cli === undefined && skills.length > 0)
+    yield* Console.log(
+      `No package manager here has the skills CLI, so a Ship cannot install skills; add it with fizz config add ${PACKAGE_MANAGERS.join("|")} skills.`,
+    );
   const present = yield* Effect.filter(DOTFILES, (f) => fs.exists(expandHome(f)));
   const files = yield* pickSome(
     "Which Shared Files? A Ship copies each from the Machine it starts on.",

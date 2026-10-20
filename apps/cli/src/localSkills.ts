@@ -6,6 +6,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
 import { Prompt } from "effect/cli";
 
+import { isItemName } from "@fleetfizz/config";
+
 import { expandHome, runLocal } from "./local.ts";
 
 // A skill the CLI installed here from GitHub, as a config writes it.
@@ -32,13 +34,13 @@ const decodeLock = Schema.decodeUnknownOption(
 );
 
 // The lock's skills with a GitHub source, which every Machine can install
-// from. One from a path here, or a folder the CLI did not install, has no
-// source another Machine has.
+// from, and a name the config can hold. One from a path here, or a folder
+// the CLI did not install, has no source another Machine has.
 export const lockSkills = (text: string): ReadonlyArray<LocalSkill> => {
   const lock = decodeLock(text);
   if (lock._tag === "None" || lock.value.version < 3) return [];
   return Object.entries(lock.value.skills)
-    .filter(([, entry]) => entry.sourceType === "github")
+    .filter(([name, entry]) => entry.sourceType === "github" && isItemName(name))
     .map(([name, entry]) => ({
       name,
       source: entry.source,

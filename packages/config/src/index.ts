@@ -33,6 +33,7 @@ export {
   FleetConfig,
   GlobalsSection,
   HomebrewRange,
+  isItemName,
   isPin,
   PACKAGE_MANAGERS,
   type PackageManager,
