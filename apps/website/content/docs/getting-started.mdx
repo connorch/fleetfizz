@@ -111,3 +111,13 @@ fizz ship
 The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. If the Ship asks a Question, such as whether to bump a Range a Machine has outgrown, answer it before anything changes. Any Tracked Repo that is private needs `gh` logged in here: the Ship lends its token to each Machine for that Ship only.
 
 After the first Ship, every Machine it reached has fleetfizz and the config, so you can ship from any of them. To move every Machine to a new fleetfizz, run `fizz self-update` and ship. An offline Machine is skipped and catches up on a later Ship.
+
+## 5. Let your agent ship
+
+The fleetfizz skill teaches a coding agent to edit the config, ship, and debug a Ship. It always runs a dry run first and brings every Question to you:
+
+```sh
+npx skills add connorch/fleetfizz
+```
+
+Or keep it on every Machine: add `"fleetfizz": "connorch/fleetfizz"` to the `skills` section's items.
