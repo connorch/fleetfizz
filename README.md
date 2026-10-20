@@ -1,4 +1,4 @@
-# fleetfizz
+![fleetfizz: Your machines, in sync.](https://fleetfizz.com/readme-banner.png)
 
 Keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain (vp version, Node and package-manager defaults, global packages at semver ranges), Homebrew Formulae and Casks, agent skills installed with the skills CLI, Shared Files copied from the Machine you ship from, and a managed clone of each tracked git repo, installed from its origin ref. One command, `fizz ship`, runs only on the Machine you start it from and drives the others over `tailscale ssh`.
 
@@ -114,8 +114,8 @@ Node 24 and pnpm 12. `pnpm install` once, then:
 | `pnpm check`        | typecheck, lint, format check, and tests            |
 | `pnpm build`        | bundle the CLI to `apps/cli/dist/fleetfizz.mjs`     |
 | `pnpm fmt`          | format                                              |
-| `pnpm og`           | render the site's share image and icons             |
+| `pnpm images`       | render the share image, README banner, and icons    |
 | `pnpm video`        | open Remotion Studio for the site's motion graphics |
 | `pnpm video:render` | render them to transparent WebM and HEVC (macOS)    |
 
-Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: files, vp, brew, cask, skills, and repos) are private and bundled into it. For the site, `apps/website` is fleetfizz.com; `packages/brand-assets` holds the name, copy, colors, and glyph that it, `packages/og-image` (the share image and favicons), and `packages/video` (motion graphics as Remotion compositions) share.
+Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: files, vp, brew, cask, skills, and repos) are private and bundled into it. For the site, `apps/website` is fleetfizz.com; it and `packages/video` (motion graphics as Remotion compositions) share the name, copy, colors, and glyph in `packages/brand-assets`, which also renders the share image, README banner, and favicons from them.

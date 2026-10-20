@@ -1,12 +1,13 @@
 import { writeFile } from "node:fs/promises";
 import { TOUCH, favicon, touchIcon } from "./icon.ts";
-import { cover, png } from "./render.ts";
+import { png, readmeBanner, shareImage } from "./render.ts";
 
-// Writes the share image and the favicons into the website's public folder.
-// Run `pnpm og` after changing a template or the brand, and commit the output.
+// Writes the share image, the README banner, and the favicons into the
+// website's public folder. The READMEs load the banner from fleetfizz.com.
+// Run `pnpm images` after changing a template or the brand, and commit the output.
 // Node runs the TypeScript as is; nothing here needs a loader.
 
-const out = (file: string) => new URL(`../../../apps/website/public/${file}`, import.meta.url);
+const out = (file: string) => new URL(`../../../../apps/website/public/${file}`, import.meta.url);
 
 /** Packs PNGs into an .ico, which stores each size as a PNG behind a small directory. */
 function ico(images: ReadonlyArray<{ size: number; png: Buffer }>): Buffer {
@@ -32,7 +33,8 @@ const write = async (file: string, data: string | Buffer) => {
   console.log(`Wrote apps/website/public/${file}`);
 };
 
-await write("og.png", await cover());
+await write("og.png", await shareImage());
+await write("readme-banner.png", await readmeBanner());
 await write("favicon.svg", `${favicon}\n`);
 await write("favicon.ico", ico([16, 32, 48].map((size) => ({ size, png: png(favicon, size) }))));
 await write("apple-touch-icon.png", png(touchIcon, TOUCH));

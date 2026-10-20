@@ -1,8 +1,11 @@
 // The brand, in one place: the name and copy, the colors, the typeface, and
 // the glyph's geometry. Plain data, so each consumer draws it its own way:
-// apps/website with Tailwind, packages/og-image for the share image and the
-// favicons, packages/video for motion graphics. The card, the clips, and the
-// page all say the same thing.
+// apps/website with Tailwind, ./images with satori for the share image, the
+// README banner, and the favicons, packages/video for motion graphics. The
+// card, the clips, and the page all say the same thing.
+//
+// Only this file is exported: ./images is a Node script (`pnpm images`), so
+// the website and video never bundle satori or resvg.
 
 export const NAME = "fleetfizz";
 export const SITE_URL = "https://fleetfizz.com";
@@ -11,6 +14,9 @@ export const TAGLINE = {
   lead: "Your machines, in sync.",
   rest: "One command, and every machine on your tailnet has the same tools, versions, and repos.",
 };
+
+// How to install fleetfizz, for the landing page and the README banner.
+export const INSTALL = "vp install -g fleetfizz";
 
 // The light theme's ink, which is also the dark theme's background.
 export const INK = "#0B0F05";

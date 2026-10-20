@@ -12,7 +12,7 @@ import appCss from "../styles/app.css?url";
 // The home page's title; each docs page sets its own.
 const TITLE = `${NAME} - Keep your dev machines in sync over Tailscale`;
 const DESCRIPTION = `${TAGLINE.lead} ${TAGLINE.rest}`;
-// The share image and the icons are rendered by `pnpm og` (packages/og-image).
+// The share image and the icons are rendered by `pnpm images` (packages/brand-assets).
 const IMAGE = `${SITE_URL}/og.png`;
 
 export const Route = createRootRoute({
