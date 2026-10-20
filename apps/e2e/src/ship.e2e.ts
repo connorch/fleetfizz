@@ -1,6 +1,7 @@
 // Ships the fixture Config across a real Fleet, in order: each scenario
 // starts from where the last one left the Fleet. Each checks fizz's exit code,
-// the Ledger it saved, and what is actually on every Machine.
+// the Ledger it saved, and, where it changes something, what is actually on
+// the Machines.
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -20,65 +21,55 @@ const itemsOf = (machines: ReadonlyArray<LedgerMachine>) =>
   machines.flatMap((m) => m.items.map((item) => ({ machine: m.name, ...item })));
 
 layer(FleetLive, { timeout: "15 minutes" })("fizz ship", (it) => {
-  it.effect("a fresh Fleet: pnpm installs, and its Globals wait for the next Ship", () =>
-    Effect.gen(function* () {
-      const { machines } = yield* Fleet;
-      const { version, commit } = yield* Prepared;
-      const result = yield* ship();
-      expect(result.exitCode, result.output).toBe(0);
-      expect(result.machines.map((m) => [m.name, m.status])).toEqual(
-        machines.map((m) => [m.name, "ok"]),
-      );
-      for (const item of itemsOf(result.machines)) {
-        if (item.name.startsWith("pnpm:")) {
-          // A package manager a Ship installs serves its Globals from the next one.
-          expect(item.status, `${item.machine} ${item.name}`).toBe("skipped");
-          expect(item.detail).toMatch(/ship again/);
-        } else {
-          expect(["ok", "idle"], `${item.machine} ${item.name}: ${item.detail}`).toContain(
-            item.status,
+  it.effect(
+    "a fresh Fleet comes in line Ship by Ship, then every Item is where it is targeted",
+    () =>
+      Effect.gen(function* () {
+        const { machines } = yield* Fleet;
+        const { version, commit } = yield* Prepared;
+        // An Item whose tool a Ship installs waits for the next Ship: pnpm's
+        // Globals wait for pnpm, and the Skill for the skills CLI, a pnpm Global.
+        let waiting = Infinity;
+        for (let n = 1; n <= 3 && waiting > 0; n++) {
+          const result = yield* ship();
+          expect(result.exitCode, result.output).toBe(0);
+          expect(result.machines.map((m) => [m.name, m.status])).toEqual(
+            machines.map((m) => [m.name, "ok"]),
+          );
+          const items = itemsOf(result.machines);
+          for (const item of items) {
+            const where = `Ship ${n}, ${item.machine} ${item.name}: ${item.detail}`;
+            if (item.status === "skipped") expect(item.detail, where).toMatch(/ship again/);
+            else expect(["ok", "idle"], where).toContain(item.status);
+          }
+          waiting = items.filter((item) => item.status === "skipped").length;
+        }
+        expect(waiting).toBe(0);
+
+        const config = (yield* probe(machines[0].name)).config;
+        for (const [i, machine] of machines.entries()) {
+          const found = yield* probe(machine.name);
+          expect(found.fizz, machine.name).toBe(`fizz v${version}`);
+          expect(found.config, machine.name).toBe(config);
+          expect(found.notes, machine.name).toBe(NOTES);
+          expect(found.runIsExecutable, machine.name).toBe("yes");
+          expect(found.clone, machine.name).toBe(commit);
+          expect(found.output, machine.name).toBe(commit);
+          expect(found.skill, machine.name).toBe("yes");
+          expect(found.globals.skills, machine.name).toMatch(/^1\./);
+          // Targeted by `machines` at the first remote Machine only.
+          expect(found.globals.semver, machine.name).toEqual(
+            i === 1 ? expect.stringMatching(/^7\./) : undefined,
+          );
+          // A Variant per Platform.
+          expect(found.globals["is-number"], machine.name).toMatch(
+            machine.platform === "darwin" ? /^6\./ : /^7\./,
           );
         }
-      }
-      for (const machine of machines) {
-        const found = yield* probe(machine.name);
-        expect(found.fizz, machine.name).toBe(`fizz v${version}`);
-        expect(found.notes, machine.name).toBe(NOTES);
-        expect(found.runIsExecutable, machine.name).toBe("yes");
-        expect(found.clone, machine.name).toBe(commit);
-        expect(found.output, machine.name).toBe(commit);
-      }
-    }),
+      }),
   );
 
-  it.effect("the second Ship brings every Item in line, where it is targeted", () =>
-    Effect.gen(function* () {
-      const { machines } = yield* Fleet;
-      const result = yield* ship();
-      expect(result.exitCode, result.output).toBe(0);
-      for (const item of itemsOf(result.machines))
-        expect(["ok", "idle"], `${item.machine} ${item.name}: ${item.detail}`).toContain(
-          item.status,
-        );
-      const config = (yield* probe(machines[0].name)).config;
-      for (const [i, machine] of machines.entries()) {
-        const found = yield* probe(machine.name);
-        expect(found.skill, machine.name).toBe("yes");
-        expect(found.config, machine.name).toBe(config);
-        expect(found.globals.skills, machine.name).toMatch(/^1\./);
-        // Targeted by `machines` at the first remote Machine only.
-        expect(found.globals.semver, machine.name).toEqual(
-          i === 1 ? expect.stringMatching(/^7\./) : undefined,
-        );
-        // A Variant per Platform.
-        expect(found.globals["is-number"], machine.name).toMatch(
-          machine.platform === "darwin" ? /^6\./ : /^7\./,
-        );
-      }
-    }),
-  );
-
-  it.effect("a third Ship changes nothing", () =>
+  it.effect("the next Ship changes nothing", () =>
     Effect.gen(function* () {
       const result = yield* ship();
       expect(result.exitCode, result.output).toBe(0);

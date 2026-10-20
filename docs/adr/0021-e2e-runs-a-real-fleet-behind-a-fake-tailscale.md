@@ -1,0 +1,24 @@
+# E2E runs a real Fleet behind a fake tailscale
+
+Unit tests cover the Plan and run some generated scripts in a local `sh`, but nothing ran the published package against more than one Machine. `apps/e2e` does: `pnpm e2e` builds fizz, brings up a Fleet, and ships a fixture Config across it from its Starting Machine, the way a user does. CI runs the same suite after every merge to `main`, by hand, and on pull requests labeled `e2e`. It never blocks a merge or the npm publish.
+
+- **Everything is real except Tailscale.** fizz calls `tailscale` from PATH in three places: `tailscale status --json` for the tailnet, `tailscale ssh <machine> <script>` for every remote script, and `tailscale debug prefs` in `fizz init`. On the Starting Machine only, a shell script stands in for it (`apps/e2e/fleet/tailscale`): `status --json` prints a file the suite writes, and `ssh` runs the script over plain `ssh` in the remote user's login shell, with stdin passed through. Plain ssh exits 255 when it cannot connect, as `tailscale ssh` does, so an unreachable Machine takes the same path. The package, its install, the generated scripts, the login shells, the marker protocol (ADR 0001), the Lent Token on stdin, and the network to npm and GitHub are all real. No product code knows about the suite.
+- **The Fleet is containers.** Docker Compose runs `start` (the Starting Machine), `linux-b`, `linux-c`, and Verdaccio. The Starting Machine is a container too, so a local run never touches the developer's own Config, Globals, or Ship Log. Each Machine is one Debian image with Node 24, git, sshd, and gh, and a user whose npm Globals live under its home. pnpm and the skills CLI are not in the image: the fixture Config installs them as Globals, as ADR 0020 tells users to.
+- **Every Machine installs the build from Verdaccio.** A fizz installs the config's `version` with a package manager (ADR 0019), so the build has to come from a registry. The suite publishes `apps/cli` to the Fleet's Verdaccio, which serves `fleetfizz` only from what was published there and proxies every other package to npmjs. The version on `main` is usually already on npmjs; with no proxy for `fleetfizz`, no Machine can get that one instead.
+- **The fixtures are in this repo.** The Tracked Repo and the Skill are `connorch/fleetfizz` itself, at the branch under test (`E2E_REF`, else the checkout's branch when GitHub has it, else `main`). The Skill is `apps/e2e/fixtures/skills/fleetfizz-e2e`.
+- **One suite, many Fleets.** The scenarios read a `Fleet` service (its Machines, a way to run a command on one, and a way to make one unreachable), so another kind of Fleet is another layer, not another suite.
+- **The scenarios check three things:** fizz's exit code, the Ledger it saves (`last-ship.json`), and what is actually on each Machine, read there over the Fleet's own channel: `fizz --version`, the Config, the Shared File and its mode, the Managed Clone's HEAD and its Output, the Skill folder, and `pnpm ls -g`.
+
+## Considered Options
+
+- **Real Tailscale, with ephemeral nodes in the owner's tailnet (rejected).** It would cover the control plane and Tailscale SSH itself, but needs a secret in CI, a tailnet policy rule for test nodes, and Tailscale's availability for every run.
+- **Headscale in Compose (rejected).** Real `tailscaled` and `tailscale ssh` with no secrets, but it is a second control plane to keep working, and its support for Tailscale SSH policy was unproven.
+- **A GitHub release of the build (rejected).** It would make the config's `version` take a URL, give fizz a second install path, and could test only what was already published.
+- **A gate on the npm publish (rejected).** A Ship over real Machines takes minutes; the release must not wait on it.
+
+## Consequences
+
+- Tailscale's own behavior is not covered: its control plane, `tailscale ssh` itself, and macOS's exit code 0 on a failed remote command.
+- A fresh Fleet takes three Ships to converge, as designed: pnpm, then the skills CLI (a pnpm Global), then the Skill. The suite ships until nothing waits, and only "ship again" may skip.
+- Fixture changes reach a run only once they are on GitHub.
+- To debug a failed run, `E2E_KEEP=1 pnpm e2e` leaves the Fleet up; `docker compose -p fleetfizz-e2e exec -u fizz start bash -l` opens a shell on the Starting Machine.
