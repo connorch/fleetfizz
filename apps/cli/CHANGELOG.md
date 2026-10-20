@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.14.2
+
+### Patch Changes
+
+- [#78](https://github.com/connorch/fleetfizz/pull/78) [`cdaaa26`](https://github.com/connorch/fleetfizz/commit/cdaaa262684867f6c4658653c0fbf344fd561c42) Thanks [@connorch](https://github.com/connorch)! - A skill from a repo too large for GitHub to list in full is skipped as one fizz could not check, like when GitHub cannot be reached, instead of installing again on every Ship as "not found". Skills install and are checked with `core.autocrlf` off, so a Machine whose git config converts line endings no longer asks whether an unedited skill was edited there. On a Machine with `core.autocrlf=true`, a skill installed before this may be asked about once: overwrite it.
+
 ## 0.14.1
 
 ### Patch Changes
