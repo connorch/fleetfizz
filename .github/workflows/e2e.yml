@@ -1,6 +1,7 @@
 name: E2E
 
-# Ships the build across a real Fleet of containers (apps/e2e, ADR 0021).
+# Ships the build across real Fleets (apps/e2e, ADR 0021): containers on
+# Linux, and two users on one Mac.
 # Slow, so it never blocks: it runs after a merge to main, by hand, or on a
 # pull request labeled `e2e`.
 on:
@@ -49,4 +50,26 @@ jobs:
           E2E_REF: ${{ github.head_ref || github.ref_name }}
           # The Starting Machine's gh token: the Lent Token, and the skills
           # Provider's GitHub API calls, which share a rate limit per IP without it.
+          GH_TOKEN: ${{ github.token }}
+
+  darwin:
+    name: Darwin Fleet
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version-file: .node-version
+          cache: true
+          run-install: |
+            - args: [--frozen-lockfile]
+      - run: pnpm e2e
+        env:
+          # The runner is the Starting Machine, and a second user on it the
+          # other Machine (apps/e2e/fleet/darwin-setup.sh). It is thrown away.
+          E2E_FLEET: darwin
+          E2E_THROWAWAY: "1"
+          E2E_REF: ${{ github.head_ref || github.ref_name }}
           GH_TOKEN: ${{ github.token }}

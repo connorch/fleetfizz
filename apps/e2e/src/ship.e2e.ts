@@ -4,9 +4,11 @@
 // the Machines.
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
+import { darwinFleet } from "./darwin.ts";
 import { dockerFleet } from "./docker.ts";
 import { NOTES, SHARED_DIR } from "./fixture.ts";
 import { Fleet } from "./fleet.ts";
