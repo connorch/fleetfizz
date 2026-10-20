@@ -10,7 +10,7 @@ import { PACKAGE_MANAGERS, SELF_PACKAGE, type PackageManager } from "@fleetfizz/
 import { assembleState, type Decision, type Named, type Provider } from "@fleetfizz/core";
 import { checkScript, parseLine, runScript } from "@fleetfizz/remote";
 
-import { installedHere, installWith, MANAGER_PACKAGE } from "../globals/index.ts";
+import { installedHere, installWith, MANAGER_PACKAGE, runs } from "../globals/index.ts";
 
 // Which package manager installed a fizz, from the paths of its bin and the
 // files behind it: vp's shims and packages, pnpm's home and global store,
@@ -27,7 +27,7 @@ export const installerOf = (paths: ReadonlyArray<string>): PackageManager | unde
   return undefined;
 };
 
-// What one Machine has: its fizz, if any, and the package managers on PATH.
+// What one Machine has: its fizz, if any, and the package managers that run there.
 export interface FleetfizzObserved {
   readonly fizz?: { readonly path: string; readonly real: string; readonly version: string };
   readonly managers: ReadonlySet<string>;
@@ -69,7 +69,7 @@ const OBSERVE = [
   `  ff_state "{\\"provider\\":\\"fleetfizz\\",\\"fact\\":\\"fizz\\",\\"path\\":\\"$(ff_json "$ff_b")\\",\\"real\\":\\"$(ff_json "$ff_rp")\\",\\"version\\":\\"$(ff_json "$ff_v")\\"}"`,
   "fi",
   `for ff_pm in ${PACKAGE_MANAGERS.join(" ")}; do`,
-  `  if command "$ff_pm" --version >/dev/null 2>&1; then ff_state "{\\"provider\\":\\"fleetfizz\\",\\"fact\\":\\"manager\\",\\"name\\":\\"$ff_pm\\"}"; fi`,
+  `  if ${runs('"$ff_pm"')}; then ff_state "{\\"provider\\":\\"fleetfizz\\",\\"fact\\":\\"manager\\",\\"name\\":\\"$ff_pm\\"}"; fi`,
   "done",
 ].join("\n");
 

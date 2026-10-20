@@ -91,6 +91,12 @@ export const MANAGER_PACKAGE: Readonly<Record<PackageManager, string>> = {
   pnpm: "pnpm",
 };
 
+// The shell test that `pm` is on this Machine: it runs, not only that it is on
+// PATH, since a mise shim or Corepack proxy is there for a tool that is not
+// installed (and fails to run under a Check's CHECK_ENV). `pm` is a name or
+// a shell word such as "$ff_pm".
+export const runs = (pm: string): string => `command ${pm} --version >/dev/null 2>&1`;
+
 // The shell that installs `specs` (`name@version`) with `pm`.
 export const installWith = (pm: PackageManager, specs: ReadonlyArray<string>): string =>
   `( command ${MANAGERS[pm].install} ${specs.map(quote).join(" ")} )`;
@@ -176,9 +182,7 @@ const globals = (
       items.length === 0
         ? ""
         : [
-            // `--version`, not `command -v`: a mise shim is on PATH even when
-            // its tool is not installed, and then fails to run.
-            `if command ${name} --version >/dev/null 2>&1; then`,
+            `if ${runs(name)}; then`,
             `  ff_l=$(command ${manager.list} 2>/dev/null | base64 | tr -d '\\n')`,
             `  ff_state "{\\"provider\\":\\"${name}\\",\\"fact\\":\\"list\\",\\"base64\\":\\"$ff_l\\"}"`,
             "else",
