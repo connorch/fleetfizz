@@ -42,12 +42,8 @@ const recordFact = (provider: string, item: string): string[] => [
 
 // What every Check, and every listing of Globals on the Starting Machine,
 // runs with. A Check changes nothing: a mise shim for a tool that is not
-// installed, or a Corepack proxy for a package manager it has not cached,
-// fails instead of installing it.
-export const CHECK_ENV = {
-  MISE_NOT_FOUND_AUTO_INSTALL: "false",
-  COREPACK_ENABLE_NETWORK: "0",
-} as const;
+// installed fails instead of installing it.
+export const CHECK_ENV = { MISE_NOT_FOUND_AUTO_INSTALL: "false" } as const;
 
 export const checkScript = (input: CheckInput): string => {
   const lines = [

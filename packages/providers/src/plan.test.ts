@@ -259,22 +259,6 @@ describe("the package-manager Providers", () => {
       kind: "skip",
       reason: "waits for pnpm, which brew installs in this Ship; ship again",
     });
-    // vp's command comes from the vite-plus package.
-    const vp = Schema.decodeSync(FleetConfig)({
-      version: "0.2.0",
-      machines: written.machines,
-      npm: { items: { "vite-plus": "*" } },
-      vp: { items: { vercel: "^59.25.4" } },
-    });
-    expect(
-      provider(
-        plan({ config: vp, state: facts({ globals: [{ provider: "vp", fact: "missing" }] }) }),
-        "vp",
-      ).decisions[0],
-    ).toMatchObject({
-      kind: "skip",
-      reason: "waits for vp, which npm installs in this Ship; ship again",
-    });
   });
 
   it("asks about a Global above its Range, and honors answers", () => {
@@ -446,19 +430,6 @@ describe("the fleetfizz Provider", () => {
       ]),
     ).toBe("pnpm");
     expect(installerOf(["/Users/connor/.bun/bin/fizz"])).toBe("bun");
-    // vp's legacy home.
-    expect(
-      installerOf([
-        "/Users/connor/.vite-plus/packages/fleetfizz/x/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
-      ]),
-    ).toBe("vp");
-    // Custom PNPM_HOME and BUN_INSTALL: the store paths still say which.
-    expect(
-      installerOf(["/opt/tools/global/5/.pnpm/fleetfizz@0.2.0/node_modules/fleetfizz/dist/x.mjs"]),
-    ).toBe("pnpm");
-    expect(installerOf(["/opt/bun/install/global/node_modules/fleetfizz/dist/fleetfizz.mjs"])).toBe(
-      "bun",
-    );
     expect(
       installerOf([
         "/Users/connor/.nvm/versions/node/v24.1.0/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",

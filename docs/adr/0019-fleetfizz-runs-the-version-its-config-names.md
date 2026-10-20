@@ -14,11 +14,11 @@ A Ship pinned fleetfizz to the shipper's version as an implicit vp Global (ADR 0
   | Path contains                             | Package manager |
   | ----------------------------------------- | --------------- |
   | `/vite-plus/packages/`, `/vite-plus/bin/` | vp              |
-  | `/pnpm/`, `/.pnpm/`                       | pnpm            |
-  | `/.bun/`, `/install/global/node_modules/` | bun             |
+  | `/pnpm/`                                  | pnpm            |
+  | `/.bun/`                                  | bun             |
   | `/lib/node_modules/`                      | npm             |
 
-  vp is first because vp's own Node keeps npm's Globals in a `lib/node_modules` too. A bin behind a mise or Volta shim is read through `mise which fizz` or `volta which fizz`, since the shim runs the tool's own bin.
+  vp is first because vp's own Node keeps npm's Globals in a `lib/node_modules` too. These are each package manager's default places; a fizz anywhere else (a custom `PNPM_HOME`, a mise or Volta shim, a checkout) is not guessed at, and fizz says to install the version by hand.
 
 - **fleetfizz is a Provider with one implicit Item, `fleetfizz:fleetfizz`, on every Machine**, the way Homebrew is `brew:brew`. It has no section and runs last, after every package manager a Ship installs. Its Check reads `command -v fizz`, the real path behind it, `fizz --version`, and which package managers are on PATH. A Machine whose fizz is another version gets `version` with the package manager that installed it there. A Machine whose fizz came from a package manager no longer on PATH fails with the command to run. A Machine without fizz gets it with the package manager that installed the Starting Machine's, read there the way its Check reads it, even with `--only` another Machine; it is skipped ("no pnpm here") when that package manager is not there and no section installs it in this Ship. The Starting Machine is always left as it is: it already switched.
 - **The fizz Step and the config copy are independent.** Targets never run fizz during a Ship: the Starting Machine writes every script, so the gate there is the guarantee. Keeping the other Machines on `version` means `fizz status` shows one version everywhere and the next `fizz` there starts without an install. An old fizz that receives a newer config switches on its next run.

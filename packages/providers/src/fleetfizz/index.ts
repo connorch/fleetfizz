@@ -13,19 +13,17 @@ import { checkScript, parseLine, runScript } from "@fleetfizz/remote";
 import { installWith, managerArrives, runs } from "../globals/index.ts";
 
 // Which package manager installed a fizz, from the paths of its bin and the
-// files behind it: vp's shims and packages (in its home or the legacy
-// ~/.vite-plus), pnpm's home and its `.pnpm`
-// store, bun's home and its `install/global`, then npm's lib/node_modules
-// (which vp's own Node also has, so vp is checked first). The store paths
-// hold under a custom PNPM_HOME or BUN_INSTALL. Undefined for anything else,
-// such as a link to a checkout.
+// files behind it, where each puts its Globals by default: vp's shims and
+// packages, pnpm's home and global store, bun's global directory, then npm's
+// lib/node_modules (which vp's own Node also has, so vp is checked first).
+// Undefined for anything else, such as a link to a checkout or a shim of
+// another tool: fizz then says to install the version by hand.
 export const installerOf = (paths: ReadonlyArray<string>): PackageManager | undefined => {
   const has = (...parts: ReadonlyArray<string>) =>
     paths.some((path) => parts.some((part) => path.includes(part)));
-  if (has("/vite-plus/packages/", "/vite-plus/bin/", "/.vite-plus/packages/", "/.vite-plus/bin/"))
-    return "vp";
-  if (has("/pnpm/", "/.pnpm/")) return "pnpm";
-  if (has("/.bun/", "/install/global/node_modules/")) return "bun";
+  if (has("/vite-plus/packages/", "/vite-plus/bin/")) return "vp";
+  if (has("/pnpm/")) return "pnpm";
+  if (has("/.bun/")) return "bun";
   if (has("/lib/node_modules/")) return "npm";
   return undefined;
 };
@@ -64,8 +62,6 @@ const decodeFact = Schema.decodeUnknownOption(FleetfizzFact);
 const OBSERVE = [
   "if command -v fizz >/dev/null 2>&1; then",
   "  ff_b=$(command -v fizz)",
-  // mise and Volta shims run their tool's own bin, which `which` names.
-  `  case "$ff_b" in */mise/shims/*) ff_b=$(mise which fizz 2>/dev/null || printf '%s' "$ff_b") ;; */.volta/bin/*) ff_b=$(volta which fizz 2>/dev/null || printf '%s' "$ff_b") ;; esac`,
   // macOS before 13 has neither realpath nor readlink -f.
   `  ff_rp=$(realpath "$ff_b" 2>/dev/null || readlink -f "$ff_b" 2>/dev/null || printf '%s' "$ff_b")`,
   `  ff_v=$(command fizz --version 2>/dev/null | sed -n 's/^fizz v\\{0,1\\}\\([^ ]*\\).*/\\1/p' | head -n 1)`,

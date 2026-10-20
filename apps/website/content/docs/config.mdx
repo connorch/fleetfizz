@@ -132,7 +132,7 @@ Each Machine keeps a record of the last copy a Ship wrote there. Before overwrit
 
 <include>../generated/config/shell.md</include>
 
-A Ship runs every script in a login shell, which reads no rc file over ssh: Ubuntu's `.bashrc` returns early when it is not interactive, and zsh reads `.zshrc` only when it is. So fleetfizz sources vp's env file when there is one, sets `PNPM_HOME` to pnpm's default when it is unset, and appends the bin directories of vp, pnpm, bun, mise, and volta to PATH, so what the login shell already has wins. fnm's default `node` comes first, as `fnm env` in an rc file puts it. It sources `nvm.sh` when there is one, so nvm's default `node` comes first, as in an interactive shell. When a Machine needs more, `init` runs after all of this, so what it picks wins, with stdin closed.
+A Ship runs every script in a login shell, which reads no rc file over ssh: Ubuntu's `.bashrc` returns early when it is not interactive, and zsh reads `.zshrc` only when it is. So fleetfizz sources vp's env file when there is one, sets `PNPM_HOME` to pnpm's default when it is unset, and appends the bin directories of vp, pnpm, bun, mise, volta, and fnm to PATH, so what the login shell already has wins. It sources `nvm.sh` when nothing before it gave a `node`. When a Machine needs more, such as nvm's `node` ahead of a system one, `init` runs after all of this, so what it picks wins, with stdin closed.
 
 ## Order
 

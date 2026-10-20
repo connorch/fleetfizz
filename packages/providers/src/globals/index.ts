@@ -82,18 +82,9 @@ export const MANAGERS: Readonly<Record<PackageManager, Manager>> = {
   },
 };
 
-// The npm package each package manager's command comes from, as a Global of
-// another package manager installs it.
-const MANAGER_PACKAGE: Readonly<Record<PackageManager, string>> = {
-  vp: "vite-plus",
-  npm: "npm",
-  bun: "bun",
-  pnpm: "pnpm",
-};
-
 // The shell test that `pm` is on this Machine: it runs, not only that it is on
-// PATH, since a mise shim or Corepack proxy is there for a tool that is not
-// installed (and fails to run under a Check's CHECK_ENV). `pm` is a name or
+// PATH, since a mise shim is there for a tool that is not installed (and
+// fails to run under a Check's CHECK_ENV). `pm` is a name or
 // a shell word such as "$ff_pm".
 export const runs = (pm: string): string => `command ${pm} --version >/dev/null 2>&1`;
 
@@ -112,7 +103,7 @@ export const installedHere = (
   pkg: string,
 ): PackageManager | undefined =>
   PACKAGE_MANAGERS.find((pm) => {
-    if (MANAGER_PACKAGE[pm] === pkg) return false;
+    if (pm === pkg) return false;
     const section = config[pm];
     const global = section?.items?.[pkg];
     return (
@@ -140,7 +131,7 @@ export const managerArrives = (
   machine: MachineIdentity,
   pm: PackageManager,
 ): string | undefined => {
-  const by = installedHere(config, machine, MANAGER_PACKAGE[pm]);
+  const by = installedHere(config, machine, pm);
   if (by !== undefined) return by;
   const brew = config.brew;
   if (brew === undefined || !targets(brew, machine)) return undefined;
