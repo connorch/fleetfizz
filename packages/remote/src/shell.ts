@@ -66,8 +66,8 @@ export const fingerprintFn = [
   "}",
 ].join("\n");
 
-// The prelude, after a Machine's `shell.init` (ADR 0020) when it has one.
-// It runs first, so the prelude only appends to what it sets, and with
-// stdin closed, so it cannot read the secrets an Apply sends there.
+// The prelude, then a Machine's `shell.init` (ADR 0020) when it has one. It
+// runs last, so the Node or PATH it picks wins over the defaults above, and
+// with stdin closed, so it cannot read the secrets an Apply sends there.
 export const preludeFor = (init: string | undefined): string =>
-  init === undefined ? prelude : [`{ ${init}\n} </dev/null`, prelude].join("\n");
+  init === undefined ? prelude : [prelude, `{ ${init}\n} </dev/null`].join("\n");

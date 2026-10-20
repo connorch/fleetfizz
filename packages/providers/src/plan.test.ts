@@ -446,6 +446,12 @@ describe("the fleetfizz Provider", () => {
       ]),
     ).toBe("pnpm");
     expect(installerOf(["/Users/connor/.bun/bin/fizz"])).toBe("bun");
+    // vp's legacy home.
+    expect(
+      installerOf([
+        "/Users/connor/.vite-plus/packages/fleetfizz/x/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
+      ]),
+    ).toBe("vp");
     // Custom PNPM_HOME and BUN_INSTALL: the store paths still say which.
     expect(
       installerOf(["/opt/tools/global/5/.pnpm/fleetfizz@0.2.0/node_modules/fleetfizz/dist/x.mjs"]),

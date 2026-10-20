@@ -675,13 +675,14 @@ const copyStep = (change: FileChange): Step => {
         ),
         ...writes.flatMap(write),
         ...modes,
-        // In a login shell, as an Install Command runs (ADR 0020). It runs
+        // In this script's own shell, after shell.init and the prelude, so
+        // the functions they define (nvm) are there (ADR 0020). It runs
         // before the record, so a failure leaves the old record and the next
         // Ship runs it again (decideFile).
         ...(item.after === undefined
           ? []
           : [
-              `(cd "$(if [ -d "$ff_p" ]; then printf '%s' "$ff_p"; else dirname "$ff_p"; fi)" && "\${SHELL:-/bin/sh}" -lc ${quote(item.after)})`,
+              `(cd "$(if [ -d "$ff_p" ]; then printf '%s' "$ff_p"; else dirname "$ff_p"; fi)" && eval ${quote(item.after)})`,
             ]),
         ...writeRecord(item.name, entries, change.at),
       ].map((l) => `  ${l}`),

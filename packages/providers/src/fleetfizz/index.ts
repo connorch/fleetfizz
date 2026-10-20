@@ -13,7 +13,8 @@ import { checkScript, parseLine, runScript } from "@fleetfizz/remote";
 import { installWith, managerArrives, runs } from "../globals/index.ts";
 
 // Which package manager installed a fizz, from the paths of its bin and the
-// files behind it: vp's shims and packages, pnpm's home and its `.pnpm`
+// files behind it: vp's shims and packages (in its home or the legacy
+// ~/.vite-plus), pnpm's home and its `.pnpm`
 // store, bun's home and its `install/global`, then npm's lib/node_modules
 // (which vp's own Node also has, so vp is checked first). The store paths
 // hold under a custom PNPM_HOME or BUN_INSTALL. Undefined for anything else,
@@ -21,7 +22,8 @@ import { installWith, managerArrives, runs } from "../globals/index.ts";
 export const installerOf = (paths: ReadonlyArray<string>): PackageManager | undefined => {
   const has = (...parts: ReadonlyArray<string>) =>
     paths.some((path) => parts.some((part) => path.includes(part)));
-  if (has("/vite-plus/packages/", "/vite-plus/bin/")) return "vp";
+  if (has("/vite-plus/packages/", "/vite-plus/bin/", "/.vite-plus/packages/", "/.vite-plus/bin/"))
+    return "vp";
   if (has("/pnpm/", "/.pnpm/")) return "pnpm";
   if (has("/.bun/", "/install/global/node_modules/")) return "bun";
   if (has("/lib/node_modules/")) return "npm";
