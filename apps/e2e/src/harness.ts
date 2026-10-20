@@ -216,9 +216,10 @@ const PnpmList = Schema.fromJsonString(
 
 const PROBE = [
   `v() { printf '%s=%s\\n' "$1" "$(printf '%s' "$2" | tr '\\n' ' ')"; }`,
-  // pnpm lists Globals only with its home on PATH, as fizz's own scripts set it.
+  // pnpm lists Globals only with its bin directory on PATH, as fizz's own
+  // scripts set it: PNPM_HOME, or PNPM_HOME/bin from pnpm 11.
   `if [ "$(uname)" = Darwin ]; then PNPM_HOME="$HOME/Library/pnpm"; else PNPM_HOME="$HOME/.local/share/pnpm"; fi`,
-  `export PNPM_HOME PATH="$PNPM_HOME:$PATH"`,
+  `export PNPM_HOME PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"`,
   `v fizz "$(fizz --version 2>/dev/null)"`,
   `v notes "$(cat ${SHARED_DIR}/notes.txt 2>/dev/null)"`,
   `v runIsExecutable "$([ -x ${SHARED_DIR}/run.sh ] && echo yes || echo no)"`,
