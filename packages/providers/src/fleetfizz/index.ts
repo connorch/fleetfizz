@@ -16,6 +16,8 @@ import { installWith, managerArrives, runs } from "../globals/index.ts";
 // files behind it, where each puts its Globals by default: vp's shims and
 // packages, pnpm's home and global store, bun's global directory, then npm's
 // lib/node_modules (which vp's own Node also has, so vp is checked first).
+// A Node from `pnpm env use` lives in pnpm's home, so its npm Globals are
+// told apart from pnpm's before pnpm's home is checked.
 // vp's home is ~/.local/share/vite-plus, or ~/.vite-plus where vp was
 // installed before it moved. Undefined for anything else, such as a link to
 // a checkout or a shim of another tool: fizz then says to install the
@@ -24,6 +26,7 @@ export const installerOf = (paths: ReadonlyArray<string>): PackageManager | unde
   const has = (...parts: ReadonlyArray<string>) =>
     paths.some((path) => parts.some((part) => path.includes(part)));
   if (has("vite-plus/packages/", "vite-plus/bin/")) return "vp";
+  if (has("/pnpm/nodejs/")) return "npm";
   if (has("/pnpm/")) return "pnpm";
   if (has("/.bun/")) return "bun";
   if (has("/lib/node_modules/")) return "npm";
