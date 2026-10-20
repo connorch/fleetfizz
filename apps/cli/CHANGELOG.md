@@ -1,5 +1,21 @@
 # fleetfizz
 
+## 0.15.0
+
+### Minor Changes
+
+- [#89](https://github.com/connorch/fleetfizz/pull/89) [`040d1c8`](https://github.com/connorch/fleetfizz/commit/040d1c87ef010f6bd9fd2e29ad228f4878839c25) Thanks [@connorch](https://github.com/connorch)! - `fizz init` offers the skills the skills CLI installed from GitHub, with the agents to install them for, and adds the skills CLI as a Global when it is not picked. New: `fizz config add skills <name>`, whose source and ref default to the ones the CLI installed it from. Fixed: an object added to an object written on one line (a Tracked Repo, a skill with a ref) now spreads it over lines instead of breaking its indentation.
+
+### Patch Changes
+
+- [#94](https://github.com/connorch/fleetfizz/pull/94) [`d073abb`](https://github.com/connorch/fleetfizz/commit/d073abb29cd54b1ab090bb33e8f58852789b8e87) Thanks [@connorch](https://github.com/connorch)! - A Shared File with `after` that a Machine already had, identical, before any Ship copied it now plans its `after` with "its after has not succeeded here" instead of "its after has not finished", which read as if an `after` had already run there.
+
+- [#86](https://github.com/connorch/fleetfizz/pull/86) [`6ceb147`](https://github.com/connorch/fleetfizz/commit/6ceb147dbc549e8da023ac032c0c49739e8a6810) Thanks [@connorch](https://github.com/connorch)! - The config must be a regular file. A symlink at the config path, working or dangling, is refused by every command, and a Machine whose config is a symlink fails its Check, instead of a Ship or `fizz init` silently replacing the link with a regular file.
+
+- [#81](https://github.com/connorch/fleetfizz/pull/81) [`3a8f536`](https://github.com/connorch/fleetfizz/commit/3a8f5360bba1b30da6a9ec6b1782c8f0846b24f3) Thanks [@connorch](https://github.com/connorch)! - `fizz init` stops with an error naming a pick it could not add to the config, and why, instead of writing the config without it.
+
+- [#83](https://github.com/connorch/fleetfizz/pull/83) [`c0716a8`](https://github.com/connorch/fleetfizz/commit/c0716a870bff89b849d606f0ad5bf8c91abb87eb) Thanks [@connorch](https://github.com/connorch)! - In a Fleet with a Linux Machine, `fizz init` targets each picked Formula that Homebrew requires macOS for (`pinentry-mac`, `xcodes`) at darwin, as it does the cask section, so a Ship no longer plans it for Linux.
+
 ## 0.14.2
 
 ### Patch Changes
