@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 
 import { parseConfig } from "@fleetfizz/config";
 
-import { draftText } from "./init.tsx";
+import { draftText, macosOnly } from "./init.tsx";
 import { checksOf, type Facts } from "./prerequisites.ts";
 
 describe("draftText", () => {
@@ -16,7 +16,7 @@ describe("draftText", () => {
         { pm: "pnpm", name: "wrangler", version: "4.136.3" },
         { pm: "vp", name: "@posthog/cli", version: "0.18.9" },
       ],
-      formulae: ["gh"],
+      formulae: [{ name: "gh", macos: false }],
       casks: [],
       files: ["~/.gitconfig"],
       linux: false,
@@ -56,6 +56,28 @@ describe("draftText with a Linux Machine", () => {
       `"cask": { "platforms": ["darwin"], "items": { "ghostty": "*" } },`,
     );
   });
+
+  it("targets a Formula that requires macOS at darwin, and leaves the rest", () => {
+    const draft = draftText({
+      version: "0.14.0",
+      machines: ["studio", "homelab"],
+      globals: [],
+      formulae: [
+        { name: "gh", macos: false },
+        { name: "pinentry-mac", macos: true },
+      ],
+      casks: [],
+      files: [],
+      linux: true,
+    });
+    if (!("text" in draft)) throw new Error(draft.reason);
+    expect(draft.text).toContain(`"gh": "*",`);
+    expect(draft.text).toContain(`"pinentry-mac": { "range": "*", "platforms": ["darwin"] }`);
+    expect(Effect.runSync(parseConfig("config.jsonc", draft.text)).machines).toEqual([
+      "studio",
+      "homelab",
+    ]);
+  });
 });
 
 describe("draftText when an edit fails", () => {
@@ -64,7 +86,10 @@ describe("draftText when an edit fails", () => {
       version: "0.14.0",
       machines: ["studio"],
       globals: [],
-      formulae: ["gh", "gh"],
+      formulae: [
+        { name: "gh", macos: false },
+        { name: "gh", macos: false },
+      ],
       casks: [],
       files: [],
       linux: false,
@@ -72,6 +97,25 @@ describe("draftText when an edit fails", () => {
     expect(draft).toEqual({
       reason: "fizz init could not add gh: brew.items.gh is already in the config",
     });
+  });
+});
+
+describe("macosOnly", () => {
+  const macos = [{ name: "macos" }];
+  it("reads a Formula's Linux variations before its own requirements", () => {
+    // pinentry-mac: no variations, so macOS everywhere.
+    expect(macosOnly({ requirements: macos })).toBe(true);
+    // go: macOS 12 on macOS, nothing on Linux.
+    expect(
+      macosOnly({
+        requirements: macos,
+        variations: { x86_64_linux: { requirements: [] }, sonoma: {} },
+      }),
+    ).toBe(false);
+    // A tapped Formula read from source: Linux variations without their own
+    // requirements keep the Formula's.
+    expect(macosOnly({ requirements: macos, variations: { x86_64_linux: {} } })).toBe(true);
+    expect(macosOnly({ requirements: [], variations: null })).toBe(false);
   });
 });
 
