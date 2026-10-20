@@ -708,11 +708,14 @@ export const shipPass = Effect.fn("shipPass")(function* (
   yield* Effect.logInfo(`the config's record: ${record}`);
   const schema = fleetConfigSchemaText();
   // This version's schema beside the config here too, even when no Step
-  // writes this Machine's config, as after `fizz self-update`.
+  // writes this Machine's config, as after `fizz self-update`. Only for the
+  // editor, so a directory it cannot write to does not stop the Ship.
   const paths = yield* Path.Path;
   const schemaHere = paths.join(paths.dirname(path), SCHEMA_FILE);
   if ((yield* fs.readFileString(schemaHere).pipe(Effect.orElseSucceed(() => ""))) !== schema)
-    yield* fs.writeFileString(schemaHere, schema);
+    yield* fs
+      .writeFileString(schemaHere, schema)
+      .pipe(Effect.catch((e) => Effect.logWarning(`could not write ${schemaHere}: ${e.message}`)));
 
   // Apply, in parallel. No Machine changed before this point. Each Machine's
   // stdin carries the secrets its own Steps need (a Shared File's contents).

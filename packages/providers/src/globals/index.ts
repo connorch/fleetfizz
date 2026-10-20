@@ -123,6 +123,33 @@ export const installedHere = (
     );
   });
 
+// Whether a Formula is one that gives `pm`: Node's (with npm), pnpm, or bun.
+const givesManager = (pm: PackageManager, formula: string): boolean =>
+  pm === "npm"
+    ? /^node(@\d+)?$/.test(formula)
+    : pm === "vp"
+      ? false
+      : formula === pm || formula.endsWith(`/${pm}`);
+
+// What installs `pm` on this Machine in this Ship, if anything: another
+// package manager's section (installedHere), or a Formula (`brew`), which
+// runs before every package manager.
+export const managerArrives = (
+  config: FleetConfig,
+  machine: MachineIdentity,
+  pm: PackageManager,
+): string | undefined => {
+  const by = installedHere(config, machine, MANAGER_PACKAGE[pm]);
+  if (by !== undefined) return by;
+  const brew = config.brew;
+  if (brew === undefined || !targets(brew, machine)) return undefined;
+  return Object.entries(brew.items ?? {}).some(
+    ([formula, def]) => givesManager(pm, formula) && variantFor(def, machine) !== undefined,
+  )
+    ? "brew"
+    : undefined;
+};
+
 // A Global: its package and Range, and where a "bump" answer edits the config.
 export interface GlobalItem extends Named {
   readonly range: string;
@@ -158,7 +185,7 @@ const globals = (
   const manager = MANAGERS[name];
   // An Item's Decision when the package manager is not on the Machine.
   const missing = (item: GlobalItem, ctx: Context): Decision<GlobalChange> => {
-    const by = installedHere(ctx.config, ctx.machine, MANAGER_PACKAGE[name]);
+    const by = managerArrives(ctx.config, ctx.machine, name);
     return by === undefined
       ? { kind: "fail", item: item.name, reason: `${name} is not installed` }
       : {

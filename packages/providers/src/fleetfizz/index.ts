@@ -10,7 +10,7 @@ import { PACKAGE_MANAGERS, SELF_PACKAGE, type PackageManager } from "@fleetfizz/
 import { assembleState, type Decision, type Named, type Provider } from "@fleetfizz/core";
 import { checkScript, parseLine, runScript } from "@fleetfizz/remote";
 
-import { installedHere, installWith, MANAGER_PACKAGE, runs } from "../globals/index.ts";
+import { installWith, managerArrives, runs } from "../globals/index.ts";
 
 // Which package manager installed a fizz, from the paths of its bin and the
 // files behind it: vp's shims and packages, pnpm's home and its `.pnpm`
@@ -132,8 +132,7 @@ export const fleetfizz: Provider<
     const at = fizz === undefined || fizz.version === "" ? {} : { at: fizz.version };
     // On PATH here, or installed by a section in this Ship, before this Step.
     const usable = (pm: PackageManager) =>
-      observed.managers.has(pm) ||
-      installedHere(ctx.config, ctx.machine, MANAGER_PACKAGE[pm]) !== undefined;
+      observed.managers.has(pm) || managerArrives(ctx.config, ctx.machine, pm) !== undefined;
     if (fizz !== undefined) {
       const installer = installerOf([fizz.path, fizz.real]);
       if (installer === undefined)

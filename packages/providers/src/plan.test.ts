@@ -246,6 +246,19 @@ describe("the package-manager Providers", () => {
     expect(
       provider(plan({ config: own, state: facts({ globals: missing }) }), "pnpm").decisions[0],
     ).toMatchObject({ kind: "fail", reason: "pnpm is not installed" });
+    // A Formula installs it too, before every package manager.
+    const brewed = Schema.decodeSync(FleetConfig)({
+      version: "0.2.0",
+      machines: written.machines,
+      brew: { items: { pnpm: "*" } },
+      pnpm: { items: { vercel: "^59.25.4" } },
+    });
+    expect(
+      provider(plan({ config: brewed, state: facts({ globals: missing }) }), "pnpm").decisions[0],
+    ).toMatchObject({
+      kind: "skip",
+      reason: "waits for pnpm, which brew installs in this Ship; ship again",
+    });
     // vp's command comes from the vite-plus package.
     const vp = Schema.decodeSync(FleetConfig)({
       version: "0.2.0",
