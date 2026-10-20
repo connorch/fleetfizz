@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as jsonc from "jsonc-parser";
 
-import { FleetConfig } from "./schema.ts";
+import { ExactVersion, FleetConfig } from "./schema.ts";
 
 export const CONFIG_FILE = "config.jsonc";
 export const SCHEMA_FILE = "schema.json";
@@ -62,13 +62,14 @@ const repeatedKeys = (text: string): string[] => {
   return problems;
 };
 
-// The config's `version`, read from its raw text without the schema, so a
-// fizz of any version can read what any config needs (ADR 0019). Undefined
-// when the text does not parse or has no string `version`.
+// The config's `version`, read from its raw text without the rest of the
+// schema, so a fizz of any version can read what any config needs (ADR 0019).
+// Undefined when the text does not parse or has no exact `version`: the
+// config's own load then says what is wrong.
 export const readVersion = (text: string): string | undefined => {
   const parsed: unknown = jsonc.parse(text, [], { allowTrailingComma: true });
   if (typeof parsed !== "object" || parsed === null || !("version" in parsed)) return undefined;
-  return typeof parsed.version === "string" ? parsed.version : undefined;
+  return Schema.is(ExactVersion)(parsed.version) ? parsed.version : undefined;
 };
 
 // The vp settings a config could have before ADR 0020, and the toolchain

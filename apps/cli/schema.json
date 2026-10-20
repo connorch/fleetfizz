@@ -43,19 +43,13 @@
                       "prefixItems": [
                         {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         }
                       ],
                       "minItems": 1,
                       "items": {
                         "type": "string",
-                        "enum": [
-                          "darwin",
-                          "linux"
-                        ]
+                        "enum": ["darwin", "linux"]
                       },
                       "allOf": [
                         {
@@ -87,9 +81,7 @@
                       "minLength": 1
                     }
                   },
-                  "required": [
-                    "command"
-                  ],
+                  "required": ["command"],
                   "additionalProperties": false
                 },
                 {
@@ -111,19 +103,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -155,9 +141,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "command"
-                      ],
+                      "required": ["command"],
                       "additionalProperties": false
                     },
                     {
@@ -178,19 +162,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -222,9 +200,7 @@
                         "minLength": 1
                       }
                     },
-                    "required": [
-                      "command"
-                    ],
+                    "required": ["command"],
                     "additionalProperties": false
                   },
                   {
@@ -257,19 +233,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -300,17 +270,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -336,19 +296,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -408,9 +362,7 @@
                         ]
                       }
                     },
-                    "required": [
-                      "path"
-                    ],
+                    "required": ["path"],
                     "additionalProperties": false
                   },
                   {
@@ -434,19 +386,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -506,9 +452,7 @@
                             ]
                           }
                         },
-                        "required": [
-                          "path"
-                        ],
+                        "required": ["path"],
                         "additionalProperties": false
                       },
                       {
@@ -531,19 +475,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -603,9 +541,7 @@
                           ]
                         }
                       },
-                      "required": [
-                        "path"
-                      ],
+                      "required": ["path"],
                       "additionalProperties": false
                     },
                     {
@@ -641,19 +577,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -684,17 +614,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -714,19 +634,13 @@
                       "prefixItems": [
                         {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         }
                       ],
                       "minItems": 1,
                       "items": {
                         "type": "string",
-                        "enum": [
-                          "darwin",
-                          "linux"
-                        ]
+                        "enum": ["darwin", "linux"]
                       },
                       "allOf": [
                         {
@@ -758,9 +672,7 @@
                       "minLength": 1
                     }
                   },
-                  "required": [
-                    "path"
-                  ],
+                  "required": ["path"],
                   "additionalProperties": false
                 },
                 {
@@ -782,19 +694,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -826,9 +732,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "path"
-                      ],
+                      "required": ["path"],
                       "additionalProperties": false
                     },
                     {
@@ -849,19 +753,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -893,9 +791,7 @@
                         "minLength": 1
                       }
                     },
-                    "required": [
-                      "path"
-                    ],
+                    "required": ["path"],
                     "additionalProperties": false
                   },
                   {
@@ -928,19 +824,13 @@
                     "prefixItems": [
                       {
                         "type": "string",
-                        "enum": [
-                          "darwin",
-                          "linux"
-                        ]
+                        "enum": ["darwin", "linux"]
                       }
                     ],
                     "minItems": 1,
                     "items": {
                       "type": "string",
-                      "enum": [
-                        "darwin",
-                        "linux"
-                      ]
+                      "enum": ["darwin", "linux"]
                     },
                     "allOf": [
                       {
@@ -1008,11 +898,7 @@
                     ]
                   }
                 },
-                "required": [
-                  "origin",
-                  "ref",
-                  "install"
-                ],
+                "required": ["origin", "ref", "install"],
                 "additionalProperties": false
               },
               {
@@ -1026,19 +912,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -1106,11 +986,7 @@
                         ]
                       }
                     },
-                    "required": [
-                      "origin",
-                      "ref",
-                      "install"
-                    ],
+                    "required": ["origin", "ref", "install"],
                     "additionalProperties": false
                   }
                 ],
@@ -1123,19 +999,13 @@
                       "prefixItems": [
                         {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         }
                       ],
                       "minItems": 1,
                       "items": {
                         "type": "string",
-                        "enum": [
-                          "darwin",
-                          "linux"
-                        ]
+                        "enum": ["darwin", "linux"]
                       },
                       "allOf": [
                         {
@@ -1203,11 +1073,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "origin",
-                    "ref",
-                    "install"
-                  ],
+                  "required": ["origin", "ref", "install"],
                   "additionalProperties": false
                 }
               }
@@ -1235,19 +1101,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -1278,17 +1138,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -1314,19 +1164,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -1358,9 +1202,7 @@
                         "minLength": 1
                       }
                     },
-                    "required": [
-                      "range"
-                    ],
+                    "required": ["range"],
                     "additionalProperties": false
                   },
                   {
@@ -1382,19 +1224,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -1426,9 +1262,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "range"
-                        ],
+                        "required": ["range"],
                         "additionalProperties": false
                       },
                       {
@@ -1449,19 +1283,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -1493,9 +1321,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "range"
-                      ],
+                      "required": ["range"],
                       "additionalProperties": false
                     },
                     {
@@ -1529,19 +1355,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -1572,17 +1392,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -1608,19 +1418,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -1652,9 +1456,7 @@
                         "minLength": 1
                       }
                     },
-                    "required": [
-                      "range"
-                    ],
+                    "required": ["range"],
                     "additionalProperties": false
                   },
                   {
@@ -1676,19 +1478,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -1720,9 +1516,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "range"
-                        ],
+                        "required": ["range"],
                         "additionalProperties": false
                       },
                       {
@@ -1743,19 +1537,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -1787,9 +1575,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "range"
-                      ],
+                      "required": ["range"],
                       "additionalProperties": false
                     },
                     {
@@ -1823,19 +1609,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -1866,17 +1646,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -1902,19 +1672,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -1946,9 +1710,7 @@
                         "minLength": 1
                       }
                     },
-                    "required": [
-                      "range"
-                    ],
+                    "required": ["range"],
                     "additionalProperties": false
                   },
                   {
@@ -1970,19 +1732,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -2014,9 +1770,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "range"
-                        ],
+                        "required": ["range"],
                         "additionalProperties": false
                       },
                       {
@@ -2037,19 +1791,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -2081,9 +1829,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "range"
-                      ],
+                      "required": ["range"],
                       "additionalProperties": false
                     },
                     {
@@ -2117,19 +1863,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -2160,17 +1900,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -2196,19 +1926,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -2240,9 +1964,7 @@
                         "minLength": 1
                       }
                     },
-                    "required": [
-                      "range"
-                    ],
+                    "required": ["range"],
                     "additionalProperties": false
                   },
                   {
@@ -2264,19 +1986,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -2308,9 +2024,7 @@
                             "minLength": 1
                           }
                         },
-                        "required": [
-                          "range"
-                        ],
+                        "required": ["range"],
                         "additionalProperties": false
                       },
                       {
@@ -2331,19 +2045,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -2375,9 +2083,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "range"
-                      ],
+                      "required": ["range"],
                       "additionalProperties": false
                     },
                     {
@@ -2411,19 +2117,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -2454,17 +2154,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -2490,19 +2180,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -2531,24 +2215,16 @@
                       },
                       "range": {
                         "type": "string",
-                        "enum": [
-                          "*",
-                          "latest"
-                        ],
+                        "enum": ["*", "latest"],
                         "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
                     },
-                    "required": [
-                      "range"
-                    ],
+                    "required": ["range"],
                     "additionalProperties": false
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "*",
-                      "latest"
-                    ],
+                    "enum": ["*", "latest"],
                     "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                   }
                 ]
@@ -2566,19 +2242,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -2607,24 +2277,16 @@
                           },
                           "range": {
                             "type": "string",
-                            "enum": [
-                              "*",
-                              "latest"
-                            ],
+                            "enum": ["*", "latest"],
                             "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                           }
                         },
-                        "required": [
-                          "range"
-                        ],
+                        "required": ["range"],
                         "additionalProperties": false
                       },
                       {
                         "type": "string",
-                        "enum": [
-                          "*",
-                          "latest"
-                        ],
+                        "enum": ["*", "latest"],
                         "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
                     ]
@@ -2641,19 +2303,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -2682,24 +2338,16 @@
                         },
                         "range": {
                           "type": "string",
-                          "enum": [
-                            "*",
-                            "latest"
-                          ],
+                          "enum": ["*", "latest"],
                           "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                         }
                       },
-                      "required": [
-                        "range"
-                      ],
+                      "required": ["range"],
                       "additionalProperties": false
                     },
                     {
                       "type": "string",
-                      "enum": [
-                        "*",
-                        "latest"
-                      ],
+                      "enum": ["*", "latest"],
                       "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                     }
                   ]
@@ -2729,19 +2377,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -2772,17 +2414,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -2808,19 +2440,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -2849,24 +2475,16 @@
                       },
                       "range": {
                         "type": "string",
-                        "enum": [
-                          "*",
-                          "latest"
-                        ],
+                        "enum": ["*", "latest"],
                         "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
                     },
-                    "required": [
-                      "range"
-                    ],
+                    "required": ["range"],
                     "additionalProperties": false
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "*",
-                      "latest"
-                    ],
+                    "enum": ["*", "latest"],
                     "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                   }
                 ]
@@ -2884,19 +2502,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -2925,24 +2537,16 @@
                           },
                           "range": {
                             "type": "string",
-                            "enum": [
-                              "*",
-                              "latest"
-                            ],
+                            "enum": ["*", "latest"],
                             "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                           }
                         },
-                        "required": [
-                          "range"
-                        ],
+                        "required": ["range"],
                         "additionalProperties": false
                       },
                       {
                         "type": "string",
-                        "enum": [
-                          "*",
-                          "latest"
-                        ],
+                        "enum": ["*", "latest"],
                         "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                       }
                     ]
@@ -2959,19 +2563,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -3000,24 +2598,16 @@
                         },
                         "range": {
                           "type": "string",
-                          "enum": [
-                            "*",
-                            "latest"
-                          ],
+                          "enum": ["*", "latest"],
                           "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                         }
                       },
-                      "required": [
-                        "range"
-                      ],
+                      "required": ["range"],
                       "additionalProperties": false
                     },
                     {
                       "type": "string",
-                      "enum": [
-                        "*",
-                        "latest"
-                      ],
+                      "enum": ["*", "latest"],
                       "description": "\"*\" (install when missing, never upgrade) or \"latest\" (brew update, then upgrade on every Ship)"
                     }
                   ]
@@ -3047,19 +2637,13 @@
           "prefixItems": [
             {
               "type": "string",
-              "enum": [
-                "darwin",
-                "linux"
-              ]
+              "enum": ["darwin", "linux"]
             }
           ],
           "minItems": 1,
           "items": {
             "type": "string",
-            "enum": [
-              "darwin",
-              "linux"
-            ]
+            "enum": ["darwin", "linux"]
           },
           "allOf": [
             {
@@ -3090,17 +2674,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "brew",
-              "cask",
-              "files",
-              "vp",
-              "npm",
-              "bun",
-              "pnpm",
-              "skills",
-              "repos"
-            ]
+            "enum": ["brew", "cask", "files", "vp", "npm", "bun", "pnpm", "skills", "repos"]
           },
           "allOf": [
             {
@@ -3145,19 +2719,13 @@
                         "prefixItems": [
                           {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           }
                         ],
                         "minItems": 1,
                         "items": {
                           "type": "string",
-                          "enum": [
-                            "darwin",
-                            "linux"
-                          ]
+                          "enum": ["darwin", "linux"]
                         },
                         "allOf": [
                           {
@@ -3222,9 +2790,7 @@
                         ]
                       }
                     },
-                    "required": [
-                      "source"
-                    ],
+                    "required": ["source"],
                     "additionalProperties": false
                   },
                   {
@@ -3246,19 +2812,13 @@
                             "prefixItems": [
                               {
                                 "type": "string",
-                                "enum": [
-                                  "darwin",
-                                  "linux"
-                                ]
+                                "enum": ["darwin", "linux"]
                               }
                             ],
                             "minItems": 1,
                             "items": {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             },
                             "allOf": [
                               {
@@ -3323,9 +2883,7 @@
                             ]
                           }
                         },
-                        "required": [
-                          "source"
-                        ],
+                        "required": ["source"],
                         "additionalProperties": false
                       },
                       {
@@ -3346,19 +2904,13 @@
                           "prefixItems": [
                             {
                               "type": "string",
-                              "enum": [
-                                "darwin",
-                                "linux"
-                              ]
+                              "enum": ["darwin", "linux"]
                             }
                           ],
                           "minItems": 1,
                           "items": {
                             "type": "string",
-                            "enum": [
-                              "darwin",
-                              "linux"
-                            ]
+                            "enum": ["darwin", "linux"]
                           },
                           "allOf": [
                             {
@@ -3423,9 +2975,7 @@
                           ]
                         }
                       },
-                      "required": [
-                        "source"
-                      ],
+                      "required": ["source"],
                       "additionalProperties": false
                     },
                     {
@@ -3444,9 +2994,7 @@
           ]
         }
       },
-      "required": [
-        "agents"
-      ],
+      "required": ["agents"],
       "additionalProperties": false,
       "allOf": [
         {
@@ -3455,10 +3003,7 @@
       ]
     }
   },
-  "required": [
-    "version",
-    "machines"
-  ],
+  "required": ["version", "machines"],
   "additionalProperties": false,
   "$defs": {}
 }

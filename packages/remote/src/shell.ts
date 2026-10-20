@@ -37,7 +37,7 @@ const toolEnv = [
 // Commands find what brew installed. Appended, so a brew already on PATH wins.
 const brewEnv = `export PATH="$PATH:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin"`;
 
-export const prelude = [
+const prelude = [
   toolEnv,
   brewEnv,
   // JSON-escapes $1 for embedding inside a double-quoted JSON string.

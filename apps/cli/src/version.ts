@@ -11,7 +11,6 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import {
   configPath,
-  ExactVersion,
   PACKAGE_MANAGERS,
   readVersion,
   saveConfig,
@@ -95,8 +94,7 @@ export const atConfigVersion = <A, E, R>(
     const path = flag ?? configPath(process.env);
     if (!(yield* fs.exists(path))) return yield* effect;
     const wanted = readVersion(yield* fs.readFileString(path));
-    if (wanted === undefined || wanted === running || !Schema.is(ExactVersion)(wanted))
-      return yield* effect;
+    if (wanted === undefined || wanted === running) return yield* effect;
     if (process.env[SWITCHED] !== undefined)
       return yield* new VersionError({
         reason: `${homeRelative(path)} needs fleetfizz ${wanted}, but the fizz on PATH is still ${running} after installing it; see which fizz comes first (command -v fizz)`,

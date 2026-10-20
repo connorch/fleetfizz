@@ -111,5 +111,6 @@ describe("readVersion", () => {
     expect(readVersion('{ "version": "0.14.0", "brand-new": { "x": 1 } }')).toBe("0.14.0");
     expect(readVersion('{ "machines": ["a"] }')).toBeUndefined();
     expect(readVersion("{ not json")).toBeUndefined();
+    expect(readVersion('{ "version": "latest" }')).toBeUndefined();
   });
 });
