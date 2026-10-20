@@ -435,6 +435,13 @@ describe("the fleetfizz Provider", () => {
         "/Users/connor/Library/pnpm/global/v11/.pnpm/fleetfizz@0.2.0/node_modules/fleetfizz/dist/fleetfizz.mjs",
       ]),
     ).toBe("pnpm");
+    // npm's Globals under a Node from `pnpm env use`, in pnpm's home.
+    expect(
+      installerOf([
+        "/Users/connor/Library/pnpm/nodejs/24.1.0/bin/fizz",
+        "/Users/connor/Library/pnpm/nodejs/24.1.0/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
+      ]),
+    ).toBe("npm");
     expect(installerOf(["/Users/connor/.bun/bin/fizz"])).toBe("bun");
     expect(
       installerOf([

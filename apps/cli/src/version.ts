@@ -20,8 +20,9 @@ import {
   predatesVersion,
 } from "@fleetfizz/config";
 import { installWith, MANAGERS, ownInstaller } from "@fleetfizz/providers";
+import { latestVersion } from "@fleetfizz/remote";
 
-import { homeRelative, runLocal } from "./local.ts";
+import { homeRelative } from "./local.ts";
 
 export class VersionError extends Schema.TaggedError<VersionError>()("VersionError", {
   reason: Schema.String,
@@ -99,11 +100,10 @@ export const atConfigVersion = <A, E, R>(
 
 // The newest published fleetfizz.
 const latest = Effect.fn("latest")(function* () {
-  const ran = yield* runLocal("npm", ["view", SELF_PACKAGE, "version"]);
-  const version = ran.stdout.trim();
-  if (ran.code !== 0 || version === "")
+  const version = yield* latestVersion(SELF_PACKAGE);
+  if (version === undefined)
     return yield* new VersionError({
-      reason: `could not read the newest ${SELF_PACKAGE} from npm; give a version: fizz self-update 1.2.3`,
+      reason: `could not read the newest ${SELF_PACKAGE} from the npm registry; give a version: fizz self-update 1.2.3`,
     });
   return version;
 });
