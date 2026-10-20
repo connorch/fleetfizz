@@ -12,6 +12,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   configPath,
   PACKAGE_MANAGERS,
+  parseConfig,
   readVersion,
   saveConfig,
   SELF_PACKAGE,
@@ -114,7 +115,7 @@ const latest = Effect.fn("latest")(function* () {
   return version;
 });
 
-// `fizz self-update [version]`: the config's `version`, then this Machine.
+// `fizz self-update [version]`: this Machine, then the config's `version`.
 // Each is changed only when it is not that version already.
 export const selfUpdate = Effect.fn("selfUpdate")(function* (input: {
   readonly config: string | undefined;
@@ -134,13 +135,15 @@ export const selfUpdate = Effect.fn("selfUpdate")(function* (input: {
     yield* Console.log(`fleetfizz ${version} already`);
     return;
   }
-  if (!named) {
-    const edited = setVersion(text, version);
-    if ("reason" in edited) return yield* new VersionError({ reason: edited.reason });
-    yield* saveConfig(path, edited.text);
-  }
+  const edited = named ? undefined : setVersion(text, version);
+  if (edited !== undefined && "reason" in edited)
+    return yield* new VersionError({ reason: edited.reason });
+  // Checked, then installed, then saved: a version that fails to install
+  // (unpublished, or the registry is down) leaves the config as it was.
+  if (edited !== undefined) yield* parseConfig(path, edited.text);
   // A fizz someone already updated by hand needs no install.
   if (version !== input.running)
-    yield* install(version, `${homeRelative(path)} now names fleetfizz ${version}`);
+    yield* install(version, `fleetfizz ${version} is not installed here`);
+  if (edited !== undefined) yield* saveConfig(path, edited.text);
   yield* Console.log(`fleetfizz ${version} here. Run fizz ship to update every Machine.`);
 });
