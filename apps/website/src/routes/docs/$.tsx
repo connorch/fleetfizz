@@ -5,7 +5,7 @@ import defaultMdxComponents from "fumadocs-ui/mdx";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
 import { cn } from "@fleetfizz/ui/lib/utils";
 import { type ComponentProps, Suspense, use } from "react";
-import { NAME } from "@fleetfizz/brand-assets";
+import { NAME, SITE_URL } from "@fleetfizz/brand-assets";
 import { DocsSearch } from "../../components/docs-search";
 import { GITHUB_URL, GithubLink } from "../../components/nav-buttons";
 import { PageActions } from "../../components/page-actions";
@@ -22,22 +22,38 @@ export const Route = createFileRoute("/docs/$")({
     const page = source.getPage(params._splat?.split("/").filter(Boolean));
     if (!page) throw notFound();
     await docs.getPage(page.path)?.preload();
-    return { path: page.path, title: page.data.title, description: page.data.description };
+    return {
+      path: page.path,
+      url: page.url,
+      title: page.data.title,
+      description: page.data.description,
+    };
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: `${loaderData.title} | ${NAME}` },
-          ...(loaderData.description
-            ? [{ name: "description", content: loaderData.description }]
-            : []),
-        ]
-      : [],
-    // Points agents that fetch the HTML at the page's Markdown copy.
-    links: loaderData
-      ? [{ rel: "alternate", type: "text/markdown", href: markdownPath(loaderData) }]
-      : [],
-  }),
+  // Replaces the root's home-page title, description, and share tags, so a
+  // docs link unfurls as its own page. The router keeps the deepest match's
+  // tag for each name or property.
+  head: ({ loaderData }) => {
+    if (!loaderData) return {};
+    const title = `${loaderData.title} | ${NAME}`;
+    const { description } = loaderData;
+    return {
+      meta: [
+        { title },
+        { property: "og:url", content: `${SITE_URL}${loaderData.url}` },
+        { property: "og:title", content: title },
+        { name: "twitter:title", content: title },
+        ...(description
+          ? [
+              { name: "description", content: description },
+              { property: "og:description", content: description },
+              { name: "twitter:description", content: description },
+            ]
+          : []),
+      ],
+      // Points agents that fetch the HTML at the page's Markdown copy.
+      links: [{ rel: "alternate", type: "text/markdown", href: markdownPath(loaderData) }],
+    };
+  },
   component: DocsRoute,
   staticData: { chrome: "docs" },
 });
