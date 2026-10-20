@@ -14,7 +14,7 @@ You have no terminal, and fleetfizz prompts only in one: pass every argument a c
 ## Change the config
 
 1. Use `fizz config add <provider> ...` or `fizz config remove <provider:item>` when they make the change: they keep the file's layout and comments, and save only a config that loads. Give every argument (`add machines <names>`, `add repos <origin> --install <command>`), so nothing prompts.
-2. Make any other change (an existing Item, Variants, skills, section settings like `dependsOn` or `agents`) by editing the JSONC at `fizz config path` directly, in the layout and with the comments it already has.
+2. Make any other change (an existing Item, Variants, section settings like `dependsOn` or `agents`) by editing the JSONC at `fizz config path` directly, in the layout and with the comments it already has.
 3. Run `fizz config`. Done when it loads and each changed Item targets exactly the Machines the user meant.
 
 Targeting: an Item's `platforms` and `machines` combine with its section's by AND, and an unset field means every one. An Item can be a list of Variants, and a Machine gets the first Variant that targets it, so the narrowest goes first.

@@ -1,8 +1,9 @@
 // `fizz init`: a first config on the Machine you will ship from. It checks
 // this Machine and prints any fixes, picks the Fleet from the tailnet, offers
-// the Globals of every package manager here, Formulae, Casks, and common
-// dotfiles, writes the config at this fizz's version (ADR 0019) with the same edits as `fizz config add` (ADR
-// 0017) and schema.json beside it, and offers a dry run. A Machine joins an
+// the Globals of every package manager here, Formulae, Casks, the skills the
+// skills CLI installed from GitHub, and common dotfiles, writes the config at
+// this fizz's version (ADR 0019) with the same edits as `fizz config add`
+// (ADR 0017) and schema.json beside it, and offers a dry run. A Machine joins an
 // existing Fleet by being added to its config and shipped to (ADR 0008), so
 // when a config exists here, `init` shows it and points to `fizz config add`.
 import * as Console from "effect/Console";
@@ -31,9 +32,10 @@ import {
 import { MANAGERS } from "@fleetfizz/providers";
 import { CHECK_ENV, readTailnet, type Tailnet } from "@fleetfizz/remote";
 
-import { ConfigAddError, fileName, machineNote, rangeEntry } from "./configAdd.tsx";
+import { ConfigAddError, fileName, machineNote, rangeEntry, skillEntry } from "./configAdd.tsx";
 import { configText } from "./configView.tsx";
 import { expandHome, homeRelative, interactive, runLocal } from "./local.ts";
+import { type LocalSkill, localAgents, localSkills, pickAgents } from "./localSkills.ts";
 import { checksOf, readFacts, type Check } from "./prerequisites.ts";
 import { ship } from "./ship.ts";
 import { T, toText } from "./view.tsx";
@@ -54,6 +56,9 @@ export interface Picks {
   // Each picked Formula, and whether Homebrew requires macOS for it.
   readonly formulae: ReadonlyArray<{ readonly name: string; readonly macos: boolean }>;
   readonly casks: ReadonlyArray<string>;
+  readonly skills: ReadonlyArray<LocalSkill>;
+  // The skills section's `agents`.
+  readonly agents: ReadonlyArray<string>;
   readonly files: ReadonlyArray<string>;
   // A Cask fails on Linux, and so does a Formula that requires macOS, so
   // with a Linux Machine in the Fleet the cask section and those Formulae
@@ -80,6 +85,17 @@ export const draftText = (picks: Picks): EditResult => {
       ? [["the cask platforms", ["cask", "platforms"], ["darwin"]] as const]
       : []),
     ...picks.casks.map((c) => [c, ["cask", "items", c], "*"] as const),
+    ...(picks.skills.length > 0
+      ? [["the skills agents", ["skills", "agents"], picks.agents] as const]
+      : []),
+    ...picks.skills.map(
+      (skill) =>
+        [
+          skill.name,
+          ["skills", "items", skill.name],
+          skillEntry(skill.source, skill.ref, [], {}),
+        ] as const,
+    ),
     ...picks.files.map((f) => [f, ["files", "items", fileName(f)], f] as const),
   ];
   let text = `{\n  "$schema": "./${SCHEMA_FILE}",\n  "version": ${JSON.stringify(picks.version)},\n  "machines": [],\n}\n`;
@@ -214,10 +230,15 @@ const macosFormulae = Effect.fn("macosFormulae")(function* (names: ReadonlyArray
   return new Set([...tapped, ...core]);
 });
 
-// A multi-select with nothing picked, or nothing to ask when there is nothing.
+// A multi-select with nothing picked unless a choice says so, or nothing to
+// ask when there is nothing.
 const pickSome = <A,>(
   message: string,
-  choices: ReadonlyArray<{ readonly title: string; readonly value: A }>,
+  choices: ReadonlyArray<{
+    readonly title: string;
+    readonly value: A;
+    readonly selected?: boolean;
+  }>,
 ) =>
   choices.length === 0
     ? Effect.succeed([] as ReadonlyArray<A>)
@@ -293,7 +314,7 @@ export const init = Effect.fn("init")(function* (flags: {
   ))
     .flat()
     .filter((g) => g.name !== SELF_PACKAGE);
-  const globals = yield* pickSome(
+  const pickedGlobals = yield* pickSome(
     `Which Globals from this Machine? (${installed.length} installed)`,
     installed.map((g) => ({ title: `${g.name}  ${g.version}  ${g.pm}`, value: g })),
   );
@@ -311,6 +332,35 @@ export const init = Effect.fn("init")(function* (flags: {
     `Which Casks from this Machine? (${installedCasks.length} installed)`,
     installedCasks.map((c) => ({ title: c, value: c })),
   );
+  // A skills section needs agents, so skills are offered only when the
+  // skills CLI sees some here.
+  const agentsHere = yield* localAgents();
+  const fromGitHub = agentsHere.length === 0 ? [] : yield* localSkills();
+  const skills = yield* pickSome(
+    `Which skills from this Machine? (${fromGitHub.length} installed from GitHub)`,
+    fromGitHub.map((skill) => ({
+      title: `${skill.name}  ${skill.source}${skill.ref === undefined ? "" : `#${skill.ref}`}`,
+      value: skill,
+      selected: true,
+    })),
+  );
+  const agents = skills.length === 0 ? [] : yield* pickAgents(agentsHere);
+  // A Ship installs skills with the skills CLI, so the config keeps the CLI
+  // too, with the package manager that has it here.
+  const cli = installed.find((global) => global.name === "skills");
+  const addCli =
+    cli !== undefined &&
+    skills.length > 0 &&
+    !pickedGlobals.some((global) => global.name === "skills");
+  const globals = addCli ? [...pickedGlobals, cli] : pickedGlobals;
+  if (addCli)
+    yield* Console.log(
+      `The skills CLI is in the config too, as a ${cli.pm} Global: a Ship installs skills with it.`,
+    );
+  if (cli === undefined && skills.length > 0)
+    yield* Console.log(
+      `No package manager here has the skills CLI, so a Ship cannot install skills; add it with fizz config add ${PACKAGE_MANAGERS.join("|")} skills.`,
+    );
   const present = yield* Effect.filter(DOTFILES, (f) => fs.exists(expandHome(f)));
   const files = yield* pickSome(
     "Which Shared Files? A Ship copies each from the Machine it starts on.",
@@ -323,6 +373,8 @@ export const init = Effect.fn("init")(function* (flags: {
     globals,
     formulae,
     casks,
+    skills,
+    agents,
     files,
     linux,
   });
@@ -344,7 +396,7 @@ export const init = Effect.fn("init")(function* (flags: {
       config,
       tailnet,
       footer: [
-        `Add more with fizz config add repos|files|${PACKAGE_MANAGERS.join("|")}|brew|cask.`,
+        `Add more with fizz config add repos|files|${PACKAGE_MANAGERS.join("|")}|brew|cask|skills.`,
       ],
     }),
   );

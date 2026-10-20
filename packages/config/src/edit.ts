@@ -237,15 +237,21 @@ export const insertAt = (text: string, path: JsonPath, value: unknown): EditResu
   );
 
 // When the first line an insert changes is longer than WIDTH afterwards,
-// whether the insert made it long or it already was, the outermost container
-// written on that line is spread over lines first, again until the line fits.
+// whether the insert made it long or it already was, or the insert puts a
+// value written over lines inside a container written on one, the outermost
+// container written on that line is spread over lines first, again until the
+// line fits.
 const insertSpread = (text: string, path: JsonPath, value: unknown): EditResult => {
   const result = insertText(text, path, value);
   if (!("text" in result)) return result;
   const at = firstDifference(text, result.text);
-  if (lineLength(result.text, at) <= WIDTH) return result;
+  const tooLong = lineLength(result.text, at) > WIDTH;
+  const added = result.text.slice(at, at + result.text.length - text.length);
+  if (!tooLong && !added.includes("\n")) return result;
   const container = oneLineAround(text, parse(text), Math.min(at, text.length - 1));
-  if (container === undefined) return result;
+  // A member added after a one-line value, not inside it, leaves it alone.
+  if (container === undefined || (!tooLong && at >= container.offset + container.length - 1))
+    return result;
   // Spread drops a comment between members: then the long line stays.
   const spreadText = spread(text, container);
   return sameComments(text, spreadText) ? insertSpread(spreadText, path, value) : result;

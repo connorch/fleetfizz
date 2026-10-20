@@ -18,6 +18,11 @@ describe("draftText", () => {
       ],
       formulae: [{ name: "gh", macos: false }],
       casks: [],
+      skills: [
+        { name: "grill-me", source: "mattpocock/skills" },
+        { name: "taste", source: "Leonxlnx/taste-skill", ref: "v2" },
+      ],
+      agents: ["claude-code", "codex"],
       files: ["~/.gitconfig"],
       linux: false,
     });
@@ -29,6 +34,13 @@ describe("draftText", () => {
   "pnpm": { "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3" } },
   "vp": { "items": { "@posthog/cli": "^0.18.9" } },
   "brew": { "items": { "gh": "*" } },
+  "skills": {
+    "agents": ["claude-code", "codex"],
+    "items": {
+      "grill-me": "mattpocock/skills",
+      "taste": { "source": "Leonxlnx/taste-skill", "ref": "v2" },
+    },
+  },
   "files": { "items": { "gitconfig": "~/.gitconfig" } },
 }
 `,
@@ -49,6 +61,8 @@ describe("draftText with a Linux Machine", () => {
       globals: [],
       formulae: [],
       casks: ["ghostty"],
+      skills: [],
+      agents: [],
       files: [],
       linux: true,
     });
@@ -67,6 +81,8 @@ describe("draftText with a Linux Machine", () => {
         { name: "pinentry-mac", macos: true },
       ],
       casks: [],
+      skills: [],
+      agents: [],
       files: [],
       linux: true,
     });
@@ -91,6 +107,8 @@ describe("draftText when an edit fails", () => {
         { name: "gh", macos: false },
       ],
       casks: [],
+      skills: [],
+      agents: [],
       files: [],
       linux: false,
     });
