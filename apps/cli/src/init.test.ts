@@ -9,12 +9,12 @@ import { checksOf, type Facts } from "./prerequisites.ts";
 describe("draftText", () => {
   it("writes a config that loads, laid out as the docs write one", () => {
     const text = draftText({
+      version: "0.14.0",
       machines: ["studio", "macbook"],
-      vp: { version: "1.1.0", node: "24.18.1" },
       globals: [
-        { name: "vercel", version: "64.5.0" },
-        { name: "wrangler", version: "4.136.3" },
-        { name: "@posthog/cli", version: "0.18.9" },
+        { pm: "pnpm", name: "vercel", version: "64.5.0" },
+        { pm: "pnpm", name: "wrangler", version: "4.136.3" },
+        { pm: "vp", name: "@posthog/cli", version: "0.18.9" },
       ],
       formulae: ["gh"],
       casks: [],
@@ -23,12 +23,10 @@ describe("draftText", () => {
     });
     expect(text).toBe(`{
   "$schema": "./schema.json",
+  "version": "0.14.0",
   "machines": ["studio", "macbook"],
-  "vp": {
-    "version": "1.1.0",
-    "node": "24.18.1",
-    "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3", "@posthog/cli": "^0.18.9" },
-  },
+  "pnpm": { "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3" } },
+  "vp": { "items": { "@posthog/cli": "^0.18.9" } },
   "brew": { "items": { "gh": "*" } },
   "files": { "items": { "gitconfig": "~/.gitconfig" } },
 }
@@ -43,6 +41,7 @@ describe("draftText", () => {
 describe("draftText with a Linux Machine", () => {
   it("targets the cask section at darwin, since a Cask fails on Linux", () => {
     const text = draftText({
+      version: "0.14.0",
       machines: ["studio", "homelab"],
       globals: [],
       formulae: [],
@@ -56,7 +55,6 @@ describe("draftText with a Linux Machine", () => {
 
 const ready: Facts = {
   platform: "darwin",
-  vp: "1.1.0",
   tailscale: { app: false, state: "Running", ssh: true },
   brew: true,
   gh: "logged in",

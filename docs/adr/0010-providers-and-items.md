@@ -1,3 +1,7 @@
+---
+status: amended by ADR-0020 (the built-in order is a tie-break only; no Provider depends on another implicitly)
+---
+
 # Providers and Items: one engine for every kind of thing a Ship keeps in line
 
 A Ship knew two hard-coded sections, `vp` and `repos`, and each had its own path through Check, Plan, and Apply. Adding Homebrew Formulae and Casks that way would have meant a third and fourth copy of the same plumbing. There is now one engine (`packages/core`) and one Provider interface, and vp and repos are its first two Providers (`packages/providers`).

@@ -1,6 +1,6 @@
 # fleetfizz
 
-fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the vite-plus toolchain and its Globals, Homebrew packages, agent Skills, Shared Files, and a Managed Clone of each Tracked Repo, installed from its origin ref.
+fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the Globals of each package manager, Homebrew packages, agent Skills, Shared Files, and a Managed Clone of each Tracked Repo, installed from its origin ref.
 
 ## Language
 
@@ -30,6 +30,10 @@ _Avoid_: manifest, fleet file, settings
 A Config that a Ship of the Starting Machine's Config must not overwrite without asking: one that Machine received more recently than this one last reached it (a Ship from elsewhere missed this Machine), one edited there, or one no Ship wrote. The Config's Install Record on each Machine says which. The Ship asks a Question before going on: use that config on the Starting Machine and start over from it, overwrite it, or stop.
 _Avoid_: outdated config, conflict
 
+**Version**:
+The fleetfizz version the Config names, exact. Every fizz reads it before anything else, and a fizz of another version, older or newer, installs this one with the package manager that installed it and runs the command again with it. The `fleetfizz:fleetfizz` Item keeps it on every Machine.
+_Avoid_: pin, self-update (that is the command that changes it)
+
 **Targeting**:
 The Platforms and Machines a config entry applies to; its fields combine with AND, and an unset field means every one.
 _Avoid_: filter, selector, scope
@@ -49,7 +53,7 @@ The phase of a Ship that turns the config and checked state into Steps and Quest
 _Avoid_: diff, preview
 
 **Question**:
-A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config, vp in system-first mode, a Shared File with Drift, a Skill folder an install would replace). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
+A choice the Plan cannot make alone, asked on the Starting Machine before anything changes (a Global above its Range, a Stale Config, a Shared File with Drift, a Skill folder an install would replace). `--answer kind=choice` answers every Question of a kind in advance, and `--answer kind:subject=choice` one of them.
 _Avoid_: conflict, prompt (a prompt is how a Question is asked)
 
 **Apply**:
@@ -61,7 +65,7 @@ One unit of work on one Machine (fetch a Tracked Repo, run its Install Command, 
 _Avoid_: task, action, job
 
 **Ledger**:
-The output of a Ship: one line per Machine with a summary of its items and, under it, one line per Item that changes, written `provider:item` (`vp:node`, `repos:t3code`), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
+The output of a Ship: one line per Machine with a summary of its items and, under it, one line per Item that changes, written `provider:item` (`pnpm:vercel`, `repos:t3code`), with its status, result, and time. In a terminal it is redrawn live as Steps run; the full Ledger lists unchanged items too, and `fizz report` prints the last one.
 _Avoid_: log
 
 **Status**:
@@ -75,11 +79,11 @@ _Avoid_: report (that is the saved Ledger), trace
 ### Providers
 
 **Provider**:
-One kind of thing a Ship can keep in line on a Machine (vp, Tracked Repos, Formulae, Casks, Skills, Shared Files), with its own section of the config.
+One kind of thing a Ship can keep in line on a Machine (a package manager's Globals, Tracked Repos, Formulae, Casks, Skills, Shared Files), with its own section of the config. fleetfizz itself is a Provider without a section: the Version sets it.
 _Avoid_: kind, adapter, plugin, manager
 
 **Item**:
-One entry a Provider keeps in line on one Machine: vp, its mode, Node, a package manager, a Global, a Tracked Repo, a Formula, a Cask, a Skill, a Shared File. Written `provider:item` (`vp:node`, `repos:t3code`).
+One entry a Provider keeps in line on one Machine: a Global, a Tracked Repo, a Formula, a Cask, a Skill, a Shared File, or fleetfizz itself. Written `provider:item` (`pnpm:vercel`, `repos:t3code`, `fleetfizz:fleetfizz`).
 _Avoid_: resource, dependency, package
 
 **Variant**:
@@ -120,18 +124,18 @@ _Avoid_: artifact, build product
 An Item whose current state no longer matches its Install Record, usually because someone changed it by hand on that Machine. A Tracked Repo's Drift is an Output that no longer matches, and it makes the next Ship run the Install Command again; a Shared File's Drift is an edit made there, and the Ship asks a Question before overwriting it.
 _Avoid_: stale, dirty
 
-### The vp section
+### Package managers
 
-**vp section**:
-The part of the config that sets the vite-plus toolchain on each Machine: the vp version, managed mode, the Node and package-manager defaults, and the Globals.
-_Avoid_: toolchain config, runtime
+**Package manager**:
+vp, npm, bun, or pnpm, each with its own section of Globals. A Ship never installs one or keeps its version, or Node's: that is the user's, through a Global of another package manager, a Formula, or a Shared File.
+_Avoid_: toolchain, runtime, version manager
 
 **Global**:
-A package installed with `vp install -g`.
+A package a package manager installs with its global install (`pnpm add -g`), an Item of that package manager's Provider.
 _Avoid_: tool, binary, global package
 
 **Range**:
-A package.json semver spec (`^59.25.4`, `1.2.3`, `*`, `latest`) that a Global, vp, Node, or a package manager must satisfy. A Formula or Cask takes only `*` or `latest`: Homebrew installs only the newest version.
+A package.json semver spec (`^59.25.4`, `1.2.3`, `*`, `latest`) that a Global must satisfy. A Formula or Cask takes only `*` or `latest`: Homebrew installs only the newest version.
 _Avoid_: version constraint, requirement
 
 ### Homebrew
@@ -169,13 +173,14 @@ _Avoid_: credential forwarding, shared token
 ## Relationships
 
 - A **Ship** runs a **Check** on every reachable **Machine** in the **Fleet**, then one **Plan**, then asks every **Question**, then **Apply** on every **Machine**
-- Every **Ship** copies the **Starting Machine**'s **Config** to every reachable **Machine**, and installs its own version of fleetfizz there, so any **Machine** can be the next **Starting Machine**
+- Every **Ship** copies the **Starting Machine**'s **Config** to every reachable **Machine**, and installs fleetfizz at the **Version** there, so any **Machine** can be the next **Starting Machine**
+- A **Ship**'s logic is one fleetfizz version's: the **Starting Machine** runs the **Version** before it checks anything
 - No **Machine** changes until every **Question** from every **Machine** is answered
 - A **Machine** has one **Clone Root**, which holds one **Managed Clone** per targeted **Tracked Repo**
 - A **Managed Clone** has at most one **Install Record**; the **Install Command** runs again only when the commit, the path, the **Install Command**, or an **Output** differs from it (**Drift**)
 - The **Starting Machine** lends its **Lent Token** to each other **Machine** for the length of one **Ship**; **Install Commands** never see it
 - An offline **Machine** is skipped, never failed, and stays behind until the next **Ship**
-- A **Provider** can depend on other **Providers**. When an **Item** of a dependency fails on a **Machine**, its dependents are skipped there; a dependency the config does not target at that **Machine** does not hold them back
+- A **Provider** can depend on other **Providers**, only through `dependsOn`. When an **Item** of a dependency fails on a **Machine**, its dependents are skipped there; a dependency the config does not target at that **Machine** does not hold them back
 - Removing an **Item** from the **Config** never uninstalls it
 - A **Ship** never overwrites a **Shared File** without a **Question** when the target has **Drift**, or when the target got a newer copy from another **Ship** than the **Starting Machine** has
 - A **Shared File**'s contents leave a remote **Machine** only when a **Question**'s answer pulls that **Machine**'s copy to the **Starting Machine** (when the **Starting Machine** has none, or instead of overwriting it), or when the person answering views the diff from that copy first
@@ -185,12 +190,13 @@ _Avoid_: credential forwarding, shared token
 > **Dev:** "I ran pnpm install:desktop:local in my own t3code checkout on the MacBook Pro. Does the next **Ship** put origin back?"
 > **Connor:** "Only if the app is one of t3code's **Outputs**. Then its fingerprint no longer matches the **Install Record**, that is **Drift**, and the **Ship** reinstalls. Without **Outputs**, the commit is unchanged, so ship with `--rebuild repos:t3code`."
 
-> **Dev:** "Someone ran `vp update -g` and vercel is now 60.1.0, but the **Range** is `^59.25.4`."
+> **Dev:** "Someone ran `pnpm update -g` and vercel is now 60.1.0, but the **Range** is `^59.25.4`."
 > **Connor:** "That's a **Question**. The **Ship** asks it on the **Starting Machine** before any **Machine** changes: bump the **Range**, skip it on that **Machine**, or downgrade."
 
 ## Flagged ambiguities
 
 - "fleetfizz" is the product (and its npm package); `fizz` is its command. "fleetfizz ship" is wrong: it is `fizz ship`.
+- "vp section" used to mean the vite-plus toolchain: vp's version, managed mode, Node, and package-manager defaults. It is now one of four package-manager sections, and holds only Globals.
 
 - "Ship" used to mean installing one repo's skills; it now covers every **Item** of every **Provider**.
 - "Managed Clone" used to mean only the skills repo's clone on a remote Machine; it now means any **Tracked Repo**'s clone on any **Machine**, the **Starting Machine** included.

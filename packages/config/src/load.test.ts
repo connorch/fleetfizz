@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { parseConfig } from "./load.ts";
+import { parseConfig, readVersion } from "./load.ts";
 
 const parse = (text: string) => Effect.result(parseConfig("config.jsonc", text));
 
@@ -9,9 +9,10 @@ describe("parseConfig", () => {
   it.effect("parses jsonc with comments and trailing commas", () =>
     Effect.gen(function* () {
       const result = yield* parse(`{
+        "version": "0.13.0",
         "machines": ["connors-mac-studio"],
         // the vp section
-        "vp": { "version": "1.1.0", },
+        "vp": { "items": { "vercel": "*", }, },
       }`);
       expect(result._tag).toBe("Success");
     }),
@@ -29,7 +30,9 @@ describe("parseConfig", () => {
 
   it.effect("rejects unknown keys", () =>
     Effect.gen(function* () {
-      const result = yield* parse('{ "machines": ["a"], "vp": { "platform": ["darwin"] } }');
+      const result = yield* parse(
+        '{ "version": "0.13.0", "machines": ["a"], "vp": { "platform": ["darwin"] } }',
+      );
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") expect(result.failure.message).toContain("platform");
     }),
@@ -48,10 +51,10 @@ describe("parseConfig", () => {
     }),
   );
 
-  it.effect("rejects fleetfizz as a Global: the running version pins it", () =>
+  it.effect("rejects fleetfizz as a Global: the config's version sets it", () =>
     Effect.gen(function* () {
       const result = yield* parse(
-        '{ "machines": ["a"], "vp": { "items": { "fleetfizz": "0.2.0" } } }',
+        '{ "version": "0.13.0", "machines": ["a"], "vp": { "items": { "fleetfizz": "0.2.0" } } }',
       );
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") expect(result.failure.problems[0]).toContain("fleetfizz");
@@ -86,4 +89,27 @@ describe("parseConfig", () => {
       }
     }),
   );
+
+  it.effect("names the vp settings a Ship no longer keeps", () =>
+    Effect.gen(function* () {
+      const result = yield* parse(`{
+        "version": "0.13.0",
+        "machines": ["a"],
+        "vp": { "version": "1.1.0", "node": "24.18.1", "pnpm": "^10", "items": {} }
+      }`);
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure")
+        expect(result.failure.problems).toEqual([
+          expect.stringMatching(/^vp\.version, vp\.node, vp\.pnpm: a Ship no longer keeps/),
+        ]);
+    }),
+  );
+});
+
+describe("readVersion", () => {
+  it("reads the version from any config text, without the schema", () => {
+    expect(readVersion('{ "version": "0.14.0", "brand-new": { "x": 1 } }')).toBe("0.14.0");
+    expect(readVersion('{ "machines": ["a"] }')).toBeUndefined();
+    expect(readVersion("{ not json")).toBeUndefined();
+  });
 });

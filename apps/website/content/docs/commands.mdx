@@ -1,6 +1,6 @@
 ---
 title: Commands
-description: fizz init, fizz ship, fizz status, fizz report, fizz logs, and fizz config.
+description: fizz init, fizz ship, fizz status, fizz report, fizz logs, fizz config, and fizz self-update.
 ---
 
 ## fizz init
@@ -13,11 +13,11 @@ It runs no fix itself: the fixes need `sudo` or a login. It needs a terminal, an
 
 <include>../generated/commands/ship.md</include>
 
-A Ship checks every Machine, plans its Steps, asks any Questions, then applies the plans in parallel. The Ledger lists what changes on each Machine by address: `vp:node`, `repos:t3code`.
+A Ship checks every Machine, plans its Steps, asks any Questions, then applies the plans in parallel. The Ledger lists what changes on each Machine by address: `pnpm:vercel`, `repos:t3code`.
 
 ### Answering in advance
 
-`--answer kind=choice` answers every Question of a kind: `range=bump|skip|downgrade`, `config=overwrite|stop`, `mode=managed|skip`, `file=overwrite|skip`, or `skill=overwrite|skip`. `--answer kind:subject=choice` answers one, such as `range:vp:vercel=bump`, and wins over the kind's answer.
+`--answer kind=choice` answers every Question of a kind: `range=bump|skip|downgrade`, `config=overwrite|stop`, `file=overwrite|skip`, or `skill=overwrite|skip`. `--answer kind:subject=choice` answers one, such as `range:pnpm:vercel=bump`, and wins over the kind's answer.
 
 Without a terminal, a Question is never waited on: the answer is skip. Piped to a file, the Ledger prints the full list once at the end.
 
@@ -55,9 +55,11 @@ Every `add` writes one entry the way the docs write it, the shorthand (`"gh": "*
 
 <include>../generated/commands/config-add-machines.md</include>
 
-#### fizz config add vp
+#### fizz config add vp, npm, bun, pnpm
 
 <include>../generated/commands/config-add-vp.md</include>
+
+`npm`, `bun`, and `pnpm` take the same arguments and flags, and read the installed version with that package manager.
 
 #### fizz config add brew
 
@@ -90,3 +92,9 @@ A path under your home is written under `~`, so it names the same place on every
 ### fizz config path
 
 <include>../generated/commands/config-path.md</include>
+
+## fizz self-update
+
+<include>../generated/commands/self-update.md</include>
+
+It sets the config's `version`, then installs that fleetfizz on this Machine with the package manager that installed fizz. The other Machines get it on the next Ship. Every fizz also switches to the config's `version` on its own before it runs a command, older or newer, so a Machine that receives a new config catches up on its next command.

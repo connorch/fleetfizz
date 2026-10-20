@@ -13,7 +13,7 @@ export function OneConfig({ className }: { className?: string }) {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">One config</h2>
         <p className="mt-4 leading-relaxed text-foreground/75">
-          One file names the Fleet, the Tracked Repos, and the vp section. It lives at{" "}
+          One file names the Fleet, its Globals, and the Tracked Repos. It lives at{" "}
           <code className="font-mono text-sm">~/.config/fleetfizz/config.jsonc</code>, and every
           Ship copies it to every Machine, so any Machine can ship next.
         </p>

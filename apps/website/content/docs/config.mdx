@@ -8,6 +8,7 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
 ```jsonc title="config.jsonc"
 {
   "$schema": "./schema.json",
+  "version": "0.14.0",
   "machines": ["connors-mac-studio", "connors-macbook-pro"],
   "repos": {
     "cloneRoot": [
@@ -23,10 +24,9 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
       },
     },
   },
-  "vp": {
-    "version": "1.1.0",
-    "node": "24.18.1",
-    "pnpm": "^10",
+  "npm": { "items": { "pnpm": "^12" } },
+  "pnpm": {
+    "dependsOn": ["npm"],
     "items": {
       "vercel": "^59.25.4",
       "skills": "^1.7.0",
@@ -52,10 +52,19 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
     "items": {
       "vaut": "~/.config/vaut",
       "karabiner": { "path": "~/.config/karabiner", "exclude": ["automatic_backups"] },
+      "mise": { "path": "~/.config/mise/config.toml", "after": "mise install" },
     },
   },
 }
 ```
+
+## version
+
+<include>../generated/config/version.md</include>
+
+It is an exact version, never a Range, so one Ship's logic is always one version's. `fizz init` writes the version that is running. Every command that reads the config compares it first: a fizz of another version, older or newer, installs this one with the package manager that installed it (vp, npm, bun, or pnpm, read from its path), then runs the same command again. A fizz that none of them installed, such as a `pnpm link`, stops with the command to run.
+
+Every Ship also keeps `fleetfizz:fleetfizz` in line on each Machine, last: a fizz of another version is changed with the package manager that installed it there, and a Machine without fizz gets it with the package manager that installed the Starting Machine's. `fizz self-update` changes `version` and installs it here; the next Ship installs it everywhere.
 
 ## machines
 
@@ -67,17 +76,27 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
 
 The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
 
-## vp
+## vp, npm, bun, pnpm
 
-<include>../generated/config/vp.md</include>
+<include>../generated/config/globals.md</include>
+
+```jsonc title="config.jsonc"
+{
+  "version": "0.14.0",
+  "machines": ["connors-mac-studio"],
+  "files": { "items": { "vp-config": "~/.config/vite-plus/config.json" } },
+  "vp": { "items": { "vercel": "^59.25.4" } },
+  "bun": { "items": { "@anthropic-ai/claude-code": "latest" } },
+}
+```
+
+Each package manager lists its Globals with its own command (`pnpm ls -g --json`, `bun pm ls -g`, and so on) and installs with its own global install. A Global of a package manager that is not on a Machine fails ("pnpm is not installed"), unless another section installs that package manager there in the same Ship: then it waits for the next Ship. Yarn has no section, since Yarn 2 and newer has no global installs.
 
 A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` always installs the newest version, and `*` installs only when missing. A Global not in the config is never uninstalled.
 
 A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
 
-Node and the package-manager defaults only take effect in vp's managed mode, where `node`, `npm`, `pnpm`, `yarn`, and `bun` run vp's version instead of a system install such as Homebrew's Node. A Machine with any tool in system-first mode gets a Question: switch it to managed mode (`vp env on`), or skip, which leaves the mode alone and skips that Machine's Node and package-manager defaults. Skip is the default, since switching changes which `node` every shell there runs.
-
-Repos run last, after Shared Files, vp, the Homebrew packages, and skills, so an Install Command can read a Shared File or use a Formula from the same Ship; when vp, Node, or a Global fails on a Machine, that Machine's repo changes are skipped ("depends on vp").
+A Ship never installs a package manager or Node, and never keeps their versions. That stays yours, with what the config already has: a package manager as a Global of another (`"npm": { "items": { "pnpm": "^12" } }`), a Formula (`node@24`), or a Shared File for the tool that keeps the version, such as vp's `~/.config/vite-plus/config.json` or mise's `config.toml` with `"after": "mise install"`. After a Node change, a package manager whose Globals live per Node (npm under nvm, fnm, or mise) reports them as missing, and the next Ship installs them again.
 
 ## brew
 
@@ -93,7 +112,7 @@ Repos run last, after Shared Files, vp, the Homebrew packages, and skills, so an
 
 <include>../generated/config/skills.md</include>
 
-The [skills CLI](https://github.com/vercel-labs/skills) installs each skill, so list it as a Global (`"skills": "^1.7.0"` in `vp.items`); a skill on a Machine without it fails. On a Machine that gets the CLI in a Ship, its skills install on the next Ship, once the CLI can show which skill folders are already there. A Ship runs `skills add <source> -g -s <name> -a <agents>`, with telemetry off. The CLI's own lock (`~/.agents/.skill-lock.json`) records the source and hash of what it installed, and each Machine keeps a record of the agents, so adding one to `agents` installs every skill for it on the next Ship. A skill installed by hand with the CLI installs again on its first Ship, to record its agents. Skills the config does not list are left alone, and removing one from the config never uninstalls it.
+The [skills CLI](https://github.com/vercel-labs/skills) installs each skill, so list it as a Global of any package manager (`"skills": "^1.7.0"` in `pnpm.items`); a skill on a Machine without it fails. On a Machine that gets the CLI in a Ship, its skills install on the next Ship, once the CLI can show which skill folders are already there. A Ship runs `skills add <source> -g -s <name> -a <agents>`, with telemetry off. The CLI's own lock (`~/.agents/.skill-lock.json`) records the source and hash of what it installed, and each Machine keeps a record of the agents, so adding one to `agents` installs every skill for it on the next Ship. A skill installed by hand with the CLI installs again on its first Ship, to record its agents. Skills the config does not list are left alone, and removing one from the config never uninstalls it.
 
 A skill from GitHub (`owner/repo`) follows its `ref`, or the default branch, like a Tracked Repo: once per Ship, the Machine you ship from reads the skill folder's hash at the ref from GitHub, and a Machine whose lock has another hash installs it again. The Ledger shows the hash: `skills:grilling eedaf25 → f073203`. A skill from any other source is installed when missing and never checked. When GitHub cannot be reached, installed skills are skipped for that Ship and missing ones still install.
 
@@ -107,6 +126,20 @@ A Ship reads each Shared File on the Machine it runs from and copies it, with it
 
 Each Machine keeps a record of the last copy a Ship wrote there. Before overwriting, a Ship asks (`--answer file=overwrite` or `skip`; skip is the default) when the copy there was edited since, when no Ship wrote it, or when it came from a newer Ship that missed the Starting Machine. The Question can also show the diff from that Machine's copy first (with your own git pager, never logged), keep that Machine's copy instead, and an Item the Starting Machine lacks asks which Machine to take it from: the Ship pulls the copy here, encrypted with `openssl` on the way, then starts over. Contents travel only on the ssh session's stdin, so they never appear in a script, the Ledger, or the Ship Log.
 
+`after` runs only on a Machine where the Ship wrote the file, and before its record, so when it fails the next Ship copies the file and runs it again. `--rebuild files:<name>` runs it on a Machine whose copy is already in line.
+
+## shell
+
+<include>../generated/config/shell.md</include>
+
+A Ship runs every script in a login shell, which reads no rc file over ssh: Ubuntu's `.bashrc` returns early when it is not interactive, and zsh reads `.zshrc` only when it is. So fleetfizz sources vp's env file when there is one, sets `PNPM_HOME` to pnpm's default when it is unset, and appends the bin directories of vp, pnpm, bun, mise, volta, and fnm to PATH, so what the login shell already has wins. It sources `nvm.sh` when nothing before it gave a `node`. When a Machine needs more, `init` runs first, with stdin closed.
+
+## Order
+
+Sections run in a built-in order: brew, cask, files, vp, npm, bun, pnpm, skills, repos, then fleetfizz itself. Homebrew is first, so an `after` can use a Formula; then the package managers, so they find the Node a Formula or a Shared File set up; then skills and repos, so an Install Command can use any of them. The order sections are written in the config never matters.
+
+`dependsOn` changes the order, and only `dependsOn` holds a section back: when an Item of a section it names fails on a Machine, that Machine's changes for this section are skipped ("depends on npm"). A section it names that does not target the Machine holds nothing back. bun installed as a pnpm Global runs before pnpm by default; `"bun": { "dependsOn": ["pnpm"] }` fixes it.
+
 ## Targeting
 
 Every section, each Item in its `items`, and each Variant take two optional fields that narrow where they apply. They combine with AND, so an Item applies where both it and its section do, and an unset field means every one.
@@ -119,8 +152,9 @@ When one Item needs a different definition on some Machines, write it as a list 
 
 ```jsonc title="config.jsonc"
 {
+  "version": "0.14.0",
   "machines": ["connors-mac-studio", "bluefin"],
-  "vp": {
+  "pnpm": {
     "items": {
       "vercel": [{ "platforms": ["linux"], "range": "^60.0.0" }, "^59.25.4"],
     },

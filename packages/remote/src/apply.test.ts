@@ -37,7 +37,7 @@ const runIn = <A, E>(
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const home = yield* fs.makeTempDirectoryScoped();
     const handle = yield* spawner.spawn(
-      ChildProcess.make("/bin/sh", ["-c", applyScript(plan, RECORD)], {
+      ChildProcess.make("/bin/sh", ["-c", applyScript(plan, RECORD, undefined)], {
         stdin: Stream.encodeText(Stream.make(`${stdin.join("\n")}\n`)),
         stdout: "pipe",
         stderr: "pipe",

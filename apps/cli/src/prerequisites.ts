@@ -10,8 +10,6 @@ import { runLocal } from "./local.ts";
 
 export interface Facts {
   readonly platform: string;
-  // `vp --version`, or undefined without vp.
-  readonly vp: string | undefined;
   // undefined without the tailscale CLI.
   readonly tailscale:
     | {
@@ -43,15 +41,6 @@ const SERVICE_MACOS =
 // Each check, in the order `init` prints them.
 export const checksOf = (facts: Facts): ReadonlyArray<Check> => {
   const darwin = facts.platform === "darwin";
-  const vp: Check =
-    facts.vp === undefined
-      ? {
-          ok: false,
-          required: true,
-          text: "vp is not installed",
-          fix: "curl -fsSL https://vite.plus | bash",
-        }
-      : { ok: true, required: true, text: `vp ${facts.vp}` };
   const ts = facts.tailscale;
   const tailscale: ReadonlyArray<Check> =
     ts === undefined
@@ -136,7 +125,7 @@ export const checksOf = (facts: Facts): ReadonlyArray<Check> => {
                 : "install gh from https://cli.github.com, then gh auth login",
         };
   // Homebrew first: on a Mac, Tailscale is installed with it.
-  return [vp, ...brew, ...tailscale, gh];
+  return [...brew, ...tailscale, gh];
 };
 
 const Status = Schema.fromJsonString(
@@ -147,8 +136,6 @@ const Prefs = Schema.fromJsonString(Schema.Struct({ RunSSH: Schema.optionalKey(S
 // Reads the Facts from this Machine.
 export const readFacts = Effect.fn("readFacts")(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const vp = yield* runLocal("vp", ["--version"]);
-  const version = /^vp v?(\S+)/m.exec(vp.stdout)?.[1];
   const status = yield* runLocal("tailscale", ["status", "--json"]);
   const prefs = yield* runLocal("tailscale", ["debug", "prefs"]);
   const state = Schema.decodeOption(Status)(status.stdout);
@@ -159,7 +146,6 @@ export const readFacts = Effect.fn("readFacts")(function* () {
   const app = process.platform === "darwin" && (yield* fs.exists("/Applications/Tailscale.app"));
   return {
     platform: process.platform,
-    vp: vp.code === 0 ? version : undefined,
     tailscale:
       status.code === 127 && !app
         ? undefined

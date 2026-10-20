@@ -17,11 +17,13 @@ import {
   insertAt,
   type JsonPath,
   parseConfig,
+  type PackageManager,
   type Platform,
-  type ProviderName,
   saveConfig,
+  type SectionName,
 } from "@fleetfizz/config";
 import { address, targets, type Targeting } from "@fleetfizz/core";
+import { MANAGERS } from "@fleetfizz/providers";
 import { readTailnet, resolveVersions, type Tailnet } from "@fleetfizz/remote";
 
 import { changeText } from "./configView.tsx";
@@ -89,7 +91,7 @@ export const openConfig = Effect.fn("openConfig")(function* (flag: string | unde
 
 // The Machines an Item reaches: its section's Targeting and its own, against
 // each Machine's Platform on the tailnet.
-const reach = (config: FleetConfig, tailnet: Tailnet, provider: ProviderName, own: Targeting) => {
+const reach = (config: FleetConfig, tailnet: Tailnet, provider: SectionName, own: Targeting) => {
   const section = config[provider] ?? {};
   const names = config.machines.filter((name) => {
     const machine = tailnet.fleet.find((m) => m.name === name);
@@ -105,7 +107,7 @@ const reach = (config: FleetConfig, tailnet: Tailnet, provider: ProviderName, ow
 // Writes one Item and prints the lines it changed.
 const addItem = Effect.fn("addItem")(function* (input: {
   readonly config: string | undefined;
-  readonly provider: ProviderName;
+  readonly provider: SectionName;
   readonly name: string;
   readonly entry: unknown;
   readonly targeting: Targeting;
@@ -165,9 +167,10 @@ const addItem = Effect.fn("addItem")(function* (input: {
 const needs = (what: string) =>
   new ConfigAddError({ reason: `${what} is needed (no terminal to ask at)` });
 
-// `fizz config add vp <pkg>[@range]`.
+// `fizz config add vp|npm|bun|pnpm <pkg>[@range]`.
 export const addGlobal = Effect.fn("addGlobal")(function* (input: {
   readonly config: string | undefined;
+  readonly pm: PackageManager;
   readonly spec: string;
   readonly targeting: TargetingFlags;
 }) {
@@ -175,16 +178,9 @@ export const addGlobal = Effect.fn("addGlobal")(function* (input: {
   const range =
     given ??
     (yield* Effect.gen(function* () {
-      const listed = yield* runLocal("vp", ["list", "--global", "--json"]);
-      const installed = Schema.decodeOption(
-        Schema.fromJsonString(
-          Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
-        ),
-      )(listed.stdout);
-      const here =
-        installed._tag === "Some"
-          ? installed.value.find((g) => g.name === name)?.version
-          : undefined;
+      const manager = MANAGERS[input.pm];
+      const listed = yield* runLocal("sh", ["-c", manager.list]);
+      const here = manager.parse(listed.stdout).get(name);
       const published = here === undefined ? ((yield* resolveVersions([name]))[name] ?? []) : [];
       const range = addedRange(here, published);
       if (range === undefined)
@@ -196,7 +192,7 @@ export const addGlobal = Effect.fn("addGlobal")(function* (input: {
   const targeting = targetingOf(input.targeting);
   yield* addItem({
     config: input.config,
-    provider: "vp",
+    provider: input.pm,
     name,
     entry: rangeEntry(range, targeting),
     targeting,

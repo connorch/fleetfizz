@@ -11,7 +11,7 @@ import type { Ledger } from "./ledger.ts";
 import type { Live } from "./live.tsx";
 
 // `--answer` entries: `kind=choice` for every Question of a kind, or
-// `kind:subject=choice` for one (`range:vp:node=downgrade`). The more
+// `kind:subject=choice` for one (`range:pnpm:vercel=downgrade`). The more
 // specific answer wins.
 export const parseAnswers = (
   raw: ReadonlyArray<string>,

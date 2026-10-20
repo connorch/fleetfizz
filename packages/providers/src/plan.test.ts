@@ -16,13 +16,14 @@ import {
   type PlanInput,
 } from "@fleetfizz/core";
 
-import { PROVIDERS } from "./index.ts";
+import { installerOf, PROVIDERS } from "./index.ts";
 import { OBSERVE, REPORT } from "./skills/scripts.ts";
 
 // A config as written, decoded as the CLI decodes it.
 const decode = Schema.decodeSync(FleetConfig);
 
 const written: typeof FleetConfig.Encoded = {
+  version: "0.2.0",
   machines: ["connors-mac-studio", "connors-macbook-pro", "bluefin"],
   repos: {
     cloneRoot: [
@@ -39,11 +40,7 @@ const written: typeof FleetConfig.Encoded = {
       },
     },
   },
-  vp: {
-    version: "1.1.0",
-    node: "24.18.1",
-    items: { vercel: "^59.25.4", "inngest-cli": "^1.45.1", skills: "^1.7.0" },
-  },
+  vp: { items: { vercel: "^59.25.4", "inngest-cli": "^1.45.1", skills: "^1.7.0" } },
 };
 const config = decode(written);
 
@@ -51,8 +48,6 @@ const SKILLS_HEAD = "abc1234000000000000000000000000000000000";
 const SKILLS_TIP = "def5678000000000000000000000000000000000";
 
 const versions = {
-  "vite-plus": ["1.0.0", "1.1.0"],
-  node: ["24.18.1", "24.19.0"],
   vercel: ["58.0.0", "59.25.4", "59.30.0", "60.1.0"],
   "inngest-cli": ["1.45.1"],
   skills: ["1.5.7", "1.7.0"],
@@ -60,48 +55,55 @@ const versions = {
 
 const resolved: PlanInput["resolved"] = {
   vp: versions,
+  npm: versions,
+  pnpm: versions,
   repos: { "connorch/skills#main": { commit: SKILLS_TIP } },
+  fleetfizz: { from: "connors-mac-studio", installer: "vp" },
 };
 
 const MACBOOK: MachineIdentity = { name: "connors-macbook-pro", platform: "darwin" };
 const ROOT = "/Users/connor/.local/share/fleetfizz/clones";
 
-type Global = { name: string; version: string; platform?: { node?: string } };
+// A package manager's Globals, as its own list prints them.
+const listFact = (pm: string, output: string) => ({
+  provider: pm,
+  fact: "list",
+  base64: btoa(String.fromCharCode(...new TextEncoder().encode(output))),
+});
+const vpList = (globals: ReadonlyArray<{ name: string; version: string }>) =>
+  listFact("vp", JSON.stringify(globals));
 
-// A MacBook Pro before its first Ship: old vp, old Globals, nothing cloned.
+// A MacBook Pro before its first Ship: old Globals, nothing cloned, and
+// fleetfizz 0.1.0 installed with vp.
 const facts = (over: {
-  vp?: { version: string; path: string } | null;
-  mode?: "managed" | "system-first";
-  globals?: ReadonlyArray<Global>;
+  globals?: ReadonlyArray<unknown>;
+  fizz?: ReadonlyArray<unknown>;
   rootPresent?: boolean;
   rootPath?: string;
   repos?: ReadonlyArray<unknown>;
   records?: ReadonlyArray<unknown>;
   homebrew?: ReadonlyArray<unknown>;
   skills?: ReadonlyArray<unknown>;
-}) => {
-  const vp =
-    over.vp === undefined
-      ? { version: "1.0.0-rc.0", path: "/Users/connor/.vite-plus/bin/vp" }
-      : over.vp;
-  return assembleState([
+}) =>
+  assembleState([
     { fact: "home", path: "/Users/connor" },
-    ...(vp === null
-      ? [{ provider: "vp", fact: "vp", version: null }]
-      : [
-          { provider: "vp", fact: "vp", ...vp },
-          { provider: "vp", fact: "mode", mode: over.mode ?? "managed" },
-          { provider: "vp", fact: "default", tool: "node", version: "24.18.1" },
-          { provider: "vp", fact: "default", tool: "pnpm", version: "10.0.0" },
-          {
-            provider: "vp",
-            fact: "globals",
-            list: over.globals ?? [
-              { name: "vercel", version: "58.0.0", platform: { node: "24.18.1" } },
-              { name: "skills", version: "1.7.0", platform: { node: "22.0.0" } },
-            ],
-          },
-        ]),
+    ...(over.globals ?? [
+      vpList([
+        { name: "vercel", version: "58.0.0" },
+        { name: "skills", version: "1.7.0" },
+      ]),
+    ]),
+    ...(over.fizz ?? [
+      {
+        provider: "fleetfizz",
+        fact: "fizz",
+        path: "/Users/connor/.local/share/vite-plus/bin/fizz",
+        real: "/Users/connor/.local/share/vite-plus/bin/fizz",
+        version: "0.1.0",
+      },
+      { provider: "fleetfizz", fact: "manager", name: "vp" },
+      { provider: "fleetfizz", fact: "manager", name: "npm" },
+    ]),
     {
       provider: "repos",
       fact: "cloneRoot",
@@ -114,7 +116,6 @@ const facts = (over: {
     ...(over.skills ?? []),
     { fact: "end" },
   ]);
-};
 
 const plan = (over: {
   state?: ReturnType<typeof facts>;
@@ -131,7 +132,6 @@ const plan = (over: {
     ctx: {
       machine: over.machine ?? MACBOOK,
       config: over.config ?? config,
-      self: "0.2.0",
       rebuild: (a) => over.rebuild?.includes(a) ?? false,
       answer: (kind, subject) => over.answers?.[`${kind}:${subject}`],
     },
@@ -170,143 +170,77 @@ const exec = (command: string, args: ReadonlyArray<string>, home: string) =>
     }),
   );
 
-describe("the vp Provider", () => {
-  it("brings the vp section into line", () => {
+describe("the package-manager Providers", () => {
+  it("keeps each Global inside its Range with one install", () => {
     const vp = provider(plan({}), "vp");
     expect(vp.decisions).toEqual([
-      expect.objectContaining({ kind: "change", item: "vp", from: "1.0.0-rc.0", to: "1.1.0" }),
-      { kind: "leave", item: "mode", at: "managed" },
-      { kind: "leave", item: "node", at: "24.18.1" },
       expect.objectContaining({ kind: "change", item: "vercel", from: "58.0.0", to: "59.30.0" }),
       expect.objectContaining({ kind: "change", item: "inngest-cli", to: "1.45.1" }),
-      expect.objectContaining({
-        kind: "change",
-        item: "skills",
-        reason: "Node 22.0.0 → 24.18.1",
-      }),
-      expect.objectContaining({ kind: "change", item: "fleetfizz", to: "0.2.0" }),
+      { kind: "leave", item: "skills", at: "1.7.0" },
     ]);
-    expect(vp.steps.map((s) => [s.id, s.items])).toEqual([
-      ["vp:vp:upgrade", ["vp"]],
-      ["vp:skills:reinstall", ["skills"]],
-      ["vp:globals:install", ["vercel", "inngest-cli", "fleetfizz"]],
-    ]);
-    expect(vp.steps[2]?.run).toEqual([
-      "( command vp install -g 'vercel@59.30.0' 'inngest-cli@1.45.1' 'fleetfizz@0.2.0' )",
+    expect(vp.steps.map((s) => [s.id, s.run])).toEqual([
+      ["vp:globals:install", ["( command vp install -g 'vercel@59.30.0' 'inngest-cli@1.45.1' )"]],
     ]);
   });
 
-  it("pins fleetfizz to the running version, and refuses to downgrade a newer one", () => {
-    const self = (version: string) =>
-      provider(
-        plan({
-          state: facts({
-            globals: [{ name: "fleetfizz", version, platform: { node: "24.18.1" } }],
-          }),
+  it("reads and installs with each package manager's own commands", () => {
+    const withPm = (pm: "npm" | "bun" | "pnpm", output: string) => {
+      const result = plan({
+        config: decode({
+          version: "0.2.0",
+          machines: written.machines,
+          [pm]: { items: { vercel: "^59.25.4" } },
         }),
-        "vp",
-      ).decisions.find((d) => d.item === "fleetfizz");
-    expect(self("0.1.0")).toMatchObject({ kind: "change", from: "0.1.0", to: "0.2.0" });
-    expect(self("0.2.0")).toEqual({ kind: "leave", item: "fleetfizz", at: "0.2.0" });
-    expect(self("0.3.0")).toMatchObject({
+        state: facts({ globals: [listFact(pm, output)] }),
+        resolved: { ...resolved, [pm]: versions },
+      });
+      const p = provider(result, pm);
+      return [p.decisions[0], p.steps[0]?.run[0]];
+    };
+    expect(
+      withPm("npm", JSON.stringify({ dependencies: { vercel: { version: "59.30.0" } } })),
+    ).toEqual([{ kind: "leave", item: "vercel", at: "59.30.0" }, undefined]);
+    expect(
+      withPm("pnpm", JSON.stringify([{ dependencies: { vercel: { version: "58.0.0" } } }])),
+    ).toEqual([
+      expect.objectContaining({ kind: "change", from: "58.0.0", to: "59.30.0" }),
+      "( command pnpm add -g 'vercel@59.30.0' )",
+    ]);
+    expect(
+      withPm(
+        "bun",
+        "/Users/connor/.bun/install/global node_modules (2)\n├── @scope/x@1.0.0\n└── vercel@59.25.4\n",
+      ),
+    ).toEqual([{ kind: "leave", item: "vercel", at: "59.25.4" }, undefined]);
+    expect(withPm("bun", "")[1]).toBe("( command bun add -g 'vercel@59.30.0' )");
+  });
+
+  it("fails without its package manager, or waits for one another installs in this Ship", () => {
+    const pnpmConfig = (npm: boolean) =>
+      decode({
+        version: "0.2.0",
+        machines: written.machines,
+        ...(npm ? { npm: { items: { pnpm: "^10" } } } : {}),
+        pnpm: { items: { vercel: "^59.25.4" } },
+      });
+    const missing = [{ provider: "pnpm", fact: "missing" }];
+    const vercel = (npm: boolean) =>
+      provider(plan({ config: pnpmConfig(npm), state: facts({ globals: missing }) }), "pnpm")
+        .decisions[0];
+    expect(vercel(false)).toEqual({
       kind: "fail",
-      reason: expect.stringContaining("upgrade here first"),
+      item: "vercel",
+      reason: "pnpm is not installed",
     });
-  });
-
-  it("bootstraps vp on a bare Machine in one step, then plans the whole section", () => {
-    const result = plan({ state: facts({ vp: null }) });
-    const vp = provider(result, "vp");
-    expect(vp.steps.map((s) => s.id)).toEqual([
-      "vp:vp:install",
-      "vp:mode:on",
-      "vp:node:default",
-      "vp:globals:install",
-    ]);
-    // In the main shell, so the PATH change reaches later steps.
-    expect(vp.steps[0]?.run[0]).toMatch(
-      /^curl -fsSL https:\/\/vite\.plus \| bash && .* && command vp upgrade '1\.1\.0'$/,
-    );
-    expect(vp.steps[3]?.items).toEqual(["vercel", "inngest-cli", "skills", "fleetfizz"]);
-  });
-
-  it("keeps package managers' defaults, with Yarn 2 and newer from @yarnpkg/cli-dist", () => {
-    const vp = provider(
-      plan({
-        config: { ...config, vp: { ...config.vp, pnpm: "^10.2.0", yarn: "^4" } },
-        resolved: {
-          ...resolved,
-          vp: {
-            ...versions,
-            pnpm: ["10.0.0", "10.2.0"],
-            yarn: ["1.22.22"],
-            "@yarnpkg/cli-dist": ["4.18.1"],
-          },
-        },
-      }),
-      "vp",
-    );
-    expect(vp.decisions.filter((d) => d.item === "pnpm" || d.item === "yarn")).toEqual([
-      expect.objectContaining({ kind: "change", item: "pnpm", from: "10.0.0", to: "10.2.0" }),
-      expect.objectContaining({ kind: "change", item: "yarn", to: "4.18.1" }),
-    ]);
-    expect(vp.steps.filter((s) => s.id.endsWith(":default")).map((s) => s.run)).toEqual([
-      ["( command vp env default 'pnpm@10.2.0' )"],
-      ["( command vp env default 'yarn@4.18.1' )"],
-    ]);
-  });
-
-  it("asks to switch a system-first Machine to managed mode, skipping by default", () => {
-    const vp = (answers?: Readonly<Record<string, string>>) =>
-      provider(
-        plan({
-          state: facts({ mode: "system-first" }),
-          ...(answers === undefined ? {} : { answers }),
-        }),
-        "vp",
-      );
-    const asked = vp();
-    expect(asked.decisions.find((d) => d.item === "mode")).toMatchObject({
-      kind: "ask",
-      question: { kind: "mode", subject: "vp:mode", found: "system-first", default: "skip" },
-    });
-    expect(asked.decisions.find((d) => d.item === "node")).toMatchObject({
+    expect(vercel(true)).toEqual({
       kind: "skip",
-      reason: "needs managed mode",
+      item: "vercel",
+      reason: "waits for pnpm, which npm installs in this Ship; ship again",
     });
-    // The rest of the section still ships.
-    expect(asked.steps.map((s) => s.id)).toContain("vp:globals:install");
-    expect(vp({ "mode:vp:mode": "skip" }).decisions.find((d) => d.item === "mode")).toEqual({
-      kind: "skip",
-      item: "mode",
-      at: "system-first",
-      reason: "needs managed mode",
-    });
-    const managed = vp({ "mode:vp:mode": "managed" });
-    expect(managed.decisions.find((d) => d.item === "node")).toMatchObject({ kind: "leave" });
-    expect(managed.steps.map((s) => [s.id, s.run])).toContainEqual([
-      "vp:mode:on",
-      ["( command vp env on )"],
-    ]);
-  });
-
-  it("bootstraps vp without the registry when any version will do", () => {
-    const vp = provider(
-      plan({
-        state: facts({ vp: null }),
-        config: decode({ machines: written.machines }),
-        resolved: { vp: {}, repos: {} },
-      }),
-      "vp",
-    );
-    expect(vp.decisions[0]).toMatchObject({ kind: "change", item: "vp", to: "latest" });
-    expect(vp.steps[0]?.run[0]).not.toContain("vp upgrade");
   });
 
   it("asks about a Global above its Range, and honors answers", () => {
-    const state = facts({
-      globals: [{ name: "vercel", version: "60.1.0", platform: { node: "24.18.1" } }],
-    });
+    const state = facts({ globals: [vpList([{ name: "vercel", version: "60.1.0" }])] });
     const vercel = (answers?: Readonly<Record<string, string>>) =>
       provider(plan({ state, ...(answers === undefined ? {} : { answers }) }), "vp").decisions.find(
         (d) => d.item === "vercel",
@@ -334,20 +268,146 @@ describe("the vp Provider", () => {
     });
   });
 
-  it("fails a Homebrew vp instead of running vp upgrade, holding back repos", () => {
-    const result = plan({
-      state: facts({ vp: { version: "1.0.0", path: "/opt/homebrew/bin/vp" } }),
-    });
-    expect(provider(result, "vp").decisions[0]).toMatchObject({
-      kind: "fail",
-      reason: expect.stringContaining("brew upgrade vite-plus"),
-    });
-    const repos = provider(result, "repos");
-    expect(repos.steps).toEqual([]);
-    expect(repos.decisions.map((d) => [d.kind, d.kind === "skip" ? d.reason : undefined])).toEqual([
-      ["skip", "depends on vp"],
-      ["skip", "depends on vp"],
+  it("holds nothing back by default, but does what a section's dependsOn says", () => {
+    const failing = facts({ globals: [{ provider: "vp", fact: "missing" }] });
+    const repos = (dependsOn: boolean) =>
+      provider(
+        plan({
+          state: failing,
+          config: decode({
+            ...written,
+            repos: { ...written.repos, ...(dependsOn ? { dependsOn: ["vp"] } : {}) },
+          }),
+        }),
+        "repos",
+      ).decisions.map((d) => d.kind);
+    expect(repos(false)).toEqual(["change", "change"]);
+    expect(repos(true)).toEqual(["skip", "skip"]);
+  });
+});
+
+describe("the fleetfizz Provider", () => {
+  const fizz = (path: string, version: string, real = path) => ({
+    provider: "fleetfizz",
+    fact: "fizz",
+    path,
+    real,
+    version,
+  });
+  const managers = (...names: string[]) =>
+    names.map((name) => ({ provider: "fleetfizz", fact: "manager", name }));
+  const decide = (over: {
+    fizz?: ReadonlyArray<unknown>;
+    machine?: MachineIdentity;
+    resolved?: unknown;
+  }) => {
+    const p = provider(
+      plan({
+        state: facts({ fizz: over.fizz ?? [] }),
+        ...(over.machine === undefined ? {} : { machine: over.machine }),
+        ...(over.resolved === undefined
+          ? {}
+          : { resolved: { ...resolved, fleetfizz: over.resolved } }),
+      }),
+      "fleetfizz",
+    );
+    return [p.decisions[0], p.steps[0]?.run[0]];
+  };
+
+  it("runs last, after every Provider with a section", () => {
+    expect(plan({}).providers.map((p) => p.name)).toEqual([
+      "brew",
+      "cask",
+      "files",
+      "vp",
+      "npm",
+      "bun",
+      "pnpm",
+      "skills",
+      "repos",
+      "fleetfizz",
     ]);
+  });
+
+  it("moves fizz to the config's version with the package manager that installed it", () => {
+    expect(
+      decide({ fizz: [fizz("/Users/connor/.local/share/vite-plus/bin/fizz", "0.1.0")] }),
+    ).toEqual([
+      expect.objectContaining({ kind: "change", from: "0.1.0", to: "0.2.0" }),
+      "( command vp install -g 'fleetfizz@0.2.0' )",
+    ]);
+    // Newer moves too: the config wins.
+    expect(
+      decide({
+        fizz: [
+          fizz(
+            "/opt/homebrew/bin/fizz",
+            "0.3.0",
+            "/opt/homebrew/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
+          ),
+        ],
+      }),
+    ).toEqual([
+      expect.objectContaining({ kind: "change", from: "0.3.0", to: "0.2.0" }),
+      "( command npm install -g 'fleetfizz@0.2.0' )",
+    ]);
+    expect(decide({ fizz: [fizz("/Users/connor/Library/pnpm/fizz", "0.2.0")] })[0]).toEqual({
+      kind: "leave",
+      item: "fleetfizz",
+      at: "0.2.0",
+    });
+    expect(decide({ fizz: [fizz("/Users/connor/code/fleetfizz/fizz", "0.1.0")] })[0]).toMatchObject(
+      {
+        kind: "fail",
+        reason: expect.stringContaining("install fleetfizz@0.2.0 there"),
+      },
+    );
+  });
+
+  it("installs a missing fizz with the Starting Machine's package manager, when it is here", () => {
+    expect(decide({ fizz: managers("vp") })[1]).toBe("( command vp install -g 'fleetfizz@0.2.0' )");
+    expect(decide({ fizz: managers("npm") })[0]).toEqual({
+      kind: "skip",
+      item: "fleetfizz",
+      reason: "no vp here",
+    });
+    expect(
+      decide({
+        fizz: managers("vp"),
+        resolved: { from: "connors-mac-studio", installer: undefined },
+      })[0],
+    ).toMatchObject({ kind: "skip", reason: expect.stringContaining("none to install it with") });
+  });
+
+  it("leaves the Starting Machine alone: it already runs the config's version", () => {
+    expect(
+      decide({
+        machine: { name: "connors-mac-studio", platform: "darwin" },
+        fizz: [fizz("/Users/connor/code/fleetfizz/fizz", "0.1.0")],
+      })[0],
+    ).toEqual({ kind: "leave", item: "fleetfizz", at: "0.2.0" });
+  });
+
+  it("tells which package manager installed a fizz from its paths", () => {
+    expect(
+      installerOf([
+        "/Users/connor/.local/share/vite-plus/packages/fleetfizz/x/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
+      ]),
+    ).toBe("vp");
+    expect(
+      installerOf([
+        "/Users/connor/Library/pnpm/global/v11/.pnpm/fleetfizz@0.2.0/node_modules/fleetfizz/dist/fleetfizz.mjs",
+      ]),
+    ).toBe("pnpm");
+    expect(installerOf(["/Users/connor/.bun/bin/fizz"])).toBe("bun");
+    expect(
+      installerOf([
+        "/Users/connor/.nvm/versions/node/v24.1.0/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
+      ]),
+    ).toBe("npm");
+    expect(
+      installerOf(["/Users/connor/code/fleetfizz/apps/cli/dist/fleetfizz.mjs"]),
+    ).toBeUndefined();
   });
 });
 
@@ -552,9 +612,7 @@ describe("Variants", () => {
   });
 
   it("bumps the Variant the Machine got", () => {
-    const state = facts({
-      globals: [{ name: "vercel", version: "60.1.0", platform: { node: "24.18.1" } }],
-    });
+    const state = facts({ globals: [vpList([{ name: "vercel", version: "60.1.0" }])] });
     const vercel = provider(plan({ config: variants, state }), "vp").decisions.find(
       (d) => d.item === "vercel",
     );
@@ -574,6 +632,7 @@ describe("Variants", () => {
 
   it("leaves out an Item with no Variant for the Machine", () => {
     const linuxOnly = decode({
+      version: "0.2.0",
       machines: written.machines,
       vp: { items: { vercel: [{ platforms: ["linux"], range: "*" }] } },
     });
@@ -610,15 +669,6 @@ describe("the brew and cask Providers", () => {
       expect.objectContaining({ kind: "change", item: "tmux", from: "3.5a", to: "latest" }),
       expect.objectContaining({ kind: "change", item: "jq", to: "latest" }),
       expect.objectContaining({ kind: "change", item: "oven-sh/bun/bun", to: "latest" }),
-    ]);
-    // Shared Files and packages come before repos, so an Install Command can use them.
-    expect(result.providers.map((p) => p.name)).toEqual([
-      "files",
-      "vp",
-      "brew",
-      "cask",
-      "skills",
-      "repos",
     ]);
     const steps = result.providers
       .filter((p) => p.name === "brew" || p.name === "cask")
@@ -981,7 +1031,7 @@ describe("the skills Provider", () => {
     ).toEqual({
       kind: "fail",
       item: "grilling",
-      reason: "the skills CLI is not installed; add skills to vp.items",
+      reason: "the skills CLI is not installed; list skills in the items of vp, npm, bun, or pnpm",
     });
   });
 });

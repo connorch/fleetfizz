@@ -29,7 +29,7 @@ describe("checkScript", () => {
       const script = checkScript({
         scope: {
           machine: { name: "studio", platform: "darwin" },
-          config: { machines: ["studio"] },
+          config: { version: "0.2.0", machines: ["studio"] },
         },
         providers: [],
       });

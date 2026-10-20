@@ -5,6 +5,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
+import { PACKAGE_MANAGERS, type PackageManager } from "@fleetfizz/config";
+
 import packageJson from "../package.json" with { type: "json" };
 import { addFile, addGlobal, addHomebrew, addMachines, addRepo } from "./configAdd.tsx";
 import { editConfig, printPath, removeItem } from "./configEdit.tsx";
@@ -14,6 +16,7 @@ import { KEEP, logs } from "./log.ts";
 import { report } from "./report.tsx";
 import { ship } from "./ship.ts";
 import { status } from "./status.tsx";
+import { atConfigVersion, selfUpdate } from "./version.ts";
 
 // Problems the person can fix print as one message, not a trace.
 const printProblems = <A, E extends Error, R>(effect: Effect.Effect<A, E, R>) =>
@@ -25,6 +28,11 @@ const printProblems = <A, E extends Error, R>(effect: Effect.Effect<A, E, R>) =>
       }),
     ),
   );
+
+// A command that reads the config runs only at the config's version, which
+// it installs and runs again when this fizz is another (ADR 0019).
+const gated = <A, E, R>(config: string | undefined, effect: Effect.Effect<A, E, R>) =>
+  atConfigVersion(config, packageJson.version, effect);
 
 const shipCommand = Command.make("ship", {
   dryRun: Flag.Boolean("dry-run").pipe(
@@ -76,20 +84,23 @@ const shipCommand = Command.make("ship", {
 }).pipe(
   Command.withDescription("Ship the config to every reachable Machine."),
   Command.withHandler((flags) =>
-    ship({
-      dryRun: flags.dryRun,
-      only: flags.only,
-      rebuild: flags.rebuild,
-      // The shortcut flags are answers; an --answer for a subject still wins.
-      answers: [
-        ...flags.answer,
-        ...(flags.bump ? ["range=bump"] : []),
-        ...(flags.enforce ? ["range=downgrade"] : []),
-        ...(flags.overwriteConfig ? ["config=overwrite"] : []),
-      ],
-      config: Option.getOrUndefined(flags.config),
-      version: packageJson.version,
-    }).pipe(printProblems),
+    gated(
+      Option.getOrUndefined(flags.config),
+      ship({
+        dryRun: flags.dryRun,
+        only: flags.only,
+        rebuild: flags.rebuild,
+        // The shortcut flags are answers; an --answer for a subject still wins.
+        answers: [
+          ...flags.answer,
+          ...(flags.bump ? ["range=bump"] : []),
+          ...(flags.enforce ? ["range=downgrade"] : []),
+          ...(flags.overwriteConfig ? ["config=overwrite"] : []),
+        ],
+        config: Option.getOrUndefined(flags.config),
+        version: packageJson.version,
+      }),
+    ).pipe(printProblems),
   ),
 );
 
@@ -106,9 +117,10 @@ const initCommand = Command.make("init", {
     "Set up this Machine to ship: check what fleetfizz needs here and print any fixes, then pick the Fleet from the tailnet and what to keep in line, and write the config.",
   ),
   Command.withHandler((flags) =>
-    init({ config: Option.getOrUndefined(flags.config), version: packageJson.version }).pipe(
-      printProblems,
-    ),
+    gated(
+      Option.getOrUndefined(flags.config),
+      init({ config: Option.getOrUndefined(flags.config), version: packageJson.version }),
+    ).pipe(printProblems),
   ),
 );
 
@@ -123,9 +135,10 @@ const statusCommand = Command.make("status", {
     "Check every reachable Machine and show where each Item stands: in line, to change, a Question, or failing. Changes nothing and asks nothing.",
   ),
   Command.withHandler((flags) =>
-    status({ config: Option.getOrUndefined(flags.config), version: packageJson.version }).pipe(
-      printProblems,
-    ),
+    gated(
+      Option.getOrUndefined(flags.config),
+      status({ config: Option.getOrUndefined(flags.config), version: packageJson.version }),
+    ).pipe(printProblems),
   ),
 );
 
@@ -199,12 +212,19 @@ const configCommand = Command.make("config").pipe(
     "Show the config: each Provider's Items and the Machines they target, and when a Ship last reached each Machine.",
   ),
   Command.withHandler((flags) =>
-    showConfig({ config: Option.getOrUndefined(flags.config) }).pipe(printProblems),
+    gated(
+      Option.getOrUndefined(flags.config),
+      showConfig({ config: Option.getOrUndefined(flags.config) }),
+    ).pipe(printProblems),
   ),
 );
 
 // The --config given to `fizz config`, for its subcommands.
 const configFile = Effect.map(configCommand, (flags) => Option.getOrUndefined(flags.config));
+
+// A `fizz config` subcommand that reads the config, at its version.
+const withConfig = <A, E, R>(run: (config: string | undefined) => Effect.Effect<A, E, R>) =>
+  Effect.flatMap(configFile, (config) => gated(config, run(config)));
 
 const homebrewCommand = (provider: "brew" | "cask") =>
   Command.make(provider, {
@@ -220,12 +240,34 @@ const homebrewCommand = (provider: "brew" | "cask") =>
   }).pipe(
     Command.withDescription(provider === "brew" ? "Add a Formula." : "Add a Cask."),
     Command.withHandler((flags) =>
-      Effect.flatMap(configFile, (config) =>
+      withConfig((config) =>
         addHomebrew({
           config,
           provider,
           name: flags.name,
           latest: flags.latest,
+          targeting: { platforms: flags.platform, machines: flags.machine },
+        }),
+      ).pipe(printProblems),
+    ),
+  );
+
+const globalCommand = (pm: PackageManager) =>
+  Command.make(pm, {
+    spec: Argument.String("package").pipe(
+      Argument.withDescription(
+        `An npm package, with a Range (\`vercel@^59\`) or without one: then \`^\` the version ${pm} has installed here, or the newest published.`,
+      ),
+    ),
+    ...targetingFlags,
+  }).pipe(
+    Command.withDescription(`Add a Global that ${pm} installs.`),
+    Command.withHandler((flags) =>
+      withConfig((config) =>
+        addGlobal({
+          config,
+          pm,
+          spec: flags.spec,
           targeting: { platforms: flags.platform, machines: flags.machine },
         }),
       ).pipe(printProblems),
@@ -243,30 +285,10 @@ const addCommand = Command.make("add").pipe(
     }).pipe(
       Command.withDescription("Add Machines from the tailnet to the Fleet."),
       Command.withHandler((flags) =>
-        Effect.flatMap(configFile, (config) => addMachines({ config, names: flags.names })).pipe(
-          printProblems,
-        ),
+        withConfig((config) => addMachines({ config, names: flags.names })).pipe(printProblems),
       ),
     ),
-    Command.make("vp", {
-      spec: Argument.String("package").pipe(
-        Argument.withDescription(
-          "An npm package, with a Range (`vercel@^59`) or without one: then `^` the version installed here, or the newest published.",
-        ),
-      ),
-      ...targetingFlags,
-    }).pipe(
-      Command.withDescription("Add a Global."),
-      Command.withHandler((flags) =>
-        Effect.flatMap(configFile, (config) =>
-          addGlobal({
-            config,
-            spec: flags.spec,
-            targeting: { platforms: flags.platform, machines: flags.machine },
-          }),
-        ).pipe(printProblems),
-      ),
-    ),
+    ...PACKAGE_MANAGERS.map(globalCommand),
     homebrewCommand("brew"),
     homebrewCommand("cask"),
     Command.make("repos", {
@@ -296,7 +318,7 @@ const addCommand = Command.make("add").pipe(
     }).pipe(
       Command.withDescription("Add a Tracked Repo."),
       Command.withHandler((flags) =>
-        Effect.flatMap(configFile, (config) =>
+        withConfig((config) =>
           addRepo({
             config,
             origin: flags.origin,
@@ -330,7 +352,7 @@ const addCommand = Command.make("add").pipe(
     }).pipe(
       Command.withDescription("Add a Shared File."),
       Command.withHandler((flags) =>
-        Effect.flatMap(configFile, (config) =>
+        withConfig((config) =>
           addFile({
             config,
             path: flags.path,
@@ -347,7 +369,7 @@ const addCommand = Command.make("add").pipe(
 const removeCommand = Command.make("remove", {
   address: Argument.String("item").pipe(
     Argument.withDescription(
-      "`provider:item` (`brew:tmux`, `vp:node`), or `machines:<name>` to take a Machine out of the Fleet.",
+      "`provider:item` (`brew:tmux`, `pnpm:vercel`), or `machines:<name>` to take a Machine out of the Fleet.",
     ),
   ),
 }).pipe(
@@ -355,9 +377,7 @@ const removeCommand = Command.make("remove", {
     "Remove an Item or a Machine from the config. A Ship never uninstalls what it removes.",
   ),
   Command.withHandler((flags) =>
-    Effect.flatMap(configFile, (config) => removeItem({ config, address: flags.address })).pipe(
-      printProblems,
-    ),
+    withConfig((config) => removeItem({ config, address: flags.address })).pipe(printProblems),
   ),
 );
 
@@ -365,9 +385,7 @@ const editCommand = Command.make("edit").pipe(
   Command.withDescription(
     "Edit the config in `$VISUAL` or `$EDITOR`. It is saved only when it loads.",
   ),
-  Command.withHandler(() =>
-    Effect.flatMap(configFile, (config) => editConfig({ config })).pipe(printProblems),
-  ),
+  Command.withHandler(() => withConfig((config) => editConfig({ config })).pipe(printProblems)),
 );
 
 const pathCommand = Command.make("path").pipe(
@@ -377,6 +395,32 @@ const pathCommand = Command.make("path").pipe(
 
 const configTree = configCommand.pipe(
   Command.withSubcommands([addCommand, removeCommand, editCommand, pathCommand]),
+);
+
+const selfUpdateCommand = Command.make("self-update", {
+  version: Argument.String("version").pipe(
+    Argument.optional,
+    Argument.withDescription("An exact version. Default: the newest published."),
+  ),
+  config: Flag.String("config").pipe(
+    Flag.optional,
+    Flag.withMetavar("path"),
+    Flag.withDescription("The config file. Default: `$XDG_CONFIG_HOME/fleetfizz/config.jsonc`."),
+  ),
+}).pipe(
+  Command.withDescription(
+    "Set the config's `version` and install that fleetfizz here, with the package manager that installed this one. The next Ship installs it on every Machine.",
+  ),
+  Command.withHandler((flags) =>
+    gated(
+      Option.getOrUndefined(flags.config),
+      selfUpdate({
+        config: Option.getOrUndefined(flags.config),
+        version: Option.getOrUndefined(flags.version),
+        running: packageJson.version,
+      }),
+    ).pipe(printProblems),
+  ),
 );
 
 // The package is fleetfizz; the command is fizz.
@@ -389,5 +433,6 @@ export const fizz = Command.make("fizz").pipe(
     reportCommand,
     logsCommand,
     configTree,
+    selfUpdateCommand,
   ]),
 );

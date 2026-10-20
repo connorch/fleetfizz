@@ -9,8 +9,10 @@ const config = Effect.runSync(
   parseConfig(
     "config.jsonc",
     JSON.stringify({
+      version: "0.2.0",
       machines: ["studio", "macbook", "homelab"],
-      vp: { version: "1.1.0", node: "24.18.1", items: { vercel: "^59.25.4" } },
+      vp: { items: { vercel: "^59.25.4" } },
+      npm: { items: { pnpm: "^10" } },
       cask: { platforms: ["darwin"], items: { ghostty: "latest" } },
       brew: { items: { tmux: { range: "*", platforms: ["linux"] } } },
       skills: {
@@ -33,16 +35,10 @@ const config = Effect.runSync(
 );
 
 describe("sectionsOf", () => {
-  it("shows vp's settings as Items, Targeting where it is written, and each Variant", () => {
+  it("shows each section's Items, Targeting where it is written, and each Variant", () => {
     expect(sectionsOf(config)).toEqual([
-      {
-        provider: "vp",
-        rows: [
-          { name: "vp", wants: "1.1.0" },
-          { name: "node", wants: "24.18.1" },
-          { name: "vercel", wants: "^59.25.4" },
-        ],
-      },
+      { provider: "vp", rows: [{ name: "vercel", wants: "^59.25.4" }] },
+      { provider: "npm", rows: [{ name: "pnpm", wants: "^10" }] },
       { provider: "brew", rows: [{ name: "tmux", wants: "*", where: "linux" }] },
       { provider: "cask", where: "darwin", rows: [{ name: "ghostty", wants: "latest" }] },
       {

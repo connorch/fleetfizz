@@ -41,11 +41,10 @@ describe("fileName", () => {
 });
 
 describe("pathOf", () => {
-  it("finds an Item, and vp's settings by their Item names", () => {
+  it("finds an Item in its section, and nothing for a Provider without one", () => {
     expect(pathOf("brew", "tmux")).toEqual(["brew", "items", "tmux"]);
-    expect(pathOf("vp", "vp")).toEqual(["vp", "version"]);
-    expect(pathOf("vp", "pnpm")).toEqual(["vp", "pnpm"]);
-    expect(pathOf("vp", "vercel")).toEqual(["vp", "items", "vercel"]);
+    expect(pathOf("pnpm", "vercel")).toEqual(["pnpm", "items", "vercel"]);
+    expect(pathOf("fleetfizz", "fleetfizz")).toBeUndefined();
     expect(pathOf("nope", "x")).toBeUndefined();
   });
 });
@@ -55,11 +54,13 @@ describe("saveConfig", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
-      yield* fs.writeFileString(`${dir}/real.jsonc`, `{ "machines": ["a"] }`);
+      yield* fs.writeFileString(`${dir}/real.jsonc`, `{ "version": "0.2.0", "machines": ["a"] }`);
       yield* fs.symlink(`${dir}/real.jsonc`, `${dir}/config.jsonc`);
-      yield* saveConfig(`${dir}/config.jsonc`, `{ "machines": ["b"] }`);
+      yield* saveConfig(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["b"] }`);
       expect(yield* fs.readLink(`${dir}/config.jsonc`)).toBe(`${dir}/real.jsonc`);
-      expect(yield* fs.readFileString(`${dir}/real.jsonc`)).toBe(`{ "machines": ["b"] }`);
+      expect(yield* fs.readFileString(`${dir}/real.jsonc`)).toBe(
+        `{ "version": "0.2.0", "machines": ["b"] }`,
+      );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
@@ -67,9 +68,9 @@ describe("saveConfig", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const dir = yield* fs.makeTempDirectoryScoped();
-      yield* fs.writeFileString(`${dir}/config.jsonc`, `{ "machines": ["a"] }`);
+      yield* fs.writeFileString(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["a"] }`);
       yield* fs.chmod(`${dir}/config.jsonc`, 0o600);
-      yield* saveConfig(`${dir}/config.jsonc`, `{ "machines": ["b"] }`);
+      yield* saveConfig(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["b"] }`);
       expect((yield* fs.stat(`${dir}/config.jsonc`)).mode & 0o777).toBe(0o600);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

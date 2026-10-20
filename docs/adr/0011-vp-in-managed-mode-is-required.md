@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0020
+---
+
 # vp in managed mode is required
 
 vp's shims run in one of two modes per tool. In managed mode, `node`, `npm`, `pnpm`, `yarn`, and `bun` run vp's default version of each. In system-first mode, they run a system install when one exists (Homebrew's Node, say) and fall back to vp's only when there is none. On a system-first Machine, `vp.node` and the package-manager keys set defaults that nothing runs, so the Ledger would say a Machine is in line while its shells run something else.

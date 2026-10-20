@@ -13,13 +13,15 @@ import {
   CaskSection,
   FilesSection,
   FleetConfig,
+  GlobalsSection,
+  PACKAGE_MANAGERS,
   ReposSection,
   SharedFile,
+  ShellSection,
   Skill,
   SkillsSection,
   Targeting,
   TrackedRepo,
-  VpSection,
 } from "@fleetfizz/config";
 
 import packageJson from "../package.json" with { type: "json" };
@@ -113,9 +115,12 @@ const commandsOf = (command: Tree, path: ReadonlyArray<string> = []): string[][]
 export const reference = Effect.gen(function* () {
   const commands = commandsOf(fizz);
   return {
+    "config/version.md": `${describe("version", FleetConfig.fields.version)} Required.\n`,
     "config/machines.md": `${describe("machines", FleetConfig.fields.machines)}\n`,
+    "config/shell.md": section("shell", ShellSection.fields),
     "config/repos.md": `${section("repos", ReposSection.fields)}\nEach Tracked Repo in \`items\`:\n\n${fieldTable(TrackedRepo.fields)}\n`,
-    "config/vp.md": section("vp", VpSection.fields),
+    // Every package manager's section has the same fields (ADR 0020).
+    "config/globals.md": `${PACKAGE_MANAGERS.map((pm) => `\`${pm}\``).join(", ")}: Globals installed with that package manager's global install. Each needs its package manager on the Machine; a Ship never installs it.\n\n${fieldTable(GlobalsSection.fields)}\n`,
     "config/brew.md": section("brew", BrewSection.fields),
     "config/cask.md": section("cask", CaskSection.fields),
     "config/skills.md": `${section("skills", SkillsSection.fields)}\nEach skill in \`items\`:\n\n${fieldTable(Skill.fields)}\n`,

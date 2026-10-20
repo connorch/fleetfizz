@@ -1,3 +1,7 @@
+---
+status: amended by ADR-0020 (the skills CLI is a Global of any package manager)
+---
+
 # Skills: installed with the skills CLI, kept at their source's ref
 
 Agent skills need to be the same on every Machine, and each agent harness (Claude Code, Codex, and some 70 others) reads them from its own folder, with its own rules for links and copies. The [skills CLI](https://github.com/vercel-labs/skills) already knows every harness, so the `skills` Provider does not: it runs `skills add` and reads what the CLI recorded.

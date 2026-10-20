@@ -2,7 +2,7 @@ Remove an Item or a Machine from the config. A Ship never uninstalls what it rem
 
 | Argument | Description |
 | --- | --- |
-| `<item>` | `provider:item` (`brew:tmux`, `vp:node`), or `machines:<name>` to take a Machine out of the Fleet. |
+| `<item>` | `provider:item` (`brew:tmux`, `pnpm:vercel`), or `machines:<name>` to take a Machine out of the Fleet. |
 
 | Flag | Description |
 | --- | --- |

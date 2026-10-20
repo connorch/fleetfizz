@@ -62,13 +62,28 @@ const repeatedKeys = (text: string): string[] => {
   return problems;
 };
 
-// What moved in a config written before ADR 0014, or before the Config had
-// an Install Record (ADR 0008), which no longer loads.
+// The config's `version`, read from its raw text without the schema, so a
+// fizz of any version can read what any config needs (ADR 0019). Undefined
+// when the text does not parse or has no string `version`.
+export const readVersion = (text: string): string | undefined => {
+  const parsed: unknown = jsonc.parse(text, [], { allowTrailingComma: true });
+  if (typeof parsed !== "object" || parsed === null || !("version" in parsed)) return undefined;
+  return typeof parsed.version === "string" ? parsed.version : undefined;
+};
+
+// The vp settings a config could have before ADR 0020, and the toolchain
+// they set, which the user now keeps.
+const VP_SETTINGS = ["version", "node", "npm", "pnpm", "yarn", "bun"];
+
+// What moved in a config written before ADR 0014, before the Config had an
+// Install Record (ADR 0008), or before ADR 0020, which no longer loads.
 const STAMPS = ["shippedAt", "shippedFrom", "shippedTo"];
 const movedKeys = (parsed: unknown): string[] => {
   if (typeof parsed !== "object" || parsed === null) return [];
   const config: { machines?: unknown; repos?: unknown; vp?: unknown } = parsed;
   const stamps = STAMPS.filter((key) => key in parsed);
+  const vp = typeof config.vp === "object" && config.vp !== null ? config.vp : {};
+  const vpSettings = VP_SETTINGS.filter((key) => Object.hasOwn(vp, key));
   return [
     ...(stamps.length > 0
       ? [
@@ -83,8 +98,11 @@ const movedKeys = (parsed: unknown): string[] => {
     ...(Array.isArray(config.repos)
       ? ["repos is now { items: { <name>: { origin, ref, install } } }, keyed by each repo's name"]
       : []),
-    ...(typeof config.vp === "object" && config.vp !== null && "globals" in config.vp
-      ? ["vp.globals is now vp.items"]
+    ...("globals" in vp ? ["vp.globals is now vp.items"] : []),
+    ...(vpSettings.length > 0
+      ? [
+          `vp.${vpSettings.join(", vp.")}: a Ship no longer keeps vp, Node, or package-manager versions. Share vp's defaults as a Shared File (files.items: { "vp-config": "~/.config/vite-plus/config.json" }), and list a package manager as a Global of another (npm.items.pnpm), a Formula, or keep it yourself`,
+        ]
       : []),
   ];
 };

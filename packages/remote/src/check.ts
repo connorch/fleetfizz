@@ -1,9 +1,9 @@
 // The read-only Check script: one ssh per Machine, printing ff-state Facts.
 // The engine's Facts (home, records, config, end) around each Provider's own.
 import { CONFIG_FILE } from "@fleetfizz/config";
-import type { AnyProvider, Named, Scope } from "@fleetfizz/core";
+import { shellInitFor, type AnyProvider, type Named, type Scope } from "@fleetfizz/core";
 
-import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
+import { fingerprintFn, preludeFor, quote, quotePath } from "./shell.ts";
 
 export interface CheckInput {
   readonly scope: Scope;
@@ -42,7 +42,7 @@ const recordFact = (provider: string, item: string): string[] => [
 
 export const checkScript = (input: CheckInput): string => {
   const lines = [
-    prelude,
+    preludeFor(shellInitFor(input.scope.config, input.scope.machine)),
     fingerprintFn,
     `ff_state "{\\"fact\\":\\"home\\",\\"path\\":\\"$(ff_json "$HOME")\\"}"`,
   ];

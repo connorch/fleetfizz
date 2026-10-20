@@ -1,4 +1,4 @@
-Agent skills, installed with the skills CLI, which `vp.items` must list. Kept at their source's ref.
+Agent skills, installed with the skills CLI, which a package manager's section must list as a Global. Kept at their source's ref.
 
 | Field | Description |
 | --- | --- |

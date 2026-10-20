@@ -2,7 +2,8 @@
 // Starting Machine to every targeted Machine (ADR 0016). A directory is
 // mirrored. Kept matching an Install Record on each Machine: the entries of
 // the last copy a Ship wrote there, so an edit made there (Drift) or a newer
-// copy from another Ship asks before it is overwritten.
+// copy from another Ship asks before it is overwritten. An Item's `after`
+// runs on a Machine each time a Ship writes the Item there.
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Hash from "effect/Hash";
@@ -526,8 +527,21 @@ const decideFile = (
     at: resolved.at,
   };
   const recorded = record === undefined ? undefined : fingerprint(recordEntries(record));
+  const same =
+    ctx.machine.name === from || (current !== undefined && fingerprint(current) === ours);
+  // --rebuild runs `after` again on a Machine that already has the copy:
+  // the copy Step writes nothing there but its record.
+  if (same && item.after !== undefined && ctx.rebuild(subject))
+    return {
+      kind: "change",
+      item: item.name,
+      from: short(source.entries),
+      to: short(source.entries),
+      reason: "--rebuild",
+      change: { ...change, current: source.entries },
+    };
   // The same copy: only its record may need writing.
-  if (ctx.machine.name === from || (current !== undefined && fingerprint(current) === ours))
+  if (same)
     return {
       kind: "leave",
       item: item.name,
@@ -579,8 +593,8 @@ const writeRecord = (name: string, entries: Entries, at: string): string[] => {
   ];
 };
 
-// Mirrors the Starting Machine's copy onto the Machine, then writes the
-// record. Each file lands in a new temporary file beside it (mktemp creates
+// Mirrors the Starting Machine's copy onto the Machine, runs the Item's
+// `after`, then writes the record. Each file lands in a new temporary file beside it (mktemp creates
 // it owner-only before any byte is written), then takes its mode and is
 // renamed into place. An entry whose type changed, or that the Starting
 // Machine no longer has, is deleted first, one entry at a time: a directory
@@ -645,6 +659,14 @@ const copyStep = (change: FileChange): Step => {
         ),
         ...writes.flatMap(write),
         ...modes,
+        // In a login shell, as an Install Command runs (ADR 0020). It runs
+        // before the record, so a failure leaves the old record and the next
+        // Ship copies and runs it again.
+        ...(item.after === undefined
+          ? []
+          : [
+              `(cd "$(if [ -d "$ff_p" ]; then printf '%s' "$ff_p"; else dirname "$ff_p"; fi)" && "\${SHELL:-/bin/sh}" -lc ${quote(item.after)})`,
+            ]),
         ...writeRecord(item.name, entries, change.at),
       ].map((l) => `  ${l}`),
       ")",
@@ -898,7 +920,12 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
   rule: "record",
   dependsOn: [],
   items: (_section, listed) =>
-    listed.map(({ name, def }) => ({ name, path: def.path, exclude: def.exclude ?? [] })),
+    listed.map(({ name, def }) => ({
+      name,
+      path: def.path,
+      exclude: def.exclude ?? [],
+      ...(def.after === undefined ? {} : { after: def.after }),
+    })),
   observe: (items) => observe(items),
   parse,
   // Only the Starting Machine's Items that some checked Machine needs are read.

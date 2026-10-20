@@ -32,10 +32,12 @@ import {
 } from "@fleetfizz/config";
 import {
   dependenciesOf,
+  machineNames,
   machinesNamed,
   orderProviders,
   parseAddress,
   planMachine,
+  shellInitFor,
   targetedItems,
   type Context,
   type MachinePlan,
@@ -73,7 +75,7 @@ export interface ShipFlags {
   // `--answer` entries (parseAnswers), the shortcut flags included.
   readonly answers: ReadonlyArray<string>;
   readonly config: string | undefined;
-  // The running fleetfizz version, pinned on every Machine (ADR 0008).
+  // The running fleetfizz version, which is the config's (ADR 0019).
   readonly version: string;
 }
 
@@ -98,6 +100,7 @@ const unknownMachines = (config: FleetConfig, tailnet: Tailnet, only: ReadonlyAr
   const known = new Set(tailnet.fleet.map((m) => m.name));
   const referenced = [
     ...config.machines,
+    ...machineNames(config.shell),
     ...PROVIDERS.flatMap((p) => machinesNamed(p, config)),
     ...only,
   ];
@@ -541,7 +544,6 @@ export const shipPass = Effect.fn("shipPass")(function* (
         ctx: {
           machine: { name: g.machine.name, platform: g.machine.platform },
           config: cfg,
-          self: flags.version,
           rebuild: (address) => flags.rebuild.includes("all") || flags.rebuild.includes(address),
           answer,
         },
@@ -550,10 +552,8 @@ export const shipPass = Effect.fn("shipPass")(function* (
 
   // Questions: every Machine's, before anything changes. A bump edits the
   // config, so the plan is made again from the new Ranges. An answer can
-  // reveal new Questions (managed mode exposes the defaults' Ranges, which
-  // may sit above a Range just bumped), so this repeats until a round
-  // decides nothing new. An answered Question that still asks is answered
-  // the same way again.
+  // reveal new Questions, so this repeats until a round decides nothing
+  // new. An answered Question that still asks is answered the same way again.
   let cfg = config;
   const decided = new Map<string, string>();
   const answer: Context["answer"] = (kind, subject) =>
@@ -696,7 +696,7 @@ export const shipPass = Effect.fn("shipPass")(function* (
         const applied = yield* apply(
           { name: machine.name, local },
           p,
-          applyScript(p, record),
+          applyScript(p, record, shellInitFor(cfg, p.machine)),
           applyStdin(lent.token, text, schema, p),
           ledger,
         );

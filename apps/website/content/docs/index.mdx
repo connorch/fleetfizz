@@ -11,10 +11,11 @@ fleetfizz keeps them in line. One config lists your Machines and what each one n
 
 ## What it keeps in line
 
-- **vp**: the vite-plus version, the Node and package-manager defaults, and Globals at semver Ranges.
+- **Globals**: the global packages of vp, npm, bun, and pnpm, at semver Ranges. Which package managers and Node you use stays yours.
 - **Tracked Repos**: a Managed Clone of each repo, reset to its origin ref and installed with its own Install Command.
 - **Formulae and Casks**: Homebrew packages and macOS apps.
-- **Shared Files**: files and directories copied from the Starting Machine, such as dotfiles or app configs.
+- **Skills**: agent skills, installed with the skills CLI and kept at their GitHub ref.
+- **Shared Files**: files and directories copied from the Starting Machine, such as dotfiles or app configs, with an optional command to run after each copy.
 
 Every entry can target some Platforms or Machines and skip the rest. [Config](/docs/config) covers every field.
 
@@ -29,11 +30,11 @@ You run `fizz ship` on any Machine in the Fleet, the Starting Machine. It reache
 
 The Ledger shows the result: one line per Machine and, under it, each Item that changed. `fizz ship --dry-run` stops after the Plan, and `fizz report` prints the last Ship's Ledger again.
 
-Every Ship also copies the config and its own fleetfizz version to every Machine, so any Machine can run the next one.
+The config names one fleetfizz `version`. Every fizz switches to it before it does anything, and every Ship copies the config and installs that version on every Machine, so any Machine can run the next one.
 
 ## What it does not do
 
-- **Run anything in the background.** There is no agent, daemon, or server. A remote Machine needs only Tailscale SSH, `git`, `curl`, and a shell.
+- **Run anything in the background.** There is no agent, daemon, or server. A remote Machine needs only Tailscale SSH, `git`, and a shell, plus the package managers its config uses.
 - **Uninstall.** Removing an Item from the config leaves it installed.
 - **Fail on an offline Machine.** It is skipped and catches up on the next Ship.
 - **Keep your GitHub token.** The Starting Machine lends it to each Machine for one Ship, on stdin, so private repos clone. It is never written to disk.

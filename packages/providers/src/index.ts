@@ -3,9 +3,10 @@ import type { AnyProvider } from "@fleetfizz/core";
 
 import { brew, cask } from "./brew/index.ts";
 import { files } from "./files/index.ts";
+import { fleetfizz } from "./fleetfizz/index.ts";
+import { bun, npm, pnpm, vp } from "./globals/index.ts";
 import { repos } from "./repos/index.ts";
 import { skills } from "./skills/index.ts";
-import { vp } from "./vp/index.ts";
 
 export {
   brew,
@@ -21,6 +22,24 @@ export {
   type FilesObserved,
   type FilesResolved,
 } from "./files/index.ts";
+export {
+  fleetfizz,
+  type FleetfizzChange,
+  type FleetfizzObserved,
+  type FleetfizzResolved,
+  installerOf,
+} from "./fleetfizz/index.ts";
+export {
+  bun,
+  type GlobalChange,
+  type GlobalItem,
+  type GlobalsObserved,
+  installWith,
+  MANAGERS,
+  npm,
+  pnpm,
+  vp,
+} from "./globals/index.ts";
 export { repos, type RepoChange, type RepoItem, type ReposObserved } from "./repos/index.ts";
 export {
   skills,
@@ -29,7 +48,17 @@ export {
   type SkillsObserved,
   type SkillsResolved,
 } from "./skills/index.ts";
-export { vp, type VpChange, type VpItem, type VpObserved } from "./vp/index.ts";
 
 // Every Provider, in the order that breaks dependsOn ties (PROVIDER_NAMES).
-export const PROVIDERS: ReadonlyArray<AnyProvider> = [files, vp, brew, cask, skills, repos];
+export const PROVIDERS: ReadonlyArray<AnyProvider> = [
+  brew,
+  cask,
+  files,
+  vp,
+  npm,
+  bun,
+  pnpm,
+  skills,
+  repos,
+  fleetfizz,
+];
