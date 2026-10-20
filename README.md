@@ -64,7 +64,7 @@ A config written by hand looks like this:
   // and kept at their GitHub ref.
   "skills": {
     "agents": ["claude-code", "codex"],
-    "items": { "grilling": "mattpocock/skills" },
+    "items": { "grilling": "mattpocock/skills", "fleetfizz": "connorch/fleetfizz" },
   },
   // Shared Files: copied from the Machine you ship from. A directory is
   // mirrored. "after" runs on each Machine a Ship writes it to.
@@ -88,12 +88,14 @@ fizz ship             # apply the plan everywhere, in parallel
 fizz report           # print the full Ledger of the last Ship from this Machine
 fizz logs             # print the Ship Log of the latest Ship that started on or reached this Machine
 fizz config           # show each Provider's Items and the Machines they target
-fizz config add brew tmux --platform linux   # add an Item; also machines, vp, npm, bun, pnpm, cask, skills, repos, files
+fizz config add brew tmux --platform linux   # add an Item; also machines, vp, npm, bun, pnpm, cask, repos, files
 fizz config remove brew:tmux                 # remove one; a Ship never uninstalls it
 fizz self-update      # set the config's version to the newest fleetfizz and install it here
 ```
 
 `fleetfizz` is an alias of `fizz`.
+
+To let your coding agent edit the config, ship, and debug a Ship, install the fleetfizz skill with `npx skills add connorch/fleetfizz -g`, or keep it on every Machine as a Skill in the config, as above.
 
 The Ledger lists each Machine and, under it, what changes there, by address: `pnpm:vercel`, `repos:t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 
