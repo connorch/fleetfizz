@@ -6,7 +6,7 @@ import type { MachinePlan, ProviderPlan, Step } from "@fleetfizz/core";
 
 import { CONFIG_DIR_SH, CONFIG_RECORD, RECORDS_DIR } from "./check.ts";
 import { doneLine, skipLine, stepLine } from "./protocol.ts";
-import { fingerprintFn, prelude, preludeFor, quote, quotePath } from "./shell.ts";
+import { fingerprintFn, preludeFor, quote, quotePath } from "./shell.ts";
 
 // The config copy, one step on every Machine (ADR 0008).
 export const CONFIG_STEP = "config";
@@ -163,9 +163,9 @@ export const applyScript = (
 // One Step alone, with its inputs on stdin as `stepStdin` gives them: for a
 // change the Starting Machine makes to itself before the Ship goes on (a
 // pulled Shared File).
-export const stepScript = (step: Step): string =>
+export const stepScript = (step: Step, init?: string): string =>
   [
-    prelude,
+    preludeFor(init),
     fingerprintFn,
     `ff_lit() { printf '%s' "$1"; }`,
     ...(step.input ?? []).flatMap((_, i) => [

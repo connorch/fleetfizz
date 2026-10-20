@@ -125,6 +125,8 @@ export interface FilesResolved {
   readonly copies: ReadonlyMap<string, ReadonlyArray<Copy>>;
   // The Starting Machine has openssl, which a pull decrypts with.
   readonly openssl: boolean;
+  // The Starting Machine's `shell.init`, which a pulled copy's `after` runs after.
+  readonly init?: string;
 }
 
 export interface FileChange {
@@ -749,10 +751,10 @@ const fetchFiles = (copy: Copy, rels: ReadonlyArray<string>) =>
   });
 
 // Runs `step` on the Starting Machine; true when it finished.
-const runHere = (from: string, step: Step) =>
+const runHere = (from: string, step: Step, init: string | undefined) =>
   Effect.gen(function* () {
     let ok = false;
-    yield* runScript({ name: from, local: true }, stepScript(step), stepStdin(step), (line) =>
+    yield* runScript({ name: from, local: true }, stepScript(step, init), stepStdin(step), (line) =>
       Effect.sync(() => {
         const parsed = parseLine(line);
         if (parsed.kind === "done" && parsed.done.id === step.id) ok = parsed.done.ok;
@@ -791,7 +793,7 @@ const pull = (
       at: copy.record?.at ?? resolved.at,
       key: fetched.key,
     });
-    return (yield* runHere(resolved.from, step))
+    return (yield* runHere(resolved.from, step, resolved.init))
       ? { done: `pulled ${short(copy.entries)} from ${machine}` }
       : { error: `could not write ${machine}'s copy on ${resolved.from}` };
   }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
@@ -911,7 +913,7 @@ const diff = (
       old: { machine, entries: copy.entries, contents: fetched.contents, key: fetched.key },
       new: { machine: resolved.from, entries: source.entries, contents: source.contents },
     };
-    return (yield* runHere(resolved.from, diffStep({ name, dir, ...sides })))
+    return (yield* runHere(resolved.from, diffStep({ name, dir, ...sides }), resolved.init))
       ? { old: machine, new: resolved.from, notShown: notShownByGit(name, sides.old, sides.new) }
       : { error: `could not write the diff on ${resolved.from}` };
   }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
@@ -946,6 +948,7 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
   resolve: (items, { starting: all, checked }) =>
     Effect.gen(function* () {
       const at = DateTime.formatIso(yield* DateTime.now);
+      const init = shellInitFor(all.config, all.machine);
       const needed = new Set(items.map((item) => item.name));
       const starting = { ...all, items: all.items.filter((item) => needed.has(item.name)) };
       const { sources, openssl } =
@@ -970,6 +973,7 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
         sources,
         copies: copiesOf(checked, starting),
         openssl,
+        ...(init === undefined ? {} : { init }),
       };
     }),
   decide: ({ items, observed, resolved, ctx }) =>
