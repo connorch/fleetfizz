@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.14.1
+
+### Patch Changes
+
+- [#76](https://github.com/connorch/fleetfizz/pull/76) [`dacb23f`](https://github.com/connorch/fleetfizz/commit/dacb23f703b7e096983e5972dc691bc2dbac9793) Thanks [@connorch](https://github.com/connorch)! - fizz recognizes a fizz installed by vp in vp's older home, `~/.vite-plus`, so a Ship and `fizz self-update` keep it at the config's version instead of saying to install it by hand. A Ship no longer runs a Check on the Starting Machine to learn which package manager installed its fizz; it asks the fizz running the Ship.
+
 ## 0.14.0
 
 ### Minor Changes
