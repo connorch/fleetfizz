@@ -2,6 +2,20 @@
   "name": "fleetfizz",
   "version": "0.13.0",
   "description": "Keep every Machine on your tailnet in line with one config.",
+  "keywords": [
+    "agent-skills",
+    "cli",
+    "dev-environment",
+    "dotfiles",
+    "fleet",
+    "homebrew",
+    "ssh",
+    "sync",
+    "tailscale",
+    "vite-plus"
+  ],
+  "homepage": "https://fleetfizz.com",
+  "bugs": "https://github.com/connorch/fleetfizz/issues",
   "license": "MIT",
   "repository": {
     "type": "git",
