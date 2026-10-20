@@ -35,7 +35,8 @@ export const fixtureConfig = (
 ): typeof FleetConfig.Encoded => ({
   version,
   machines: machines.map((m) => m.name),
-  npm: { items: { pnpm: "^10" } },
+  // As the README says: pnpm 11+ keeps its Globals in PNPM_HOME/bin.
+  npm: { items: { pnpm: "^12" } },
   pnpm: {
     dependsOn: ["npm"],
     items: {
