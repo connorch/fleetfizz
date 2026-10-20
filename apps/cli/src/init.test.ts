@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 
 import { parseConfig } from "@fleetfizz/config";
 
-import { draftText } from "./init.tsx";
+import { draftText, macosOnly } from "./init.tsx";
 import { checksOf, type Facts } from "./prerequisites.ts";
 
 describe("draftText", () => {
@@ -97,6 +97,25 @@ describe("draftText when an edit fails", () => {
     expect(draft).toEqual({
       reason: "fizz init could not add gh: brew.items.gh is already in the config",
     });
+  });
+});
+
+describe("macosOnly", () => {
+  const macos = [{ name: "macos" }];
+  it("reads a Formula's Linux variations before its own requirements", () => {
+    // pinentry-mac: no variations, so macOS everywhere.
+    expect(macosOnly({ requirements: macos })).toBe(true);
+    // go: macOS 12 on macOS, nothing on Linux.
+    expect(
+      macosOnly({
+        requirements: macos,
+        variations: { x86_64_linux: { requirements: [] }, sonoma: {} },
+      }),
+    ).toBe(false);
+    // A tapped Formula read from source: Linux variations without their own
+    // requirements keep the Formula's.
+    expect(macosOnly({ requirements: macos, variations: { x86_64_linux: {} } })).toBe(true);
+    expect(macosOnly({ requirements: [], variations: null })).toBe(false);
   });
 });
 

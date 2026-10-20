@@ -135,55 +135,82 @@ const lines = Effect.fn("lines")(function* (command: string, args: ReadonlyArray
 });
 
 const Requirements = Schema.Array(Schema.Struct({ name: Schema.String }));
-const requiresMacos = (requirements: typeof Requirements.Type) =>
-  requirements.some((r) => r.name === "macos");
+
+// A Formula as `brew info --json=v2 --variations` and formulae.brew.sh write
+// it: its requirements here, and per bottle tag (`x86_64_linux`) those that
+// differ there.
+const FormulaInfo = Schema.Struct({
+  requirements: Requirements,
+  variations: Schema.optionalKey(
+    Schema.NullOr(
+      Schema.Record(
+        Schema.String,
+        Schema.Struct({ requirements: Schema.optionalKey(Requirements) }),
+      ),
+    ),
+  ),
+});
+
+// Whether a Formula fails on Linux: it requires macOS on every Linux
+// variation, or everywhere when it has none. `go` requires macOS 12 only on
+// macOS, so its Linux variations clear the requirement.
+export const macosOnly = (f: typeof FormulaInfo.Type) => {
+  const linux = Object.entries(f.variations ?? {}).flatMap(([tag, v]) =>
+    tag.endsWith("_linux") ? [v.requirements ?? f.requirements] : [],
+  );
+  return (linux.length > 0 ? linux : [f.requirements]).every((rs) =>
+    rs.some((r) => r.name === "macos"),
+  );
+};
 
 const BrewInfo = Schema.fromJsonString(
   Schema.Struct({
-    formulae: Schema.Array(
-      Schema.Struct({
-        full_name: Schema.String,
-        tap: Schema.NullOr(Schema.String),
-        requirements: Requirements,
-      }),
-    ),
+    formulae: Schema.Array(Schema.Struct({ ...FormulaInfo.fields, full_name: Schema.String })),
   }),
 );
 
-// Whether formulae.brew.sh lists a macOS requirement for a homebrew/core
-// Formula; false when it cannot be read.
-const coreRequiresMacos = Effect.fn("coreRequiresMacos")(
+// Whether a homebrew/core Formula is macOS only, from formulae.brew.sh;
+// false when it cannot be read.
+const coreMacosOnly = Effect.fn("coreMacosOnly")(
   function* (name: string) {
     const response = yield* HttpClient.get(`https://formulae.brew.sh/api/formula/${name}.json`);
-    const body = yield* HttpClientResponse.schemaBodyJson(
-      Schema.Struct({ requirements: Requirements }),
-    )(response);
-    return requiresMacos(body.requirements);
+    return macosOnly(yield* HttpClientResponse.schemaBodyJson(FormulaInfo)(response));
   },
   Effect.timeout("10 seconds"),
   Effect.orElseSucceed(() => false),
   Effect.provide(FetchHttpClient.layer),
 );
 
-// The Formulae in `names` that Homebrew requires macOS for (`depends_on
-// :macos`), which fail on a Linux Machine. Homebrew 7 reads homebrew/core
-// from an internal API that leaves out a requirement this Mac meets, so a
-// core Formula's come from formulae.brew.sh; a tap's are in `brew info`.
+// The tapped Formulae (`owner/tap/name`) in `names` that are macOS only, from
+// `brew info`, which reads them from source; none when it cannot be read.
+const tappedMacosOnly = Effect.fn("tappedMacosOnly")(
+  function* (names: ReadonlyArray<string>) {
+    if (names.length === 0) return [];
+    const ran = yield* runLocal("brew", [
+      "info",
+      "--json=v2",
+      "--variations",
+      "--formula",
+      ...names,
+    ]);
+    const info = yield* Schema.decodeEffect(BrewInfo)(ran.stdout);
+    return info.formulae.filter(macosOnly).map((f) => f.full_name);
+  },
+  Effect.orElseSucceed(() => []),
+);
+
+// The Formulae in `names` that fail on a Linux Machine because Homebrew
+// requires macOS for them (`depends_on :macos`). Homebrew 7 reads
+// homebrew/core from an internal API with neither the requirements this Mac
+// meets nor variations, so a core Formula's come from formulae.brew.sh.
 const macosFormulae = Effect.fn("macosFormulae")(function* (names: ReadonlyArray<string>) {
-  if (names.length === 0) return new Set<string>();
-  const ran = yield* runLocal("brew", ["info", "--json=v2", "--formula", ...names]);
-  const info = yield* Schema.decodeEffect(BrewInfo)(ran.stdout).pipe(
-    Effect.orElseSucceed(() => ({ formulae: [] })),
-  );
-  const macos = yield* Effect.filter(
-    info.formulae,
-    (f) =>
-      f.tap === "homebrew/core"
-        ? coreRequiresMacos(f.full_name)
-        : Effect.succeed(requiresMacos(f.requirements)),
+  const tapped = yield* tappedMacosOnly(names.filter((n) => n.includes("/")));
+  const core = yield* Effect.filter(
+    names.filter((n) => !n.includes("/")),
+    coreMacosOnly,
     { concurrency: 8 },
   );
-  return new Set(macos.map((f) => f.full_name));
+  return new Set([...tapped, ...core]);
 });
 
 // A multi-select with nothing picked, or nothing to ask when there is nothing.
