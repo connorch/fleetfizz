@@ -84,7 +84,7 @@ export const MANAGERS: Readonly<Record<PackageManager, Manager>> = {
 
 // The npm package each package manager's command comes from, as a Global of
 // another package manager installs it.
-export const MANAGER_PACKAGE: Readonly<Record<PackageManager, string>> = {
+const MANAGER_PACKAGE: Readonly<Record<PackageManager, string>> = {
   vp: "vite-plus",
   npm: "npm",
   bun: "bun",
