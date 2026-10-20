@@ -8,7 +8,7 @@ import { Argument, Command, Flag } from "effect/cli";
 import { PACKAGE_MANAGERS, type PackageManager } from "@fleetfizz/config";
 
 import packageJson from "../package.json" with { type: "json" };
-import { addFile, addGlobal, addHomebrew, addMachines, addRepo } from "./configAdd.tsx";
+import { addFile, addGlobal, addHomebrew, addMachines, addRepo, addSkill } from "./configAdd.tsx";
 import { editConfig, printPath, removeItem } from "./configEdit.tsx";
 import { showConfig } from "./configView.tsx";
 import { init } from "./init.tsx";
@@ -291,6 +291,45 @@ const addCommand = Command.make("add").pipe(
     ...PACKAGE_MANAGERS.map(globalCommand),
     homebrewCommand("brew"),
     homebrewCommand("cask"),
+    Command.make("skills", {
+      name: Argument.String("name").pipe(
+        Argument.withDescription("The skill, by the name its source gives it."),
+      ),
+      source: Flag.String("source").pipe(
+        Flag.optional,
+        Flag.withDescription(
+          "Where the skills CLI installs it from: `owner/repo` on GitHub, or any source `skills add` takes. Default: the GitHub repo the CLI installed it from here. Asked for when missing.",
+        ),
+      ),
+      ref: Flag.String("ref").pipe(
+        Flag.optional,
+        Flag.withDescription(
+          "A branch, tag, or full commit SHA. Default: the repo's default branch, or without `--source`, the ref the CLI installed it at here.",
+        ),
+      ),
+      agent: Flag.String("agent").pipe(
+        Flag.atLeast(0),
+        Flag.withMetavar("id"),
+        Flag.withDescription(
+          "An agent to install it for, as a skills CLI id (`claude-code`). Repeat the flag for more. For the first skill, they are the section's `agents`, picked from this Machine's when missing; after that, the skill's own.",
+        ),
+      ),
+      ...targetingFlags,
+    }).pipe(
+      Command.withDescription("Add an agent skill."),
+      Command.withHandler((flags) =>
+        withConfig((config) =>
+          addSkill({
+            config,
+            name: flags.name,
+            source: Option.getOrUndefined(flags.source),
+            ref: Option.getOrUndefined(flags.ref),
+            agents: flags.agent,
+            targeting: { platforms: flags.platform, machines: flags.machine },
+          }),
+        ).pipe(printProblems),
+      ),
+    ),
     Command.make("repos", {
       origin: Argument.String("origin").pipe(Argument.withDescription("The GitHub `owner/repo`.")),
       name: Flag.String("name").pipe(

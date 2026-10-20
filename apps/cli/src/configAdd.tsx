@@ -16,6 +16,7 @@ import {
   type FleetConfig,
   insertAt,
   type JsonPath,
+  PACKAGE_MANAGERS,
   parseConfig,
   type PackageManager,
   type Platform,
@@ -29,6 +30,7 @@ import { CHECK_ENV, readTailnet, resolveVersions, type Tailnet } from "@fleetfiz
 
 import { changeText } from "./configView.tsx";
 import { expandHome, homeRelative, interactive, runLocal } from "./local.ts";
+import { localAgents, localSkills, pickAgents } from "./localSkills.ts";
 import { T } from "./view.tsx";
 
 // A problem with what was asked for. Printed as one line.
@@ -63,6 +65,22 @@ export const fileEntry = (path: string, exclude: ReadonlyArray<string>, targetin
   untargeted(targeting) && exclude.length === 0
     ? path
     : { path, ...(exclude.length > 0 ? { exclude } : {}), ...targeting };
+
+// A skill: its source, or `{ source, ref, agents, ... }`.
+export const skillEntry = (
+  source: string,
+  ref: string | undefined,
+  agents: ReadonlyArray<string>,
+  targeting: Targeting,
+) =>
+  ref === undefined && agents.length === 0 && untargeted(targeting)
+    ? source
+    : {
+        source,
+        ...(ref === undefined ? {} : { ref }),
+        ...(agents.length > 0 ? { agents } : {}),
+        ...targeting,
+      };
 
 // `pkg`, `pkg@range`, `@scope/pkg`, or `@scope/pkg@range`.
 export const parseSpec = (spec: string): { readonly name: string; readonly range?: string } => {
@@ -104,13 +122,15 @@ const reach = (config: FleetConfig, tailnet: Tailnet, provider: SectionName, own
       : names.join(", ");
 };
 
-// Writes one Item and prints the lines it changed.
+// Writes one Item, after any edits its section needs first, and prints the
+// lines it changed.
 const addItem = Effect.fn("addItem")(function* (input: {
   readonly config: string | undefined;
   readonly provider: SectionName;
   readonly name: string;
   readonly entry: unknown;
   readonly targeting: Targeting;
+  readonly section?: ReadonlyArray<readonly [JsonPath, unknown]>;
   readonly notes?: ReadonlyArray<string>;
 }) {
   const { path, text, config } = yield* openConfig(input.config);
@@ -132,21 +152,26 @@ const addItem = Effect.fn("addItem")(function* (input: {
   const linux = config.machines.some(
     (m) => tailnet.fleet.find((f) => f.name === m)?.platform === "linux",
   );
-  const start =
-    input.provider === "cask" && linux && config.cask?.platforms === undefined
-      ? insertAt(text, ["cask", "platforms"], ["darwin"])
-      : { text };
-  if ("reason" in start) return yield* new ConfigAddError({ reason: start.reason });
-  const at: JsonPath = [input.provider, "items", input.name];
-  const result = insertAt(start.text, at, input.entry);
-  if ("reason" in result) return yield* new ConfigAddError({ reason: result.reason });
-  const saved = yield* saveConfig(path, result.text);
+  const edits: ReadonlyArray<readonly [JsonPath, unknown]> = [
+    ...(input.provider === "cask" && linux && config.cask?.platforms === undefined
+      ? [[["cask", "platforms"], ["darwin"]] as const]
+      : []),
+    ...(input.section ?? []),
+    [[input.provider, "items", input.name], input.entry],
+  ];
+  let next = text;
+  for (const [at, value] of edits) {
+    const edited = insertAt(next, at, value);
+    if ("reason" in edited) return yield* new ConfigAddError({ reason: edited.reason });
+    next = edited.text;
+  }
+  const saved = yield* saveConfig(path, next);
   const to = reach(saved, tailnet, input.provider, input.targeting);
   yield* Console.log(
     changeText(
       path,
       text,
-      result.text,
+      next,
       <>
         <T tone="ok">added</T>
         {` ${where}`}
@@ -235,6 +260,72 @@ export const addHomebrew = Effect.fn("addHomebrew")(function* (input: {
     entry: rangeEntry(input.latest ? "latest" : "*", targeting),
     targeting,
     notes,
+  });
+});
+
+// The section's first `agents`, picked from the ones the skills CLI sees here.
+const pickHere = Effect.fn("pickHere")(function* () {
+  const here = yield* localAgents();
+  if (here.length === 0)
+    return yield* new ConfigAddError({
+      reason: "the skills CLI sees no agents here; pass --agent",
+    });
+  return yield* pickAgents(here);
+});
+
+// `fizz config add skills <name>`. The source and ref default to the ones
+// the skills CLI installed it from here. A skill needs agents: the first one
+// also writes the section's `agents`, from --agent or a pick of the agents
+// here; after that, --agent is the skill's own.
+export const addSkill = Effect.fn("addSkill")(function* (input: {
+  readonly config: string | undefined;
+  readonly name: string;
+  readonly source: string | undefined;
+  readonly ref: string | undefined;
+  readonly agents: ReadonlyArray<string>;
+  readonly targeting: TargetingFlags;
+}) {
+  const { config } = yield* openConfig(input.config);
+  const ask = interactive();
+  const here =
+    input.source === undefined
+      ? (yield* localSkills()).find((s) => s.name === input.name)
+      : undefined;
+  const source =
+    input.source ??
+    here?.source ??
+    (ask
+      ? yield* Prompt.String({
+          message: "Source (`owner/repo` on GitHub, or any source skills add takes)",
+          validate: (v) =>
+            v.trim() === "" ? Effect.fail("a source is needed") : Effect.succeed(v.trim()),
+        })
+      : yield* needs("--source"));
+  const ref = input.ref ?? here?.ref;
+  const agents = [...new Set(input.agents)];
+  const section =
+    config.skills !== undefined
+      ? []
+      : [
+          [
+            ["skills", "agents"],
+            agents.length > 0 ? agents : !ask ? yield* needs("--agent") : yield* pickHere(),
+          ] as const,
+        ];
+  const targeting = targetingOf(input.targeting);
+  yield* addItem({
+    config: input.config,
+    provider: "skills",
+    name: input.name,
+    entry: skillEntry(source, ref, section.length > 0 ? [] : agents, targeting),
+    targeting,
+    section,
+    // Without the CLI, a Ship fails each skill.
+    notes: PACKAGE_MANAGERS.some((pm) => config[pm]?.items?.skills !== undefined)
+      ? []
+      : [
+          `No package manager in the config installs the skills CLI; add it with fizz config add ${PACKAGE_MANAGERS.join("|")} skills`,
+        ],
   });
 });
 

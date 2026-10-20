@@ -195,6 +195,26 @@ describe("insertAt into a line that would grow too long", () => {
   });
 });
 
+describe("insertAt of a long value into a one-line object", () => {
+  it("puts one member per line first, so the value lines up", () => {
+    const repo = {
+      origin: "connorch/t3code",
+      ref: "main",
+      install: "pnpm install && pnpm build:desktop && pnpm install:desktop:local",
+    };
+    expect(edited(insertAt(text, ["cask", "items", "t3code"], repo))).toContain(`  "cask": {
+    "items": {
+      "ghostty": "latest",
+      "t3code": {
+        "origin": "connorch/t3code",
+        "ref": "main",
+        "install": "pnpm install && pnpm build:desktop && pnpm install:desktop:local",
+      },
+    },
+  },`);
+  });
+});
+
 describe("insertAt next to a comment inside a one-line object", () => {
   it("leaves the long line rather than lose the comment", () => {
     const start = `{\n  "vp": { "version": "1.1.0" /* pinned */, "items": { "vercel": "^64.5.0", "wrangler": "^4.136.3" } },\n}\n`;
