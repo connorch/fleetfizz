@@ -190,9 +190,9 @@ describe("the files Provider decides", () => {
     expect(
       kinds(decide({ state: state(same, old), resolved: withAfter(source()), config })),
     ).toEqual([["change", "its after has not finished"]]);
-    // No record: the copy was there before any Ship, so after never ran.
+    // No record: the copy was there before any Ship, or the first Ship's after failed.
     expect(kinds(decide({ state: state(same), resolved: withAfter(source()), config }))).toEqual([
-      ["change", "its after has not run here"],
+      ["change", "its after has not succeeded here"],
     ]);
     const recorded = { at: "2026-10-20T10:00:00.000Z", entries: same };
     expect(
