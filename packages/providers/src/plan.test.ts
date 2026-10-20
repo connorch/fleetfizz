@@ -962,12 +962,23 @@ describe("the skills Provider", () => {
       at: at(TIP),
       reason: "Invalid agents: codex",
     });
-    const noCli = plan({
-      config: withSkills,
-      resolved: tips,
-      state: facts({ skills: [{ provider: "skills", fact: "cli", present: false }] }),
+    // vp lists the CLI, so this Ship installs it and the skills wait for the next.
+    const noCli = facts({ skills: [{ provider: "skills", fact: "cli", present: false }] });
+    expect(
+      provider(plan({ config: withSkills, resolved: tips, state: noCli }), "skills").decisions[0],
+    ).toEqual({
+      kind: "skip",
+      item: "grilling",
+      reason: "waits for the skills CLI this Ship installs; ship again",
     });
-    expect(provider(noCli, "skills").decisions[0]).toEqual({
+    const withoutCli = decode({
+      ...written,
+      vp: { items: { vercel: "^59.25.4" } },
+      skills: { agents: ["codex"], items: { grilling: "mattpocock/skills" } },
+    });
+    expect(
+      provider(plan({ config: withoutCli, resolved: tips, state: noCli }), "skills").decisions[0],
+    ).toEqual({
       kind: "fail",
       item: "grilling",
       reason: "the skills CLI is not installed; add skills to vp.items",

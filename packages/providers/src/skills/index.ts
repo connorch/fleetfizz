@@ -13,6 +13,8 @@ import * as Schema from "effect/Schema";
 import { isPin } from "@fleetfizz/config";
 import {
   address,
+  targets,
+  variantFor,
   type Context,
   type Decision,
   type Provider,
@@ -90,6 +92,20 @@ export interface SkillChange {
 }
 
 const NO_CLI = "the skills CLI is not installed; add skills to vp.items";
+
+// Whether vp installs the skills CLI on this Machine: its section and its
+// `skills` Global both target it. Skills then wait for the next Ship, whose
+// Check can see their folders through the CLI before anything replaces one.
+const vpInstallsCli = (ctx: Context): boolean => {
+  const vp = ctx.config.vp;
+  const global = vp?.items?.skills;
+  return (
+    vp !== undefined &&
+    global !== undefined &&
+    targets(vp, ctx.machine) &&
+    variantFor(global, ctx.machine) !== undefined
+  );
+};
 
 const short = (hash: string): string => hash.slice(0, 7);
 
@@ -185,7 +201,14 @@ const decideSkill = (
   const atHash = lock?.hash ?? installed?.hash;
   const at = atHash === undefined ? {} : { at: short(atHash) };
   const change = { item };
-  if (!observed.cli) return { kind: "fail", item: item.name, ...at, reason: NO_CLI };
+  if (!observed.cli)
+    return vpInstallsCli(ctx)
+      ? {
+          kind: "skip",
+          item: item.name,
+          reason: "waits for the skills CLI this Ship installs; ship again",
+        }
+      : { kind: "fail", item: item.name, ...at, reason: NO_CLI };
   if (observed.error !== undefined)
     return { kind: "fail", item: item.name, ...at, reason: observed.error };
 
