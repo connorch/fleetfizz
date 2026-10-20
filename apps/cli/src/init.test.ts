@@ -8,7 +8,7 @@ import { checksOf, type Facts } from "./prerequisites.ts";
 
 describe("draftText", () => {
   it("writes a config that loads, laid out as the docs write one", () => {
-    const text = draftText({
+    const draft = draftText({
       version: "0.14.0",
       machines: ["studio", "macbook"],
       globals: [
@@ -21,7 +21,8 @@ describe("draftText", () => {
       files: ["~/.gitconfig"],
       linux: false,
     });
-    expect(text).toBe(`{
+    expect(draft).toEqual({
+      text: `{
   "$schema": "./schema.json",
   "version": "0.14.0",
   "machines": ["studio", "macbook"],
@@ -30,8 +31,10 @@ describe("draftText", () => {
   "brew": { "items": { "gh": "*" } },
   "files": { "items": { "gitconfig": "~/.gitconfig" } },
 }
-`);
-    expect(Effect.runSync(parseConfig("config.jsonc", text)).machines).toEqual([
+`,
+    });
+    if (!("text" in draft)) return;
+    expect(Effect.runSync(parseConfig("config.jsonc", draft.text)).machines).toEqual([
       "studio",
       "macbook",
     ]);
@@ -40,7 +43,7 @@ describe("draftText", () => {
 
 describe("draftText with a Linux Machine", () => {
   it("targets the cask section at darwin, since a Cask fails on Linux", () => {
-    const text = draftText({
+    const draft = draftText({
       version: "0.14.0",
       machines: ["studio", "homelab"],
       globals: [],
@@ -49,7 +52,26 @@ describe("draftText with a Linux Machine", () => {
       files: [],
       linux: true,
     });
-    expect(text).toContain(`"cask": { "platforms": ["darwin"], "items": { "ghostty": "*" } },`);
+    expect("text" in draft && draft.text).toContain(
+      `"cask": { "platforms": ["darwin"], "items": { "ghostty": "*" } },`,
+    );
+  });
+});
+
+describe("draftText when an edit fails", () => {
+  it("names the pick and why, rather than drop it", () => {
+    const draft = draftText({
+      version: "0.14.0",
+      machines: ["studio"],
+      globals: [],
+      formulae: ["gh", "gh"],
+      casks: [],
+      files: [],
+      linux: false,
+    });
+    expect(draft).toEqual({
+      reason: "fizz init could not add gh: brew.items.gh is already in the config",
+    });
   });
 });
 
