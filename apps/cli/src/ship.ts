@@ -11,6 +11,7 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as References from "effect/References";
 
 import {
@@ -27,6 +28,7 @@ import {
   type Reached,
   reachedAfter,
   readVersion,
+  SCHEMA_FILE,
   shaOf,
   staleWhy,
   type FleetConfig,
@@ -705,6 +707,12 @@ export const shipPass = Effect.fn("shipPass")(function* (
   if (own !== undefined) yield* writeConfigRecord(record);
   yield* Effect.logInfo(`the config's record: ${record}`);
   const schema = fleetConfigSchemaText();
+  // This version's schema beside the config here too, even when no Step
+  // writes this Machine's config, as after `fizz self-update`.
+  const paths = yield* Path.Path;
+  const schemaHere = paths.join(paths.dirname(path), SCHEMA_FILE);
+  if ((yield* fs.readFileString(schemaHere).pipe(Effect.orElseSucceed(() => ""))) !== schema)
+    yield* fs.writeFileString(schemaHere, schema);
 
   // Apply, in parallel. No Machine changed before this point. Each Machine's
   // stdin carries the secrets its own Steps need (a Shared File's contents).
