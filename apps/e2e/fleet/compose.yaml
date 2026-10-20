@@ -1,0 +1,46 @@
+# The Linux Fleet: `start` (the Starting Machine), two remote Machines, and
+# Verdaccio. The suite brings it up and down; to debug a Ship by hand, run
+# the suite with E2E_KEEP=1, then `docker compose -p fleetfizz-e2e exec -u fizz start bash -l`.
+name: fleetfizz-e2e
+
+x-machine: &machine
+  image: fleetfizz-e2e-machine
+  build: .
+  environment: &env
+    E2E_PUBLIC_KEY: ${E2E_PUBLIC_KEY:-}
+    E2E_PRIVATE_KEY: ${E2E_PRIVATE_KEY:-}
+  depends_on:
+    verdaccio:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "pgrep", "-x", "sshd"]
+    interval: 1s
+    retries: 30
+
+services:
+  verdaccio:
+    image: verdaccio/verdaccio:6
+    volumes:
+      - ./verdaccio.yaml:/verdaccio/conf/config.yaml:ro
+    ports:
+      - "127.0.0.1::4873"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4873/-/ping"]
+      interval: 1s
+      retries: 60
+
+  start:
+    <<: *machine
+    hostname: start
+    environment:
+      <<: *env
+      # For `gh auth token`: the Lent Token, and the skills Provider's GitHub API calls.
+      GH_TOKEN: ${GH_TOKEN:-}
+
+  linux-b:
+    <<: *machine
+    hostname: linux-b
+
+  linux-c:
+    <<: *machine
+    hostname: linux-c
