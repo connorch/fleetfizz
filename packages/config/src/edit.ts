@@ -10,7 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as jsonc from "jsonc-parser";
 
-import { parseConfig } from "./load.ts";
+import { parseConfig, refuseLink } from "./load.ts";
 
 export type JsonPath = ReadonlyArray<string | number>;
 
@@ -383,18 +383,17 @@ export const targetingLists = (text: string, machine: string) => {
 };
 
 // Writes `text` to `path` when it is a config that loads, so no edit can
-// leave an invalid config behind. A ConfigError lists what is wrong.
+// leave an invalid config behind. A ConfigError lists what is wrong, and a
+// symlink at `path` is ConfigIsLink.
 export const saveConfig = Effect.fn("saveConfig")(function* (path: string, text: string) {
   const config = yield* parseConfig(path, text);
+  // Never over a symlink: renaming onto it would replace the link.
+  yield* refuseLink(path);
   const fs = yield* FileSystem.FileSystem;
-  // Through a symlink (a config kept in a dotfiles repo) to the file it
-  // names, so the link stays a link.
-  const target = (yield* fs.exists(path)) ? yield* fs.realPath(path) : path;
-  yield* fs.makeDirectory((yield* Path.Path).dirname(target), { recursive: true });
-  yield* fs.writeFileString(`${target}.tmp`, text);
+  yield* fs.makeDirectory((yield* Path.Path).dirname(path), { recursive: true });
+  yield* fs.writeFileString(`${path}.tmp`, text);
   // The new file keeps the old one's permissions (a private config stays private).
-  if (yield* fs.exists(target))
-    yield* fs.chmod(`${target}.tmp`, (yield* fs.stat(target)).mode & 0o7777);
-  yield* fs.rename(`${target}.tmp`, target);
+  if (yield* fs.exists(path)) yield* fs.chmod(`${path}.tmp`, (yield* fs.stat(path)).mode & 0o7777);
+  yield* fs.rename(`${path}.tmp`, path);
   return config;
 });

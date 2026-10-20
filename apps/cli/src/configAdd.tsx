@@ -19,6 +19,7 @@ import {
   parseConfig,
   type PackageManager,
   type Platform,
+  readConfigText,
   saveConfig,
   type SectionName,
 } from "@fleetfizz/config";
@@ -79,13 +80,12 @@ export const fileName = (path: string): string =>
 // The config file, as text and as loaded.
 export const openConfig = Effect.fn("openConfig")(function* (flag: string | undefined) {
   const path = flag ?? configPath(process.env);
-  const fs = yield* FileSystem.FileSystem;
-  if (!(yield* fs.exists(path))) {
+  const text = yield* readConfigText(path);
+  if (text === undefined) {
     return yield* new ConfigAddError({
       reason: `no config at ${homeRelative(path)}; run fizz init to write one, or pass --config`,
     });
   }
-  const text = yield* fs.readFileString(path);
   return { path, text, config: yield* parseConfig(path, text) };
 });
 

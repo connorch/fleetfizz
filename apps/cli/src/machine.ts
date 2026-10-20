@@ -5,6 +5,7 @@ import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
+import { ConfigIsLink } from "@fleetfizz/config";
 import {
   address,
   assembleState,
@@ -83,7 +84,9 @@ export type CheckResult =
 // until tailscaled's privacy prompt is answered). The Ship must not hang.
 const CHECK_TIMEOUT = "2 minutes";
 
-// The Check on one Machine: the script's Facts become its MachineState.
+// The Check on one Machine: the script's Facts become its MachineState. A
+// Machine whose config is a symlink fails here, before any Apply could
+// replace the link with a regular file.
 export const check = Effect.fn("check")(function* (target: Target, script: string, ledger: Ledger) {
   const facts: unknown[] = [];
   const output: string[] = [];
@@ -113,6 +116,13 @@ export const check = Effect.fn("check")(function* (target: Target, script: strin
   const state = assembleState(facts);
   if (!state.complete) {
     yield* ledger.fail(target.name, ["checking did not finish", ...output]);
+    return { kind: "failed" } as CheckResult;
+  }
+  if (state.configLink !== undefined) {
+    const { configLink: link, home } = state;
+    const path =
+      home !== undefined && link.startsWith(`${home}/`) ? `~${link.slice(home.length)}` : link;
+    yield* ledger.fail(target.name, [new ConfigIsLink({ path }).message]);
     return { kind: "failed" } as CheckResult;
   }
   return { kind: "checked", state } as CheckResult;

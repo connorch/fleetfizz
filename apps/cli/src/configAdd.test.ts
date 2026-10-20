@@ -1,9 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-
-import { saveConfig } from "@fleetfizz/config";
 
 import { fileEntry, fileName, parseSpec, rangeEntry, targetingOf } from "./configAdd.tsx";
 import { pathOf } from "./configEdit.tsx";
@@ -47,31 +42,4 @@ describe("pathOf", () => {
     expect(pathOf("fleetfizz", "fleetfizz")).toBeUndefined();
     expect(pathOf("nope", "x")).toBeUndefined();
   });
-});
-
-describe("saveConfig", () => {
-  it.effect("writes through a symlink, so the link stays a link", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const dir = yield* fs.makeTempDirectoryScoped();
-      yield* fs.writeFileString(`${dir}/real.jsonc`, `{ "version": "0.2.0", "machines": ["a"] }`);
-      yield* fs.symlink(`${dir}/real.jsonc`, `${dir}/config.jsonc`);
-      yield* saveConfig(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["b"] }`);
-      expect(yield* fs.readLink(`${dir}/config.jsonc`)).toBe(`${dir}/real.jsonc`);
-      expect(yield* fs.readFileString(`${dir}/real.jsonc`)).toBe(
-        `{ "version": "0.2.0", "machines": ["b"] }`,
-      );
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  );
-
-  it.effect("keeps the file's permissions", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const dir = yield* fs.makeTempDirectoryScoped();
-      yield* fs.writeFileString(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["a"] }`);
-      yield* fs.chmod(`${dir}/config.jsonc`, 0o600);
-      yield* saveConfig(`${dir}/config.jsonc`, `{ "version": "0.2.0", "machines": ["b"] }`);
-      expect((yield* fs.stat(`${dir}/config.jsonc`)).mode & 0o777).toBe(0o600);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  );
 });

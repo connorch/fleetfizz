@@ -14,10 +14,12 @@ export {
   CONFIG_FILE,
   configDir,
   ConfigError,
+  ConfigIsLink,
   ConfigNotFound,
   configPath,
   loadConfig,
   parseConfig,
+  readConfigText,
   readVersion,
   SCHEMA_FILE,
 } from "./load.ts";

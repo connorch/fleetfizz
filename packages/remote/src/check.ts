@@ -59,10 +59,11 @@ export const checkScript = (input: CheckInput): string => {
   }
   // The Machine's config, base64 on one line (`base64 -w0` is linux only),
   // with the sha256 of those same bytes (the file is read once), and the
-  // config's own record.
+  // config's own record. A symlink there, working or dangling, is reported
+  // instead: the Apply would replace it with a regular file.
   lines.push(
     `ff_c=${CONFIG_DIR_SH}/${quote(CONFIG_FILE)}`,
-    `if [ -f "$ff_c" ]; then ff_b=$(base64 < "$ff_c" | tr -d '\\n'); ff_state "{\\"fact\\":\\"config\\",\\"present\\":true,\\"sha\\":\\"$(printf '%s' "$ff_b" | base64 -d | ff_sha)\\",\\"base64\\":\\"$ff_b\\"}"; else ff_state '{"fact":"config","present":false}'; fi`,
+    `if [ -L "$ff_c" ]; then ff_state "{\\"fact\\":\\"configLink\\",\\"path\\":\\"$(ff_json "$ff_c")\\"}"; elif [ -f "$ff_c" ]; then ff_b=$(base64 < "$ff_c" | tr -d '\\n'); ff_state "{\\"fact\\":\\"config\\",\\"present\\":true,\\"sha\\":\\"$(printf '%s' "$ff_b" | base64 -d | ff_sha)\\",\\"base64\\":\\"$ff_b\\"}"; else ff_state '{"fact":"config","present":false}'; fi`,
     `ff_r=${quotePath(CONFIG_RECORD)}`,
     `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"configRecord\\",\\"record\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
   );

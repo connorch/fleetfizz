@@ -16,6 +16,8 @@ const EngineFact = Schema.Union([
     sha: Schema.optionalKey(Schema.String),
     base64: Schema.optionalKey(Schema.String),
   }),
+  // The Machine's config path is a symlink, which a Ship never writes over.
+  Schema.Struct({ fact: Schema.Literal("configLink"), path: Schema.String }),
   // The config's own Install Record, as stored on the Machine.
   Schema.Struct({ fact: Schema.Literal("configRecord"), record: Schema.Unknown }),
   // One Item's Install Record, as stored on the Machine.
@@ -47,6 +49,8 @@ export interface MachineState {
   readonly home?: string;
   // The Machine's config and its sha256, or undefined when it has none.
   readonly config?: { readonly text: string; readonly sha: string };
+  // The config path, when it is a symlink.
+  readonly configLink?: string;
   // The config's Install Record, undecoded.
   readonly configRecord?: unknown;
   // Install Records by Provider, then Item, undecoded.
@@ -76,6 +80,9 @@ export const assembleState = (facts: ReadonlyArray<unknown>): MachineState => {
         case "config":
           if (f.present && f.base64 !== undefined && f.sha !== undefined)
             state = { ...state, config: { text: decodeBase64(f.base64), sha: f.sha } };
+          break;
+        case "configLink":
+          state = { ...state, configLink: f.path };
           break;
         case "configRecord":
           state = { ...state, configRecord: f.record };
