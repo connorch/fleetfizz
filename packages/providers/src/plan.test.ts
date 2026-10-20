@@ -2,6 +2,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import { FetchHttpClient } from "effect/http";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -17,6 +18,7 @@ import {
 } from "@fleetfizz/core";
 
 import { installerOf, PROVIDERS } from "./index.ts";
+import { skills } from "./skills/index.ts";
 import { OBSERVE, REPORT } from "./skills/scripts.ts";
 
 // A config as written, decoded as the CLI decodes it.
@@ -842,7 +844,8 @@ describe("the skills Provider", () => {
     ]);
   });
 
-  // The Check's program, against a stand-in skills CLI that lists one folder.
+  // The Check's program, against a stand-in skills CLI that lists one folder,
+  // on a Machine whose git config would turn CRLF into LF.
   it.effect("observes each skill's folder, lock entry, and tree hash", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -850,18 +853,19 @@ describe("the skills Provider", () => {
       const folder = `${home}/.agents/skills/grilling`;
       yield* fs.makeDirectory(`${home}/bin`, { recursive: true });
       yield* fs.makeDirectory(folder, { recursive: true });
-      yield* fs.writeFileString(`${folder}/SKILL.md`, "---\nname: grilling\n---\n");
+      yield* fs.writeFileString(`${folder}/SKILL.md`, "---\r\nname: grilling\r\n---\r\n");
       yield* fs.writeFileString(
         `${home}/bin/skills`,
         `#!/bin/sh\nprintf '[{"name":"grilling","path":"${folder}","agents":[]}]'\n`,
       );
       yield* fs.chmod(`${home}/bin/skills`, 0o755);
-      // The tree hash git itself gives the folder, as GitHub would.
+      // The tree hash git itself gives the folder's exact bytes, as GitHub would.
       const tree = yield* exec(
         "sh",
         ["-c", `cd "${folder}" && git init -q && git add -A && git write-tree`],
         home,
       );
+      yield* fs.writeFileString(`${home}/.gitconfig`, "[core]\n\tautocrlf = true\n");
       yield* fs.remove(`${folder}/.git`, { recursive: true });
       yield* fs.writeFileString(
         `${home}/.agents/.skill-lock.json`,
@@ -996,6 +1000,25 @@ describe("the skills Provider", () => {
       expect.objectContaining({ kind: "change", item: "find-skills", to: "v2" }),
     );
   });
+
+  // GitHub cuts the tree short past about 100,000 entries.
+  it.effect("cannot check a repo too large for GitHub to list", () =>
+    Effect.gen(function* () {
+      const item = { name: "grilling", source: "mattpocock/skills", agents: ["claude-code"] };
+      const result = yield* skills.resolve([item], {
+        starting: { machine: MACBOOK, config: withSkills, items: [item] },
+        checked: [],
+      });
+      expect(result).toEqual({
+        "mattpocock/skills#": { error: "the repo is too large for GitHub to list its folders" },
+      });
+    }).pipe(
+      Effect.provideService(FetchHttpClient.Fetch, () =>
+        Promise.resolve(Response.json({ sha: TIP, tree: [], truncated: true })),
+      ),
+      Effect.provide(NodeServices.layer),
+    ),
+  );
 
   it("reinstalls for a changed ref, a new agent, or no Install Record, never for a dropped agent", () => {
     const result = plan({

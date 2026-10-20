@@ -150,9 +150,11 @@ export const applyScript = (
     ...inputsOf(plan).map((_, i) => `IFS= read -r ff_in_${i} || exit 1`),
     `ff_git() { if [ -n "$ff_token" ]; then FF_TOKEN="$ff_token" git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$FF_TOKEN"; }; f' "$@"; else git "$@"; fi; }`,
     // The CLI reads GH_TOKEN for GitHub's API, and the git it runs to clone
-    // takes the same credential helper as ff_git through GIT_CONFIG_*. Never
-    // telemetry: one Ship is not an install on every Machine.
-    `ff_skills() { if [ -n "$ff_token" ]; then GH_TOKEN="$ff_token" GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= GIT_CONFIG_KEY_1=credential.helper GIT_CONFIG_VALUE_1='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' DISABLE_TELEMETRY=1 skills "$@"; else DISABLE_TELEMETRY=1 skills "$@"; fi; }`,
+    // takes the same credential helper as ff_git through GIT_CONFIG_*. That
+    // git also clones with core.autocrlf off, so a skill's folder holds
+    // GitHub's exact bytes and the Check's tree hash matches the lock's.
+    // Never telemetry: one Ship is not an install on every Machine.
+    `ff_skills() { if [ -n "$ff_token" ]; then GH_TOKEN="$ff_token" GIT_CONFIG_COUNT=3 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=false GIT_CONFIG_KEY_1=credential.helper GIT_CONFIG_VALUE_1= GIT_CONFIG_KEY_2=credential.helper GIT_CONFIG_VALUE_2='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' DISABLE_TELEMETRY=1 skills "$@"; else GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.autocrlf GIT_CONFIG_VALUE_0=false DISABLE_TELEMETRY=1 skills "$@"; fi; }`,
     // The config first, then each Provider in run order.
     ...configStep(configRecord),
     ...plan.providers.flatMap((p) => providerSteps(p, offsets)),
