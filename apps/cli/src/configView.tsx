@@ -42,11 +42,12 @@ export interface SectionView {
   readonly rows: ReadonlyArray<Row>;
 }
 
-// The order sections are shown in: the toolchain, packages, repos, files.
+// The order sections are shown in: the toolchain, packages, skills, repos, files.
 export const SHOWN = [
   "vp",
   "brew",
   "cask",
+  "skills",
   "repos",
   "files",
 ] as const satisfies ReadonlyArray<ProviderName>;
@@ -98,6 +99,10 @@ export const sectionsOf = (config: FleetConfig): ReadonlyArray<SectionView> =>
           return rowsOf(config.brew?.items, (f) => f.range);
         case "cask":
           return rowsOf(config.cask?.items, (c) => c.range);
+        case "skills":
+          return rowsOf(config.skills?.items, (s) =>
+            s.ref === undefined ? s.source : `${s.source}#${s.ref}`,
+          );
         case "repos":
           return rowsOf(config.repos?.items, (r) => (isPin(r.ref) ? r.ref.slice(0, 7) : r.ref));
         case "files":

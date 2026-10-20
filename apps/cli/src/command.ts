@@ -40,7 +40,7 @@ const shipCommand = Command.make("ship", {
     Flag.atLeast(0),
     Flag.withMetavar("item"),
     Flag.withDescription(
-      "Rebuild a record Item (`repos:<name>`) even when it is up to date. `all` for every one.",
+      "Rebuild a record Item (`repos:<name>`, `skills:<name>`) even when it is up to date. `all` for every one.",
     ),
   ),
   answer: Flag.String("answer").pipe(

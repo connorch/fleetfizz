@@ -195,4 +195,49 @@ describe("applyScript", () => {
       ]);
     }),
   );
+
+  it.effect("lends the token to ff_skills alone, with telemetry off", () =>
+    Effect.gen(function* () {
+      // A stand-in skills CLI that records what it was given.
+      const fake = [
+        `mkdir -p "$HOME/bin"`,
+        `printf '%s\\n' '#!/bin/sh' 'printf "%s|%s|%s|%s\\n" "$GH_TOKEN" "$GIT_CONFIG_COUNT" "$DISABLE_TELEMETRY" "$*" >> "$HOME/calls"' > "$HOME/bin/skills"`,
+        `chmod +x "$HOME/bin/skills"`,
+        `PATH="$HOME/bin:$PATH"`,
+      ];
+      const plan = planOf([
+        provider({
+          name: "skills",
+          steps: [
+            {
+              id: "skills:x:install",
+              items: ["x"],
+              doing: "installing",
+              run: [
+                ...fake,
+                "ff_skills add o/r -g",
+                `printf '%s\\n' "after:\${GH_TOKEN:-}" >> "$HOME/calls"`,
+              ],
+            },
+          ],
+        }),
+      ]);
+      const calls = (stdin: ReadonlyArray<string>) =>
+        runIn(
+          plan,
+          (home) =>
+            Effect.gen(function* () {
+              const fs = yield* FileSystem.FileSystem;
+              return yield* fs.readFileString(`${home}/calls`);
+            }),
+          stdin,
+        ).pipe(Effect.map(({ inspected }) => inspected));
+      expect(yield* calls(applyStdin("tok", "{ }", "{}", plan))).toBe(
+        "tok|2|1|add o/r -g\nafter:\n",
+      );
+      expect(yield* calls(applyStdin(undefined, "{ }", "{}", plan))).toBe(
+        "||1|add o/r -g\nafter:\n",
+      );
+    }),
+  );
 });

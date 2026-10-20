@@ -127,8 +127,8 @@ const encodeBase64 = (text: string): string => {
 
 // Shell every Step may use besides the prelude: ff_lit prints $1 verbatim (a
 // JSON literal the Starting Machine prepared); ff_git is git with the Lent
-// Token, which only it sees. `configRecord` is the JSON the config Step
-// writes beside the config.
+// Token, and ff_skills the skills CLI with it (ADR 0003), which only they
+// see. `configRecord` is the JSON the config Step writes beside the config.
 export const applyScript = (plan: MachinePlan, configRecord: string): string => {
   const offsets = inputOffsets(plan);
   return [
@@ -144,6 +144,10 @@ export const applyScript = (plan: MachinePlan, configRecord: string): string => 
     // stdin: stop before any Step rather than write empty contents.
     ...inputsOf(plan).map((_, i) => `IFS= read -r ff_in_${i} || exit 1`),
     `ff_git() { if [ -n "$ff_token" ]; then FF_TOKEN="$ff_token" git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$FF_TOKEN"; }; f' "$@"; else git "$@"; fi; }`,
+    // The CLI reads GH_TOKEN for GitHub's API, and the git it runs to clone
+    // takes the same credential helper as ff_git through GIT_CONFIG_*. Never
+    // telemetry: one Ship is not an install on every Machine.
+    `ff_skills() { if [ -n "$ff_token" ]; then GH_TOKEN="$ff_token" GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= GIT_CONFIG_KEY_1=credential.helper GIT_CONFIG_VALUE_1='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' DISABLE_TELEMETRY=1 skills "$@"; else DISABLE_TELEMETRY=1 skills "$@"; fi; }`,
     // The config first, then each Provider in run order.
     ...configStep(configRecord),
     ...plan.providers.flatMap((p) => providerSteps(p, offsets)),

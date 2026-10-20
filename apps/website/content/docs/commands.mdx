@@ -17,7 +17,7 @@ A Ship checks every Machine, plans its Steps, asks any Questions, then applies t
 
 ### Answering in advance
 
-`--answer kind=choice` answers every Question of a kind: `range=bump|skip|downgrade`, `config=overwrite|stop`, `mode=managed|skip`, or `file=overwrite|skip`. `--answer kind:subject=choice` answers one, such as `range:vp:vercel=bump`, and wins over the kind's answer.
+`--answer kind=choice` answers every Question of a kind: `range=bump|skip|downgrade`, `config=overwrite|stop`, `mode=managed|skip`, `file=overwrite|skip`, or `skill=overwrite|skip`. `--answer kind:subject=choice` answers one, such as `range:vp:vercel=bump`, and wins over the kind's answer.
 
 Without a terminal, a Question is never waited on: the answer is skip. Piped to a file, the Ledger prints the full list once at the end.
 

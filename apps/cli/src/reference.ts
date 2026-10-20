@@ -15,6 +15,8 @@ import {
   FleetConfig,
   ReposSection,
   SharedFile,
+  Skill,
+  SkillsSection,
   Targeting,
   TrackedRepo,
   VpSection,
@@ -116,6 +118,7 @@ export const reference = Effect.gen(function* () {
     "config/vp.md": section("vp", VpSection.fields),
     "config/brew.md": section("brew", BrewSection.fields),
     "config/cask.md": section("cask", CaskSection.fields),
+    "config/skills.md": `${section("skills", SkillsSection.fields)}\nEach skill in \`items\`:\n\n${fieldTable(Skill.fields)}\n`,
     "config/files.md": `${section("files", FilesSection.fields)}\nEach Shared File in \`items\`:\n\n${fieldTable(SharedFile.fields)}\n`,
     "config/targeting.md": `${table(
       ["Field", "Description"],

@@ -13,6 +13,13 @@ const config = Effect.runSync(
       vp: { version: "1.1.0", node: "24.18.1", items: { vercel: "^59.25.4" } },
       cask: { platforms: ["darwin"], items: { ghostty: "latest" } },
       brew: { items: { tmux: { range: "*", platforms: ["linux"] } } },
+      skills: {
+        agents: ["claude-code"],
+        items: {
+          grilling: "mattpocock/skills",
+          "find-skills": { source: "vercel-labs/skills", ref: "v2" },
+        },
+      },
       files: {
         items: {
           vscode: [
@@ -38,6 +45,13 @@ describe("sectionsOf", () => {
       },
       { provider: "brew", rows: [{ name: "tmux", wants: "*", where: "linux" }] },
       { provider: "cask", where: "darwin", rows: [{ name: "ghostty", wants: "latest" }] },
+      {
+        provider: "skills",
+        rows: [
+          { name: "grilling", wants: "mattpocock/skills" },
+          { name: "find-skills", wants: "vercel-labs/skills#v2" },
+        ],
+      },
       {
         provider: "files",
         rows: [
