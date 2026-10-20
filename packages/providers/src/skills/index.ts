@@ -126,11 +126,14 @@ const TreeResponse = Schema.Struct({
   tree: Schema.Array(
     Schema.Struct({ path: Schema.String, type: Schema.String, sha: Schema.String }),
   ),
+  // Past GitHub's limit (about 100,000 entries), `tree` is only part of the repo.
+  truncated: Schema.Boolean,
 });
 
 // Every folder's git tree hash in `repo` at `ref`, from one GitHub API call,
 // as the CLI reads the hash it records. The Lent Token authenticates it, so
-// private repos resolve and the rate limit is the user's.
+// private repos resolve and the rate limit is the user's. A truncated tree
+// is an error: a folder it left out would look missing at the ref.
 const fetchFolders = Effect.fn("fetchFolders")(
   function* (repo: string, ref: string | undefined, token: string | undefined) {
     const response = yield* HttpClient.execute(
@@ -149,6 +152,7 @@ const fetchFolders = Effect.fn("fetchFolders")(
       return { error: `no ${ref ?? "default branch"} in ${repo}, or no access to it` };
     if (response.status !== 200) return { error: `GitHub answered ${response.status}` };
     const body = yield* HttpClientResponse.schemaBodyJson(TreeResponse)(response);
+    if (body.truncated) return { error: "the repo is too large for GitHub to list its folders" };
     return {
       folders: new Map([
         ["", body.sha],

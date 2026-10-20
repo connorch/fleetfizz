@@ -23,7 +23,11 @@ const emit = (fact) => console.log("ff-state " + JSON.stringify({ provider: "ski
 // agent they are for. Prints the CLI's error if it does not know one of the
 // agents, then for each skill its folder, its lock entry, and, for a GitHub
 // source, the git tree hash of the folder, which the lock's hash matches
-// until someone edits it. `skills ls` finds each folder wherever the CLI put
+// until someone edits it. With core.autocrlf off, a folder holds GitHub's
+// exact bytes (ff_skills installs it that way) and hashes to GitHub's tree;
+// core.eol and core.safecrlf act only on a conversion, so they cannot
+// change it. A .gitattributes text or eol rule in the folder still can.
+// `skills ls` finds each folder wherever the CLI put
 // it; which agents a skill is installed for, it cannot say reliably (only
 // for agents it detects), so the Install Record keeps that.
 export const OBSERVE = `${LOCK}
@@ -47,7 +51,8 @@ const treeHash = (dir) => {
   try {
     execFileSync("git", ["init", "-q", "--bare", git]);
     const env = { ...process.env, GIT_DIR: git, GIT_INDEX_FILE: join(git, "index") };
-    execFileSync("git", ["--work-tree", dir, "add", "-A", "-f", "."], { cwd: dir, env, stdio: "ignore" });
+    // As ff_skills clones: no line-ending conversion, so the hash is GitHub's.
+    execFileSync("git", ["-c", "core.autocrlf=false", "--work-tree", dir, "add", "-A", "-f", "."], { cwd: dir, env, stdio: "ignore" });
     return execFileSync("git", ["write-tree"], { env, encoding: "utf8" }).trim();
   } catch {
     return undefined;
