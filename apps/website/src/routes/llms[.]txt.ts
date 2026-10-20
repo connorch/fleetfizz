@@ -12,9 +12,9 @@ export const Route = createFileRoute("/llms.txt")({
           [
             `# ${NAME}`,
             `> ${TAGLINE.lead} ${TAGLINE.rest}`,
-            `${NAME} is a CLI that keeps every macOS and Linux machine on a Tailscale tailnet in line with one config: the vite-plus toolchain and its global packages, Homebrew formulae and casks, agent skills, shared dotfiles, and a clone of each tracked git repo. \`fizz ship\` runs on one machine and drives the others over Tailscale SSH. There is no daemon, agent, or server to run.`,
-            "Install it with vite-plus, then set up a config and ship:",
-            "```sh\nvp install -g fleetfizz\nfizz init\nfizz ship\n```",
+            `${NAME} is a CLI that keeps every macOS and Linux machine on a Tailscale tailnet in line with one config: the global packages of vp, npm, bun, and pnpm, Homebrew formulae and casks, agent skills, shared dotfiles, and a clone of each tracked git repo. \`fizz ship\` runs on one machine and drives the others over Tailscale SSH. There is no daemon, agent, or server to run.`,
+            "Install it with any of them, then set up a config and ship:",
+            "```sh\nnpm install -g fleetfizz\nfizz init\nfizz ship\n```",
             "## Docs",
             pagesInOrder()
               .map((page) => {

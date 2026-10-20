@@ -2,12 +2,12 @@
 
 Your machines, in sync. One command, and every machine on your tailnet has the same tools, versions, and repos.
 
-fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: vite-plus Globals, Homebrew Formulae and Casks, agent skills, Shared Files like dotfiles, and a clone of each tracked git repo. `fizz ship` runs on the Machine you start it from and drives the others over `tailscale ssh`.
+fleetfizz keeps every Machine on a Tailscale tailnet in line with one config: the Globals of vp, npm, bun, and pnpm, Homebrew Formulae and Casks, agent skills, Shared Files like dotfiles, and a clone of each tracked git repo. `fizz ship` runs on the Machine you start it from and drives the others over `tailscale ssh`.
 
 ## Install
 
 ```sh
-vp install -g fleetfizz
+npm install -g fleetfizz
 ```
 
 ## Use

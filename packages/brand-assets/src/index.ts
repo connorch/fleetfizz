@@ -16,7 +16,7 @@ export const TAGLINE = {
 };
 
 // How to install fleetfizz, for the landing page and the README banner.
-export const INSTALL = "vp install -g fleetfizz";
+export const INSTALL = "npm install -g fleetfizz";
 
 // The light theme's ink, which is also the dark theme's background.
 export const INK = "#0B0F05";
