@@ -11,6 +11,7 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as References from "effect/References";
 
 import {
@@ -26,16 +27,20 @@ import {
   type ProviderName,
   type Reached,
   reachedAfter,
+  readVersion,
+  SCHEMA_FILE,
   shaOf,
   staleWhy,
   type FleetConfig,
 } from "@fleetfizz/config";
 import {
   dependenciesOf,
+  machineNames,
   machinesNamed,
   orderProviders,
   parseAddress,
   planMachine,
+  shellInitFor,
   targetedItems,
   type Context,
   type MachinePlan,
@@ -73,7 +78,7 @@ export interface ShipFlags {
   // `--answer` entries (parseAnswers), the shortcut flags included.
   readonly answers: ReadonlyArray<string>;
   readonly config: string | undefined;
-  // The running fleetfizz version, pinned on every Machine (ADR 0008).
+  // The running fleetfizz version, which is the config's (ADR 0019).
   readonly version: string;
 }
 
@@ -98,6 +103,7 @@ const unknownMachines = (config: FleetConfig, tailnet: Tailnet, only: ReadonlyAr
   const known = new Set(tailnet.fleet.map((m) => m.name));
   const referenced = [
     ...config.machines,
+    ...machineNames(config.shell),
     ...PROVIDERS.flatMap((p) => machinesNamed(p, config)),
     ...only,
   ];
@@ -133,7 +139,9 @@ const unshippable = (
 interface Stale {
   readonly text: string;
   readonly sha: string;
-  readonly config: FleetConfig;
+  // Undefined for a config another fleetfizz version wrote that this one
+  // cannot read: the next run, at its version, does.
+  readonly config: FleetConfig | undefined;
   readonly machines: ReadonlyArray<string>;
   readonly reached: Reached;
   readonly description: string;
@@ -146,7 +154,8 @@ const minute = (iso: string | undefined) =>
 // must ask about (staleWhy), grouped by text. `base` is when this config last
 // reached each Machine. `own` is the Machine whose file `text` is, never
 // asked about: the Starting Machine, unless --config named another file. A
-// copy that does not parse is reported and then overwritten.
+// copy that does not parse is reported and then overwritten, unless it names
+// another fleetfizz version, whose schema may differ: that one is asked about.
 const staleConfigs = Effect.fn("staleConfigs")(function* (
   text: string,
   base: Reached,
@@ -158,14 +167,16 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
     readonly machine: string;
     readonly text: string;
     readonly sha: string;
-    readonly config: FleetConfig;
+    readonly config: FleetConfig | undefined;
     readonly record: ConfigRecord | undefined;
     readonly why: string;
   }> = [];
+  const version = readVersion(text);
   for (const { machine, state } of checked) {
     if (machine.name === own || state.config === undefined || state.config.text === text) continue;
     const parsed = yield* Effect.result(parseConfig(machine.name, state.config.text));
-    if (parsed._tag === "Failure") {
+    const theirs = readVersion(state.config.text);
+    if (parsed._tag === "Failure" && (theirs === undefined || theirs === version)) {
       yield* ledger.note(
         "info",
         `the config on ${machine.name} does not parse; it will be overwritten`,
@@ -179,7 +190,7 @@ const staleConfigs = Effect.fn("staleConfigs")(function* (
       machine: machine.name,
       text: state.config.text,
       sha: state.config.sha,
-      config: parsed.success,
+      config: parsed._tag === "Success" ? parsed.success : undefined,
       record,
       why:
         why === "unrecorded"
@@ -423,7 +434,10 @@ export const shipPass = Effect.fn("shipPass")(function* (
       // Only a config this Machine can ship is offered; the others say why not.
       const usable: Stale[] = [];
       for (const s of stale) {
-        const why = unshippable(s.config, tailnet, flags.only, `the config on ${s.machines[0]}`);
+        const why =
+          s.config === undefined
+            ? undefined
+            : unshippable(s.config, tailnet, flags.only, `the config on ${s.machines[0]}`);
         if (why === undefined) usable.push(s);
         else yield* ledger.note("info", `cannot ship from here: ${why}`);
       }
@@ -444,6 +458,16 @@ export const shipPass = Effect.fn("shipPass")(function* (
       else {
         yield* ledger.note("answer", `use the config on ${choice.machines[0]}`);
         yield* fs.writeFileString(path, choice.text);
+        // This fizz only ships the version it is (ADR 0019): the next run
+        // switches to the adopted config's, checks it, and ships it. Until
+        // then it has no record here, so a Ship from elsewhere asks first.
+        const wanted = readVersion(choice.text);
+        if (wanted !== flags.version || choice.config === undefined)
+          return yield* Effect.fail(
+            new ShipError(
+              `the config here now names fleetfizz ${wanted ?? "no version"}, not ${flags.version}; run fizz ship again to switch to it`,
+            ),
+          );
         // Adopting it here is when it reached this Machine, so a later Ship
         // from elsewhere asks before overwriting it.
         if (own !== undefined)
@@ -541,7 +565,6 @@ export const shipPass = Effect.fn("shipPass")(function* (
         ctx: {
           machine: { name: g.machine.name, platform: g.machine.platform },
           config: cfg,
-          self: flags.version,
           rebuild: (address) => flags.rebuild.includes("all") || flags.rebuild.includes(address),
           answer,
         },
@@ -550,10 +573,8 @@ export const shipPass = Effect.fn("shipPass")(function* (
 
   // Questions: every Machine's, before anything changes. A bump edits the
   // config, so the plan is made again from the new Ranges. An answer can
-  // reveal new Questions (managed mode exposes the defaults' Ranges, which
-  // may sit above a Range just bumped), so this repeats until a round
-  // decides nothing new. An answered Question that still asks is answered
-  // the same way again.
+  // reveal new Questions, so this repeats until a round decides nothing
+  // new. An answered Question that still asks is answered the same way again.
   let cfg = config;
   const decided = new Map<string, string>();
   const answer: Context["answer"] = (kind, subject) =>
@@ -686,6 +707,15 @@ export const shipPass = Effect.fn("shipPass")(function* (
   if (own !== undefined) yield* writeConfigRecord(record);
   yield* Effect.logInfo(`the config's record: ${record}`);
   const schema = fleetConfigSchemaText();
+  // This version's schema beside the config here too, even when no Step
+  // writes this Machine's config, as after `fizz self-update`. Only for the
+  // editor, so a directory it cannot write to does not stop the Ship.
+  const paths = yield* Path.Path;
+  const schemaHere = paths.join(paths.dirname(path), SCHEMA_FILE);
+  if ((yield* fs.readFileString(schemaHere).pipe(Effect.orElseSucceed(() => ""))) !== schema)
+    yield* fs
+      .writeFileString(schemaHere, schema)
+      .pipe(Effect.catch((e) => Effect.logWarning(`could not write ${schemaHere}: ${e.message}`)));
 
   // Apply, in parallel. No Machine changed before this point. Each Machine's
   // stdin carries the secrets its own Steps need (a Shared File's contents).
@@ -696,7 +726,7 @@ export const shipPass = Effect.fn("shipPass")(function* (
         const applied = yield* apply(
           { name: machine.name, local },
           p,
-          applyScript(p, record),
+          applyScript(p, record, shellInitFor(cfg, p.machine)),
           applyStdin(lent.token, text, schema, p),
           ledger,
         );

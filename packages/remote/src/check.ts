@@ -1,9 +1,9 @@
 // The read-only Check script: one ssh per Machine, printing ff-state Facts.
 // The engine's Facts (home, records, config, end) around each Provider's own.
 import { CONFIG_FILE } from "@fleetfizz/config";
-import type { AnyProvider, Named, Scope } from "@fleetfizz/core";
+import { shellInitFor, type AnyProvider, type Named, type Scope } from "@fleetfizz/core";
 
-import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
+import { fingerprintFn, preludeFor, quote, quotePath } from "./shell.ts";
 
 export interface CheckInput {
   readonly scope: Scope;
@@ -40,9 +40,15 @@ const recordFact = (provider: string, item: string): string[] => [
   `if [ -f "$ff_r" ]; then ff_state "{\\"fact\\":\\"record\\",\\"provider\\":\\"${provider}\\",\\"item\\":\\"$(ff_json ${quote(item)})\\",\\"record\\":$(tr -d '\\n' < "$ff_r")}"; fi`,
 ];
 
+// What every Check, and every listing of Globals on the Starting Machine,
+// runs with. A Check changes nothing: a mise shim for a tool that is not
+// installed fails instead of installing it.
+export const CHECK_ENV = { MISE_NOT_FOUND_AUTO_INSTALL: "false" } as const;
+
 export const checkScript = (input: CheckInput): string => {
   const lines = [
-    prelude,
+    ...Object.entries(CHECK_ENV).map(([name, value]) => `export ${name}=${value}`),
+    preludeFor(shellInitFor(input.scope.config, input.scope.machine)),
     fingerprintFn,
     `ff_state "{\\"fact\\":\\"home\\",\\"path\\":\\"$(ff_json "$HOME")\\"}"`,
   ];

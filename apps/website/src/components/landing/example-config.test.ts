@@ -13,6 +13,8 @@ it("the example config parses as the CLI's config.jsonc", () => {
 it("the example reads as it did by hand", () => {
   expect(exampleText()).toMatchInlineSnapshot(`
     "{
+      // The fleetfizz every Machine runs.
+      "version": "0.14.0",
       // The Fleet: every Machine a Ship touches.
       "machines": ["mac-studio", "macbook-pro", "homelab"],
       // Tracked Repos, installed from origin on every Machine.
@@ -35,12 +37,8 @@ it("the example reads as it did by hand", () => {
           }
         }
       },
-      // The vite-plus toolchain and its Globals.
-      "vp": {
-        "version": "1.1.0",
-        "node": "24.18.1",
-        "items": { "vercel": "^59.25.4", "wrangler": "^4.136.3" }
-      }
+      // Globals, installed with pnpm (or npm, bun, vp).
+      "pnpm": { "items": { "vercel": "^59.25.4", "wrangler": "^4.136.3" } }
     }"
   `);
 });

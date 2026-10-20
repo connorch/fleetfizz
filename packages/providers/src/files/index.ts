@@ -2,7 +2,8 @@
 // Starting Machine to every targeted Machine (ADR 0016). A directory is
 // mirrored. Kept matching an Install Record on each Machine: the entries of
 // the last copy a Ship wrote there, so an edit made there (Drift) or a newer
-// copy from another Ship asks before it is overwritten.
+// copy from another Ship asks before it is overwritten. An Item's `after`
+// runs on a Machine each time a Ship writes the Item there.
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Hash from "effect/Hash";
@@ -14,6 +15,7 @@ import {
   address,
   assembleState,
   Hidden,
+  shellInitFor,
   type Checked,
   type Context,
   type Decision,
@@ -26,7 +28,7 @@ import {
 import {
   checkScript,
   parseLine,
-  prelude,
+  preludeFor,
   quote,
   quotePath,
   recordDir,
@@ -108,6 +110,8 @@ interface Copy {
   readonly entries: Entries;
   readonly record?: FileRecord;
   readonly openssl: boolean;
+  // Its Machine's `shell.init`, which its Check ran too.
+  readonly init?: string;
 }
 
 export interface FilesResolved {
@@ -121,6 +125,8 @@ export interface FilesResolved {
   readonly copies: ReadonlyMap<string, ReadonlyArray<Copy>>;
   // The Starting Machine has openssl, which a pull decrypts with.
   readonly openssl: boolean;
+  // The Starting Machine's `shell.init`, which a pulled copy's `after` runs after.
+  readonly init?: string;
 }
 
 export interface FileChange {
@@ -342,12 +348,13 @@ const resolveSources = Effect.fn("resolveSources")(function* (
 // path that Machine cannot read.
 const copiesOf = (
   checked: ReadonlyArray<Checked<FileItem>>,
-  from: string,
+  starting: Scope,
 ): ReadonlyMap<string, ReadonlyArray<Copy>> => {
   const copies = new Map<string, Copy[]>();
   for (const { machine, items, facts, records } of checked) {
-    if (machine.name === from) continue;
+    if (machine.name === starting.machine.name) continue;
     const observed = parse(facts, records);
+    const init = shellInitFor(starting.config, machine);
     for (const item of items) {
       const copy = observed.items.get(item.name);
       if (copy === undefined || copy.size > SIZE_LIMIT || [...copy.entries.values()].includes("?"))
@@ -361,6 +368,7 @@ const copiesOf = (
           entries: copy.entries,
           ...(record === undefined ? {} : { record }),
           openssl: observed.openssl,
+          ...(init === undefined ? {} : { init }),
         },
       ]);
     }
@@ -526,8 +534,30 @@ const decideFile = (
     at: resolved.at,
   };
   const recorded = record === undefined ? undefined : fingerprint(recordEntries(record));
+  const same =
+    ctx.machine.name === from || (current !== undefined && fingerprint(current) === ours);
+  // `after` runs again on a Machine that already has the copy when its record
+  // is not this copy's (the last `after` failed, so the record stayed old), or
+  // with --rebuild. The copy Step writes nothing there but its record.
+  const rerun =
+    same && item.after !== undefined
+      ? ctx.rebuild(subject)
+        ? "--rebuild"
+        : ctx.machine.name !== from && recorded !== ours
+          ? "its after has not finished"
+          : undefined
+      : undefined;
+  if (rerun !== undefined)
+    return {
+      kind: "change",
+      item: item.name,
+      from: short(source.entries),
+      to: short(source.entries),
+      reason: rerun,
+      change: { ...change, current: source.entries },
+    };
   // The same copy: only its record may need writing.
-  if (ctx.machine.name === from || (current !== undefined && fingerprint(current) === ours))
+  if (same)
     return {
       kind: "leave",
       item: item.name,
@@ -579,8 +609,8 @@ const writeRecord = (name: string, entries: Entries, at: string): string[] => {
   ];
 };
 
-// Mirrors the Starting Machine's copy onto the Machine, then writes the
-// record. Each file lands in a new temporary file beside it (mktemp creates
+// Mirrors the Starting Machine's copy onto the Machine, runs the Item's
+// `after`, then writes the record. Each file lands in a new temporary file beside it (mktemp creates
 // it owner-only before any byte is written), then takes its mode and is
 // renamed into place. An entry whose type changed, or that the Starting
 // Machine no longer has, is deleted first, one entry at a time: a directory
@@ -645,6 +675,15 @@ const copyStep = (change: FileChange): Step => {
         ),
         ...writes.flatMap(write),
         ...modes,
+        // In this script's own shell, after shell.init and the prelude, so
+        // the functions they define (nvm) are there (ADR 0020). It runs
+        // before the record, so a failure leaves the old record and the next
+        // Ship runs it again (decideFile).
+        ...(item.after === undefined
+          ? []
+          : [
+              `(cd "$(if [ -d "$ff_p" ]; then printf '%s' "$ff_p"; else dirname "$ff_p"; fi)" && eval ${quote(item.after)})`,
+            ]),
         ...writeRecord(item.name, entries, change.at),
       ].map((l) => `  ${l}`),
       ")",
@@ -679,7 +718,7 @@ const fetchFiles = (copy: Copy, rels: ReadonlyArray<string>) =>
       { name: copy.machine, local: false },
       [
         // The Check's PATH, which found openssl there.
-        prelude,
+        preludeFor(copy.init),
         `IFS= read -r FF_KEY || FF_KEY=""`,
         "export FF_KEY",
         `ff_p=${quotePath(copy.item.path)}`,
@@ -713,10 +752,10 @@ const fetchFiles = (copy: Copy, rels: ReadonlyArray<string>) =>
   });
 
 // Runs `step` on the Starting Machine; true when it finished.
-const runHere = (from: string, step: Step) =>
+const runHere = (from: string, step: Step, init: string | undefined) =>
   Effect.gen(function* () {
     let ok = false;
-    yield* runScript({ name: from, local: true }, stepScript(step), stepStdin(step), (line) =>
+    yield* runScript({ name: from, local: true }, stepScript(step, init), stepStdin(step), (line) =>
       Effect.sync(() => {
         const parsed = parseLine(line);
         if (parsed.kind === "done" && parsed.done.id === step.id) ok = parsed.done.ok;
@@ -755,7 +794,7 @@ const pull = (
       at: copy.record?.at ?? resolved.at,
       key: fetched.key,
     });
-    return (yield* runHere(resolved.from, step))
+    return (yield* runHere(resolved.from, step, resolved.init))
       ? { done: `pulled ${short(copy.entries)} from ${machine}` }
       : { error: `could not write ${machine}'s copy on ${resolved.from}` };
   }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
@@ -875,7 +914,7 @@ const diff = (
       old: { machine, entries: copy.entries, contents: fetched.contents, key: fetched.key },
       new: { machine: resolved.from, entries: source.entries, contents: source.contents },
     };
-    return (yield* runHere(resolved.from, diffStep({ name, dir, ...sides })))
+    return (yield* runHere(resolved.from, diffStep({ name, dir, ...sides }), resolved.init))
       ? { old: machine, new: resolved.from, notShown: notShownByGit(name, sides.old, sides.new) }
       : { error: `could not write the diff on ${resolved.from}` };
   }).pipe(Effect.catch((e) => Effect.succeed({ error: e.message })));
@@ -898,13 +937,19 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
   rule: "record",
   dependsOn: [],
   items: (_section, listed) =>
-    listed.map(({ name, def }) => ({ name, path: def.path, exclude: def.exclude ?? [] })),
+    listed.map(({ name, def }) => ({
+      name,
+      path: def.path,
+      exclude: def.exclude ?? [],
+      ...(def.after === undefined ? {} : { after: def.after }),
+    })),
   observe: (items) => observe(items),
   parse,
   // Only the Starting Machine's Items that some checked Machine needs are read.
   resolve: (items, { starting: all, checked }) =>
     Effect.gen(function* () {
       const at = DateTime.formatIso(yield* DateTime.now);
+      const init = shellInitFor(all.config, all.machine);
       const needed = new Set(items.map((item) => item.name));
       const starting = { ...all, items: all.items.filter((item) => needed.has(item.name)) };
       const { sources, openssl } =
@@ -927,8 +972,9 @@ export const files: Provider<"files", FileItem, FilesObserved, FilesResolved, Fi
         from: starting.machine.name,
         at,
         sources,
-        copies: copiesOf(checked, starting.machine.name),
+        copies: copiesOf(checked, starting),
         openssl,
+        ...(init === undefined ? {} : { init }),
       };
     }),
   decide: ({ items, observed, resolved, ctx }) =>

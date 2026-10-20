@@ -78,7 +78,7 @@ export type CheckResult =
   | { readonly kind: "checked"; readonly state: MachineState }
   | { readonly kind: "skipped" | "failed" };
 
-// The Check reads a few files and runs vp; anything longer means something on
+// The Check reads a few files and lists Globals; anything longer means something on
 // that Machine is blocking (seen: macOS holding a `git` on an external SSD
 // until tailscaled's privacy prompt is answered). The Ship must not hang.
 const CHECK_TIMEOUT = "2 minutes";

@@ -6,7 +6,7 @@
 import type * as Effect from "effect/Effect";
 import type { ChildProcessSpawner } from "effect/process";
 
-import type { FleetConfig, ProviderName } from "@fleetfizz/config";
+import type { FleetConfig, ProviderName, SectionName } from "@fleetfizz/config";
 
 import { decideRange } from "./range.ts";
 import type { MachineIdentity, Targeting } from "./targeting.ts";
@@ -16,8 +16,10 @@ export interface Named {
   readonly name: string;
 }
 
-// A Provider's config section.
-export type Section<Name extends ProviderName> = NonNullable<FleetConfig[Name]>;
+// A Provider's config section; fleetfizz itself has none (ADR 0019).
+export type Section<Name extends ProviderName> = Name extends SectionName
+  ? NonNullable<FleetConfig[Name]>
+  : never;
 
 // One definition from a section's `items`: an entry, or one of its Variants.
 export type Definition<Name extends ProviderName> = NonNullable<
@@ -56,8 +58,6 @@ export interface Scope {
 
 // What every decide and act sees about the Ship and the Machine.
 export interface Context extends Scope {
-  // The running fleetfizz version, which every Machine is pinned to (ADR 0008).
-  readonly self: string;
   // The Machine's $HOME, or "~" when the Check did not report it.
   readonly home: string;
   // Whether --rebuild names this address (or `all`).
@@ -68,15 +68,13 @@ export interface Context extends Scope {
 
 // Every Question kind and its choices, so `--answer kind=choice` is checked
 // before anything runs. A "range" Question is an Item above its Range; a
-// "config" Question is a Stale Config (ADR 0008); a "mode" Question is vp in
-// system-first mode (ADR 0011); a "file" Question is a Shared File the
+// "config" Question is a Stale Config (ADR 0008); a "file" Question is a Shared File the
 // Starting Machine would overwrite on a target (ADR 0016); a "skill" Question
 // is a skill folder an install would replace, edited there or put there by
 // something other than the skills CLI (ADR 0018).
 export const QUESTION_CHOICES = {
   range: ["bump", "skip", "downgrade"],
   config: ["overwrite", "stop"],
-  mode: ["managed", "skip"],
   file: ["overwrite", "skip"],
   skill: ["overwrite", "skip"],
 } as const;

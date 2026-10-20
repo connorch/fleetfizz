@@ -23,23 +23,23 @@ const machine = (items: ReadonlyArray<Item>, change: Partial<MachineEntry> = {})
 
 describe("cellOf", () => {
   const m = machine([
-    item("vp:node"),
-    item("vp:vercel", { changes: true, from: "1.0.0", to: "2.0.0" }),
-    item("vp:mode", { status: "skipped", asked: true, detail: "system-first" }),
+    item("pnpm:turbo"),
+    item("pnpm:vercel", { changes: true, from: "1.0.0", to: "2.0.0" }),
+    item("files:zshrc", { status: "skipped", asked: true, detail: "was edited there" }),
     item("brew:gh", { status: "failed", changes: true, detail: "no Homebrew" }),
-    item("brew:jq", { status: "skipped", detail: "depends on vp" }),
+    item("brew:jq", { status: "skipped", detail: "depends on pnpm" }),
   ]);
 
   it("tells each state apart", () => {
     expect(
-      ["vp:node", "vp:vercel", "vp:mode", "brew:gh", "brew:jq", "cask:ghostty"].map(
+      ["pnpm:turbo", "pnpm:vercel", "files:zshrc", "brew:gh", "brew:jq", "cask:ghostty"].map(
         (a) => cellOf(m, a).glyph,
       ),
     ).toEqual(["✓", "↑", "?", "✗", "–", "·"]);
   });
 
   it("marks every Item on a Machine that was not checked", () => {
-    expect(cellOf(machine([], { status: "skipped", detail: "offline" }), "vp:node").glyph).toBe(
+    expect(cellOf(machine([], { status: "skipped", detail: "offline" }), "pnpm:turbo").glyph).toBe(
       "○",
     );
   });
@@ -50,15 +50,15 @@ describe("summaryOf", () => {
 
   it("counts what differs", () => {
     const m = machine([
-      item("vp:vercel", { changes: true }),
+      item("pnpm:vercel", { changes: true }),
       item("repos:t3code", { changes: true }),
-      item("vp:mode", { status: "skipped", asked: true }),
+      item("files:zshrc", { status: "skipped", asked: true }),
     ]);
     expect(summaryOf(m, undefined, now)).toEqual({
       text: "2 to change · 1 Question",
       tone: "run",
     });
-    expect(summaryOf(machine([item("vp:node")]), undefined, now)).toEqual({
+    expect(summaryOf(machine([item("pnpm:turbo")]), undefined, now)).toEqual({
       text: "in line",
       tone: "ok",
     });
@@ -81,28 +81,29 @@ describe("rowsOf", () => {
     parseConfig(
       "config.jsonc",
       JSON.stringify({
+        version: "0.2.0",
         machines: ["studio", "air"],
         brew: { items: { gh: "*", tmux: { range: "*", machines: ["air"] } } },
       }),
     ),
   );
 
-  it("keeps an Item only offline Machines get, and vp's Items without a vp section", () => {
+  it("keeps an Item only offline Machines get, and implicit Items, fleetfizz's last", () => {
     const state: LedgerState = {
       from: "studio",
       dryRun: true,
       notes: [],
       started: 0,
       machines: [
-        machine([item("vp:vp"), item("vp:mode"), item("brew:gh"), item("config")], {
+        machine([item("fleetfizz:fleetfizz"), item("brew:brew"), item("brew:gh"), item("config")], {
           name: "studio",
         }),
         machine([], { name: "air", status: "skipped", detail: "offline" }),
       ],
     };
     expect(rowsOf(state, config).map((s) => [s.provider, s.items.map((i) => i.name)])).toEqual([
-      ["vp", ["vp", "mode"]],
-      ["brew", ["gh", "tmux"]],
+      ["brew", ["gh", "tmux", "brew"]],
+      ["fleetfizz", ["fleetfizz"]],
     ]);
   });
 });

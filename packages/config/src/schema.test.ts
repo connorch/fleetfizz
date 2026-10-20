@@ -4,7 +4,8 @@ import * as Schema from "effect/Schema";
 import { FleetConfig, isPin, Range } from "./schema.ts";
 
 const decode = Schema.decodeUnknownResult(FleetConfig);
-const ok = (input: unknown) => decode(input)._tag === "Success";
+// Every config but the version tests' names the same version.
+const ok = (input: object) => decode({ version: "0.2.0", ...input })._tag === "Success";
 
 describe("FleetConfig", () => {
   it("accepts a full config", () => {
@@ -12,6 +13,7 @@ describe("FleetConfig", () => {
       ok({
         $schema: "./schema.json",
         machines: ["connors-mac-studio", "connors-macbook-pro"],
+        shell: { init: [{ machines: ["connors-mac-studio"], command: "source ~/.zshrc" }] },
         repos: {
           dependsOn: ["brew"],
           cloneRoot: [
@@ -28,10 +30,9 @@ describe("FleetConfig", () => {
             },
           },
         },
-        vp: {
-          version: "1.1.0",
-          node: "24.18.1",
-          dependsOn: [],
+        npm: { items: { pnpm: "^10" } },
+        pnpm: {
+          dependsOn: ["npm"],
           items: {
             vercel: "^59.25.4",
             skills: "*",
@@ -54,6 +55,7 @@ describe("FleetConfig", () => {
 
   it("decodes a shorthand to its full entry, alone or as a Variant", () => {
     const decoded = Schema.decodeSync(FleetConfig)({
+      version: "0.2.0",
       machines: ["a"],
       repos: { cloneRoot: "~/code" },
       vp: {
@@ -71,6 +73,7 @@ describe("FleetConfig", () => {
 
   it("encodes a targeted entry with its Targeting", () => {
     const written = {
+      version: "0.2.0",
       machines: ["a"],
       vp: { items: { wrangler: { range: "^4.0.0", machines: ["a"] } } },
     } as const;
@@ -96,9 +99,16 @@ describe("FleetConfig", () => {
     expect(ok({ machines: ["a"], vp: { platforms: ["windows"] } })).toBe(false);
   });
 
-  it("rejects Globals the vp section manages elsewhere", () => {
-    for (const name of ["vp", "node", "pnpm", "mode", "vite-plus", "fleetfizz"]) {
-      expect(ok({ machines: ["a"], vp: { items: { [name]: "*" } } }), name).toBe(false);
+  it("takes an exact version only", () => {
+    expect(decode({ version: "0.13.0", machines: ["a"] })._tag).toBe("Success");
+    for (const version of ["^0.13.0", "0.13", "latest", undefined])
+      expect(decode({ version, machines: ["a"] })._tag, String(version)).toBe("Failure");
+  });
+
+  it("rejects fleetfizz as a Global: the config's version sets it", () => {
+    for (const pm of ["vp", "npm", "bun", "pnpm"]) {
+      expect(ok({ machines: ["a"], [pm]: { items: { fleetfizz: "*" } } }), pm).toBe(false);
+      expect(ok({ machines: ["a"], [pm]: { items: { pnpm: "^10", node: "*" } } }), pm).toBe(true);
     }
   });
 
@@ -112,6 +122,9 @@ describe("FleetConfig", () => {
   it("takes Shared File names of safe characters, and one exclude across Variants", () => {
     const files = (items: unknown) => ok({ machines: ["a"], files: { items } });
     expect(files({ "editor.settings": "~/.config/editor" })).toBe(true);
+    expect(files({ mise: { path: "~/.config/mise/config.toml", after: "mise install" } })).toBe(
+      true,
+    );
     for (const name of ["editor/settings", "..", ".", "Connor's"])
       expect(files({ [name]: "~/x" }), name).toBe(false);
     const variant = (platform: string, exclude?: string[]) => ({
@@ -147,8 +160,10 @@ describe("FleetConfig", () => {
   });
 
   it("rejects an unknown Provider in dependsOn", () => {
-    expect(ok({ machines: ["a"], vp: { dependsOn: ["repos"] } })).toBe(true);
-    expect(ok({ machines: ["a"], vp: { dependsOn: ["npm"] } })).toBe(false);
+    expect(ok({ machines: ["a"], vp: { dependsOn: ["repos", "npm"] } })).toBe(true);
+    // fleetfizz has no section, and nothing waits for it.
+    for (const name of ["yarn", "fleetfizz"])
+      expect(ok({ machines: ["a"], vp: { dependsOn: [name] } }), name).toBe(false);
   });
 
   it("validates Ranges", () => {

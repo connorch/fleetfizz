@@ -2,8 +2,10 @@
 // Provider resolve signatures, which run elsewhere.
 export {
   dependenciesOf,
+  machineNames,
   machinesNamed,
   planMachine,
+  shellInitFor,
   targetedItems,
   type MachinePlan,
   type PlanInput,

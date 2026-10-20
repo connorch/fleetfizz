@@ -322,8 +322,9 @@ const installStep = ({ item, root }: RepoChange, ctx: Context): Step => {
 export const repos: Provider<"repos", RepoItem, ReposObserved, ReposResolved, RepoChange> = {
   name: "repos",
   rule: "record",
-  // Install Commands need pnpm and Node.
-  dependsOn: ["vp"],
+  // Last by the built-in order; a section's dependsOn names what its
+  // Install Commands need (ADR 0020).
+  dependsOn: [],
   items: (_section, listed) => listed.map(({ name, def }) => ({ ...def, name })),
   observe: (items, scope) => observe(items, cloneRoot(scope.config, scope.machine)),
   parse(facts, records) {

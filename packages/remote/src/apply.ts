@@ -6,7 +6,7 @@ import type { MachinePlan, ProviderPlan, Step } from "@fleetfizz/core";
 
 import { CONFIG_DIR_SH, CONFIG_RECORD, RECORDS_DIR } from "./check.ts";
 import { doneLine, skipLine, stepLine } from "./protocol.ts";
-import { fingerprintFn, prelude, quote, quotePath } from "./shell.ts";
+import { fingerprintFn, preludeFor, quote, quotePath } from "./shell.ts";
 
 // The config copy, one step on every Machine (ADR 0008).
 export const CONFIG_STEP = "config";
@@ -128,11 +128,16 @@ const encodeBase64 = (text: string): string => {
 // Shell every Step may use besides the prelude: ff_lit prints $1 verbatim (a
 // JSON literal the Starting Machine prepared); ff_git is git with the Lent
 // Token, and ff_skills the skills CLI with it (ADR 0003), which only they
-// see. `configRecord` is the JSON the config Step writes beside the config.
-export const applyScript = (plan: MachinePlan, configRecord: string): string => {
+// see. `configRecord` is the JSON the config Step writes beside the config;
+// `init` is the Machine's `shell.init`, if it has one.
+export const applyScript = (
+  plan: MachinePlan,
+  configRecord: string,
+  init: string | undefined,
+): string => {
   const offsets = inputOffsets(plan);
   return [
-    prelude,
+    preludeFor(init),
     fingerprintFn,
     `ff_lit() { printf '%s' "$1"; }`,
     // stdin: line 1 the Lent Token (empty when none), line 2 the config and
@@ -158,9 +163,9 @@ export const applyScript = (plan: MachinePlan, configRecord: string): string => 
 // One Step alone, with its inputs on stdin as `stepStdin` gives them: for a
 // change the Starting Machine makes to itself before the Ship goes on (a
 // pulled Shared File).
-export const stepScript = (step: Step): string =>
+export const stepScript = (step: Step, init?: string): string =>
   [
-    prelude,
+    preludeFor(init),
     fingerprintFn,
     `ff_lit() { printf '%s' "$1"; }`,
     ...(step.input ?? []).flatMap((_, i) => [

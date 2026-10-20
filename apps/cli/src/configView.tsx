@@ -17,7 +17,7 @@ import {
   isPin,
   loadConfig,
   PACKAGE_MANAGERS,
-  type ProviderName,
+  type SectionName,
   shaOf,
 } from "@fleetfizz/config";
 import type { Targeting } from "@fleetfizz/core";
@@ -37,20 +37,20 @@ export interface Row {
 }
 
 export interface SectionView {
-  readonly provider: ProviderName;
+  readonly provider: SectionName;
   readonly where?: string;
   readonly rows: ReadonlyArray<Row>;
 }
 
-// The order sections are shown in: the toolchain, packages, skills, repos, files.
+// The order sections are shown in: Globals, Homebrew, skills, repos, files.
 export const SHOWN = [
-  "vp",
+  ...PACKAGE_MANAGERS,
   "brew",
   "cask",
   "skills",
   "repos",
   "files",
-] as const satisfies ReadonlyArray<ProviderName>;
+] as const satisfies ReadonlyArray<SectionName>;
 
 const whereOf = (targeting: Targeting): string | undefined => {
   const parts = [...(targeting.platforms ?? []), ...(targeting.machines ?? [])];
@@ -83,18 +83,11 @@ export const sectionsOf = (config: FleetConfig): ReadonlyArray<SectionView> =>
     const where = whereOf(section);
     const rows: Row[] = (() => {
       switch (provider) {
-        case "vp": {
-          const vp = config.vp ?? {};
-          // vp's own settings are Items too: vp, node, and the package managers.
-          const settings = (
-            [
-              ["vp", vp.version],
-              ["node", vp.node],
-              ...PACKAGE_MANAGERS.map((pm) => [pm, vp[pm]] as const),
-            ] as const
-          ).flatMap(([name, range]) => (range === undefined ? [] : [{ name, wants: range }]));
-          return [...settings, ...rowsOf(vp.items, (g) => g.range)];
-        }
+        case "vp":
+        case "npm":
+        case "bun":
+        case "pnpm":
+          return rowsOf(config[provider]?.items, (g) => g.range);
         case "brew":
           return rowsOf(config.brew?.items, (f) => f.range);
         case "cask":
@@ -232,7 +225,7 @@ export const configText = (input: {
 }): string =>
   toText(
     <Box flexDirection="column">
-      <T tone="dim">{homeRelative(input.path)}</T>
+      <T tone="dim">{`${homeRelative(input.path)} · fleetfizz ${input.config.version}`}</T>
       <Machines config={input.config} tailnet={input.tailnet} />
       <Sections sections={sectionsOf(input.config)} />
       <Box flexDirection="column" marginTop={1}>

@@ -289,6 +289,18 @@ const insertText = (text: string, path: JsonPath, value: unknown): EditResult =>
   };
 };
 
+// Sets the config's `version` (ADR 0019) in place, or
+// adds it when it has none.
+export const setVersion = (text: string, version: string): EditResult => {
+  const tree = jsonc.parseTree(text, undefined, { allowTrailingComma: true });
+  if (tree !== undefined && jsonc.findNodeAtLocation(tree, ["version"]) === undefined)
+    return insertAt(text, ["version"], version);
+  const edits = jsonc.modify(text, ["version"], version, {
+    formattingOptions: { insertSpaces: true, tabSize: 2 },
+  });
+  return { text: jsonc.applyEdits(text, edits) };
+};
+
 // Removes the property or list element at `path`, with its comma and a line
 // comment after it.
 export const removeAt = (text: string, path: JsonPath): EditResult =>

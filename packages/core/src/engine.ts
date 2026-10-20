@@ -7,12 +7,16 @@ import type { AnyProvider, Context, Decision, Listed, Named, Step } from "./prov
 import type { MachineState } from "./state.ts";
 import { targets, variantFor, type MachineIdentity, type Targeting } from "./targeting.ts";
 
+// A Provider's config section, if it has one and the config lists it.
+const sectionOf = (config: FleetConfig, name: ProviderName) =>
+  name === "fleetfizz" ? undefined : config[name];
+
 // A Provider's dependencies: its own, then the config section's.
 export const dependenciesOf = (
   provider: AnyProvider,
   config: FleetConfig,
 ): ReadonlyArray<ProviderName> => [
-  ...new Set([...provider.dependsOn, ...(config[provider.name]?.dependsOn ?? [])]),
+  ...new Set([...provider.dependsOn, ...(sectionOf(config, provider.name)?.dependsOn ?? [])]),
 ];
 
 const withoutTargeting = <D extends Targeting>({
@@ -29,7 +33,7 @@ export const targetedItems = (
   config: FleetConfig,
   machine: MachineIdentity,
 ): ReadonlyArray<Named> => {
-  const section = config[provider.name];
+  const section = sectionOf(config, provider.name);
   if (section === undefined || !targets(section, machine)) return provider.items(undefined, []);
   const listed = Object.entries(section.items ?? {}).flatMap(([name, entry]) => {
     const chosen = variantFor(entry, machine);
@@ -48,7 +52,7 @@ export const targetedItems = (
 
 // Every Machine name a Targeting names anywhere in `value`: a `machines`
 // list of names, at any depth.
-const machineNames = (value: unknown): ReadonlyArray<string> => {
+export const machineNames = (value: unknown): ReadonlyArray<string> => {
   if (Array.isArray(value)) return value.flatMap(machineNames);
   if (typeof value !== "object" || value === null) return [];
   return Object.entries(value).flatMap(([key, v]) =>
@@ -62,7 +66,13 @@ const machineNames = (value: unknown): ReadonlyArray<string> => {
 // and their Variants, and settings such as `repos.cloneRoot`. A typo in the
 // config is caught before it silently targets nothing.
 export const machinesNamed = (provider: AnyProvider, config: FleetConfig): ReadonlyArray<string> =>
-  machineNames(config[provider.name]);
+  machineNames(sectionOf(config, provider.name));
+
+// The Machine's `shell.init` command: its Variant of it, if any.
+export const shellInitFor = (config: FleetConfig, machine: MachineIdentity): string | undefined => {
+  const init = config.shell?.init;
+  return init === undefined ? undefined : variantFor(init, machine)?.variant.command;
+};
 
 export interface ProviderPlan {
   readonly name: ProviderName;

@@ -1,3 +1,7 @@
+---
+status: amended by ADR-0019 (every Machine runs the config's `version`, not the shipper's, and vp is not required)
+---
+
 # One config at ~/.config/fleetfizz, copied to every Machine by every Ship
 
 The config no longer lives in a repo (ADR 0004). It is `$XDG_CONFIG_HOME/fleetfizz/config.jsonc` (`fleet.config.jsonc` until 0.4.0; the directory already says fleet) (default `~/.config/fleetfizz/`) on every Machine, and a Ship copies the Starting Machine's copy to every reachable Machine as a Step, after the Lent Token on stdin, never in argv. The `machines` map in the config is the Fleet: only the Machines it lists are ever checked or changed, and the Starting Machine must be one of them. fleetfizz is installed with `vp install -g fleetfizz` and pins itself implicitly: a Ship from version X plans `fleetfizz@X` on every Machine that runs a different version, so the whole Fleet converges on the shipper's version. A Machine that runs a newer fleetfizz than the shipper fails its plan ("upgrade here first") rather than being downgraded. A Machine without vp is bootstrapped with vp's installer (`curl -fsSL https://vite.plus | bash`) as its first Step.

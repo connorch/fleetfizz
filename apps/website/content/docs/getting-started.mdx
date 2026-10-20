@@ -5,7 +5,7 @@ description: Set up Tailscale SSH, run fizz init, and run your first Ship.
 
 This guide takes two or more macOS or Linux Machines to a first Ship. Pick one Machine to ship from; the first Ship sets up fleetfizz on the others.
 
-Every Machine needs `git` and `curl`. macOS has both; on Linux, install them with your package manager if they are missing.
+Every Machine needs `git`. The Machine you ship from also needs Node and a package manager: npm, pnpm, bun, or vp.
 
 ## 1. Turn on Tailscale SSH everywhere
 
@@ -57,12 +57,13 @@ tailscale ssh connors-macbook-pro echo ok
 
 ## 2. Install fleetfizz
 
-On the Machine you will ship from, install vp, then open a new terminal so `vp` is on your `PATH`, and install fleetfizz with it. The first Ship installs vp and fleetfizz on the other Machines.
+On the Machine you will ship from, install fleetfizz with any package manager:
 
 ```sh
-curl -fsSL https://vite.plus | bash
-vp install -g fleetfizz
+npm install -g fleetfizz   # or: pnpm add -g, bun add -g, vp install -g
 ```
+
+The first Ship installs the same version on the other Machines, with the package manager that installed fizz there, or this one's when they have none. A Ship never installs a package manager or Node: install them yourself, or keep them in the config as a Global, a Formula, or a Shared File.
 
 ## 3. Run fizz init
 
@@ -70,20 +71,20 @@ vp install -g fleetfizz
 fizz init
 ```
 
-`fizz init` first checks this Machine: vp, Tailscale connected with Tailscale SSH on, and, for Items that need them, Homebrew and a logged-in `gh`. It changes nothing there; for each problem it prints the command that fixes it. Fix any that are required and run it again.
+`fizz init` first checks this Machine: Tailscale connected with Tailscale SSH on, and, for Items that need them, Homebrew and a logged-in `gh`. It changes nothing there; for each problem it prints the command that fixes it. Fix any that are required and run it again.
 
 Then it asks:
 
 - **Which Machines are in the Fleet**, from your tailnet. This Machine is always one. A Machine that is offline or has no Tailscale SSH yet can still be picked; a Ship skips it until it can reach it.
-- **Whether to pin vp and Node** to the versions on this Machine.
-- **Which Globals, Formulae, and Casks to keep in line**, from what this Machine has installed.
+- **Which Globals, Formulae, and Casks to keep in line**, from what this Machine has installed with vp, npm, bun, pnpm, and Homebrew.
 - **Which Shared Files to copy**, from common dotfiles like `~/.gitconfig` and `~/.zshrc` that exist here.
 
-It writes `~/.config/fleetfizz/config.jsonc` with `schema.json` beside it, so your editor checks the config as you edit it, and shows what each Machine gets. Add more at any time:
+It writes `~/.config/fleetfizz/config.jsonc`, with the fleetfizz `version` that is running and `schema.json` beside it, so your editor checks the config as you edit it, and shows what each Machine gets. Add more at any time:
 
 ```sh
 fizz config add repos connorch/t3code --install "pnpm install && pnpm build"
 fizz config add brew tmux --platform linux
+fizz config add pnpm wrangler
 fizz config add files ~/.config/ghostty
 ```
 
@@ -107,6 +108,6 @@ Then ship:
 fizz ship
 ```
 
-The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. If the Ship asks a Question, such as whether to switch a Machine's vp to managed mode, answer it before anything changes. Any Tracked Repo that is private needs `gh` logged in here: the Ship lends its token to each Machine for that Ship only.
+The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. If the Ship asks a Question, such as whether to bump a Range a Machine has outgrown, answer it before anything changes. Any Tracked Repo that is private needs `gh` logged in here: the Ship lends its token to each Machine for that Ship only.
 
-After the first Ship, every Machine it reached has fleetfizz and the config, so you can ship from any of them. An offline Machine is skipped and catches up on a later Ship.
+After the first Ship, every Machine it reached has fleetfizz and the config, so you can ship from any of them. To move every Machine to a new fleetfizz, run `fizz self-update` and ship. An offline Machine is skipped and catches up on a later Ship.

@@ -5,6 +5,7 @@ import type { FleetConfig } from "@fleetfizz/config";
 // longer fits fails the typecheck, and the test decodes it with the CLI's own
 // parser for the runtime rules.
 export const EXAMPLE: typeof FleetConfig.Encoded = {
+  version: "0.14.0",
   machines: ["mac-studio", "macbook-pro", "homelab"],
   repos: {
     cloneRoot: [{ machines: ["mac-studio"], path: "/Volumes/Stack/clones" }],
@@ -19,18 +20,15 @@ export const EXAMPLE: typeof FleetConfig.Encoded = {
       dotfiles: { origin: "connorch/dotfiles", ref: "main", install: "./install.sh" },
     },
   },
-  vp: {
-    version: "1.1.0",
-    node: "24.18.1",
-    items: { vercel: "^59.25.4", wrangler: "^4.136.3" },
-  },
+  pnpm: { items: { vercel: "^59.25.4", wrangler: "^4.136.3" } },
 };
 
 // A comment above each top-level section.
 const COMMENTS: Partial<Record<keyof typeof FleetConfig.Encoded, string>> = {
+  version: "The fleetfizz every Machine runs.",
   machines: "The Fleet: every Machine a Ship touches.",
   repos: "Tracked Repos, installed from origin on every Machine.",
-  vp: "The vite-plus toolchain and its Globals.",
+  pnpm: "Globals, installed with pnpm (or npm, bun, vp).",
 };
 
 export interface Token {

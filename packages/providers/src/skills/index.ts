@@ -10,11 +10,9 @@ import * as Effect from "effect/Effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import * as Schema from "effect/Schema";
 
-import { isPin } from "@fleetfizz/config";
+import { isPin, PACKAGE_MANAGERS } from "@fleetfizz/config";
 import {
   address,
-  targets,
-  variantFor,
   type Context,
   type Decision,
   type Provider,
@@ -23,6 +21,7 @@ import {
 } from "@fleetfizz/core";
 import { quote, recordDir } from "@fleetfizz/remote";
 
+import { installedHere } from "../globals/index.ts";
 import { OBSERVE, REPORT } from "./scripts.ts";
 
 // A skill on one Machine, named by its key in `skills.items`, with the agents
@@ -91,21 +90,7 @@ export interface SkillChange {
   readonly item: SkillItem;
 }
 
-const NO_CLI = "the skills CLI is not installed; add skills to vp.items";
-
-// Whether vp installs the skills CLI on this Machine: its section and its
-// `skills` Global both target it. Skills then wait for the next Ship, whose
-// Check can see their folders through the CLI before anything replaces one.
-const vpInstallsCli = (ctx: Context): boolean => {
-  const vp = ctx.config.vp;
-  const global = vp?.items?.skills;
-  return (
-    vp !== undefined &&
-    global !== undefined &&
-    targets(vp, ctx.machine) &&
-    variantFor(global, ctx.machine) !== undefined
-  );
-};
+const NO_CLI = `the skills CLI is not installed; list skills in the items of ${PACKAGE_MANAGERS.slice(0, -1).join(", ")}, or ${PACKAGE_MANAGERS.at(-1)}`;
 
 const short = (hash: string): string => hash.slice(0, 7);
 
@@ -201,8 +186,11 @@ const decideSkill = (
   const atHash = lock?.hash ?? installed?.hash;
   const at = atHash === undefined ? {} : { at: short(atHash) };
   const change = { item };
+  // A package manager that installs the CLI in this Ship: skills then wait
+  // for the next Ship, whose Check can see their folders through the CLI
+  // before anything replaces one.
   if (!observed.cli)
-    return vpInstallsCli(ctx)
+    return installedHere(ctx.config, ctx.machine, "skills") !== undefined
       ? {
           kind: "skip",
           item: item.name,
@@ -306,8 +294,8 @@ export const skills: Provider<"skills", SkillItem, SkillsObserved, SkillsResolve
   name: "skills",
   // The CLI's lock, with fleetfizz's record of agents, so --rebuild applies.
   rule: "record",
-  // The skills CLI is a vp Global, and runs on vp's Node.
-  dependsOn: ["vp"],
+  // The skills CLI is a Global of whichever package manager the user picks.
+  dependsOn: [],
   items: (section, listed) =>
     section === undefined
       ? []

@@ -11,15 +11,26 @@ export const quotePath = (path: string): string => {
 };
 
 // Shell functions every generated script starts with.
-// Puts vp's bin on PATH. A login shell has sourced vp's env file already, but
-// over ssh Ubuntu's .bashrc returns before reaching it in a non-interactive
-// shell, so every script does this itself (dash exits on `.` of a missing
-// file, hence the check). A VP_HOME or legacy ~/.vite-plus layout keeps its
-// bin elsewhere, so those go on PATH as well.
-export const vpEnv = [
+// Puts the package managers and Node managers a Machine may use on PATH. A
+// login shell over ssh reads no rc file (Ubuntu's .bashrc returns early when
+// it is not interactive, and zsh reads .zshrc only when it is), so their
+// usual PATH lines never run, and every script adds what they would have
+// (ADR 0020). vp's env file is sourced as an interactive shell would (dash
+// exits on `.` of a missing file, hence the check). Everything else is
+// appended, so what the login shell already has wins; `shell.init`, which
+// runs after, is where a Machine puts something first.
+const toolEnv = [
   `ff_env="\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env"`,
   `{ [ ! -f "$ff_env" ] || . "$ff_env"; }`,
-  `export PATH="\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PATH"`,
+  // pnpm installs Globals only with PNPM_HOME set, which `pnpm setup`
+  // writes to an rc file; this is its default.
+  `if [ -z "\${PNPM_HOME:-}" ]; then if [ "$(uname)" = Darwin ]; then PNPM_HOME="$HOME/Library/pnpm"; else PNPM_HOME="\${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"; fi; export PNPM_HOME; fi`,
+  // vp (and its VP_HOME or legacy layout), pnpm, bun, mise's shims, volta,
+  // and fnm's default (its data directory on linux, then on macOS).
+  `export PATH="$PATH:\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PNPM_HOME:\${BUN_INSTALL:-$HOME/.bun}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims:\${VOLTA_HOME:-$HOME/.volta}/bin:\${FNM_DIR:-\${XDG_DATA_HOME:-$HOME/.local/share}/fnm}/aliases/default/bin:$HOME/Library/Application Support/fnm/aliases/default/bin"`,
+  // nvm's default is an alias (`24`, `lts/*`) that only nvm.sh resolves,
+  // so it is sourced, and only when nothing above gave a node.
+  `if ! command -v node >/dev/null 2>&1 && [ -s "\${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then . "\${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1; fi`,
 ].join("\n");
 
 // Puts Homebrew on PATH for the same reason: over ssh, linux login shells
@@ -27,8 +38,8 @@ export const vpEnv = [
 // Commands find what brew installed. Appended, so a brew already on PATH wins.
 const brewEnv = `export PATH="$PATH:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin"`;
 
-export const prelude = [
-  vpEnv,
+const prelude = [
+  toolEnv,
   brewEnv,
   // JSON-escapes $1 for embedding inside a double-quoted JSON string.
   `ff_json() { printf '%s' "$1" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g' | tr -d '\\n'; }`,
@@ -50,3 +61,9 @@ export const fingerprintFn = [
   "  fi",
   "}",
 ].join("\n");
+
+// The prelude, then a Machine's `shell.init` (ADR 0020) when it has one. It
+// runs last, so the Node or PATH it picks wins over the defaults above, and
+// with stdin closed, so it cannot read the secrets an Apply sends there.
+export const preludeFor = (init: string | undefined): string =>
+  init === undefined ? prelude : [prelude, `{ ${init}\n} </dev/null`].join("\n");

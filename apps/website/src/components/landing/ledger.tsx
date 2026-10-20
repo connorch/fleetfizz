@@ -30,7 +30,7 @@ interface Machine {
 
 const NOTES: ReadonlyArray<Row> = [
   [{ text: "3 machines from mac-studio" }],
-  [{ text: "?", tone: "ask" }, { text: " vp:wrangler 4.141.0 on mac-studio is above ^4.136.3" }],
+  [{ text: "?", tone: "ask" }, { text: " pnpm:wrangler 4.141.0 on mac-studio is above ^4.136.3" }],
   [{ text: "  → bump the config to ^4.141.0", tone: "dim" }],
 ];
 
@@ -46,7 +46,12 @@ const MACHINES: ReadonlyArray<Machine> = [
     time: "5m 07s",
     summary: [{ text: "3 of 3 done", tone: "ok" }],
     items: [
-      { status: "✓ done", name: "vp:vp", value: "1.0.0 → 1.1.0", time: "16.6s" },
+      {
+        status: "✓ installed",
+        name: "fleetfizz:fleetfizz",
+        value: "0.13.0 → 0.14.0",
+        time: "16.6s",
+      },
       {
         status: "✓ installed",
         name: "repos:t3code",
@@ -61,7 +66,7 @@ const MACHINES: ReadonlyArray<Machine> = [
     time: "14.2s",
     summary: [{ text: "3 of 3 done", tone: "ok" }],
     items: [
-      { status: "✓ done", name: "vp:wrangler", value: "+ 4.141.0", time: "4.1s" },
+      { status: "✓ done", name: "pnpm:wrangler", value: "+ 4.141.0", time: "4.1s" },
       { status: "✓ installed", name: "repos:dotfiles", value: "+ c7d9e02", time: "9.8s" },
       { status: "✓ copied", name: "config", value: "4c8e1f2 → b07d93a", time: "0.3s" },
     ],

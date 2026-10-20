@@ -1,16 +1,14 @@
 // `fizz init`: a first config on the Machine you will ship from. It checks
 // this Machine and prints any fixes, picks the Fleet from the tailnet, offers
-// this Machine's vp and Node versions, Globals, Formulae, Casks, and common
-// dotfiles, writes the config with the same edits as `fizz config add` (ADR
+// the Globals of every package manager here, Formulae, Casks, and common
+// dotfiles, writes the config at this fizz's version (ADR 0019) with the same edits as `fizz config add` (ADR
 // 0017) and schema.json beside it, and offers a dry run. A Machine joins an
 // existing Fleet by being added to its config and shipped to (ADR 0008), so
 // when a config exists here, `init` shows it and points to `fizz config add`.
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import { Prompt } from "effect/cli";
 import { Box, Text } from "ink";
 
@@ -18,13 +16,16 @@ import {
   configPath,
   fleetConfigSchemaText,
   insertAt,
-  isGlobalName,
   type JsonPath,
   loadConfig,
+  PACKAGE_MANAGERS,
+  type PackageManager,
   SCHEMA_FILE,
   saveConfig,
+  SELF_PACKAGE,
 } from "@fleetfizz/config";
-import { readTailnet, type Tailnet } from "@fleetfizz/remote";
+import { MANAGERS } from "@fleetfizz/providers";
+import { CHECK_ENV, readTailnet, type Tailnet } from "@fleetfizz/remote";
 
 import { ConfigAddError, fileName, machineNote } from "./configAdd.tsx";
 import { configText } from "./configView.tsx";
@@ -38,9 +39,14 @@ export const DOTFILES = ["~/.gitconfig", "~/.zshrc", "~/.bashrc", "~/.profile", 
 
 // What `init` writes: the Fleet, then each section from what was picked.
 export interface Picks {
+  // The running fleetfizz's.
+  readonly version: string;
   readonly machines: ReadonlyArray<string>;
-  readonly vp?: { readonly version: string; readonly node: string | undefined };
-  readonly globals: ReadonlyArray<{ readonly name: string; readonly version: string }>;
+  readonly globals: ReadonlyArray<{
+    readonly pm: PackageManager;
+    readonly name: string;
+    readonly version: string;
+  }>;
   readonly formulae: ReadonlyArray<string>;
   readonly casks: ReadonlyArray<string>;
   readonly files: ReadonlyArray<string>;
@@ -52,13 +58,7 @@ export interface Picks {
 // The config's text for `picks`, built with the edits `fizz config add` makes.
 export const draftText = (picks: Picks): string => {
   const edits: ReadonlyArray<readonly [JsonPath, unknown]> = [
-    ...(picks.vp === undefined
-      ? []
-      : [
-          [["vp", "version"], picks.vp.version] as const,
-          ...(picks.vp.node === undefined ? [] : [[["vp", "node"], picks.vp.node] as const]),
-        ]),
-    ...picks.globals.map((g) => [["vp", "items", g.name], `^${g.version}`] as const),
+    ...picks.globals.map((g) => [[g.pm, "items", g.name], `^${g.version}`] as const),
     ...picks.formulae.map((f) => [["brew", "items", f], "*"] as const),
     ...(picks.casks.length > 0 && picks.linux
       ? [[["cask", "platforms"], ["darwin"]] as const]
@@ -66,7 +66,7 @@ export const draftText = (picks: Picks): string => {
     ...picks.casks.map((c) => [["cask", "items", c], "*"] as const),
     ...picks.files.map((f) => [["files", "items", fileName(f)], f] as const),
   ];
-  const start = `{\n  "$schema": "./${SCHEMA_FILE}",\n  "machines": [],\n}\n`;
+  const start = `{\n  "$schema": "./${SCHEMA_FILE}",\n  "version": ${JSON.stringify(picks.version)},\n  "machines": [],\n}\n`;
   return [...picks.machines.map((m, i) => [["machines", i], m] as const), ...edits].reduce<string>(
     (text, [path, value]) => {
       const result = insertAt(text, path, value);
@@ -113,10 +113,6 @@ export const checksText = (checks: ReadonlyArray<Check>): string => {
     </Box>,
   );
 };
-
-const Globals = Schema.fromJsonString(
-  Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
-);
 
 // Lines of a command's output, or none when it fails.
 const lines = Effect.fn("lines")(function* (command: string, args: ReadonlyArray<string>) {
@@ -191,22 +187,20 @@ export const init = Effect.fn("init")(function* (flags: {
   if (machines !== picked)
     yield* Console.log(`${tailnet.self.name} is in the Fleet too: a Ship starts from it.`);
 
-  const vpVersion = /^vp v?(\S+)/m.exec((yield* runLocal("vp", ["--version"])).stdout)?.[1];
-  const node = /^v(\S+)/.exec((yield* runLocal("node", ["--version"])).stdout.trim())?.[1];
-  const pin =
-    vpVersion !== undefined &&
-    (yield* Prompt.Confirm({
-      message: `Pin vp ${vpVersion}${node === undefined ? "" : ` and Node ${node}`}, the versions on this Machine?`,
-      initial: true,
-    }));
-
-  const installed = Option.getOrElse(
-    Schema.decodeOption(Globals)((yield* runLocal("vp", ["list", "--global", "--json"])).stdout),
-    () => [],
-  ).filter((g) => isGlobalName(g.name));
+  // Every package manager's Globals here, each kept by the one that has it;
+  // fleetfizz itself is the config's `version`.
+  const installed = (yield* Effect.forEach(PACKAGE_MANAGERS, (pm) =>
+    runLocal("sh", ["-c", MANAGERS[pm].list], CHECK_ENV).pipe(
+      Effect.map((ran) =>
+        [...MANAGERS[pm].parse(ran.stdout)].map(([name, version]) => ({ pm, name, version })),
+      ),
+    ),
+  ))
+    .flat()
+    .filter((g) => g.name !== SELF_PACKAGE);
   const globals = yield* pickSome(
     `Which Globals from this Machine? (${installed.length} installed)`,
-    installed.map((g) => ({ title: `${g.name}  ${g.version}`, value: g })),
+    installed.map((g) => ({ title: `${g.name}  ${g.version}  ${g.pm}`, value: g })),
   );
   const leaves = yield* lines("brew", ["leaves", "--installed-on-request"]);
   const formulae = yield* pickSome(
@@ -226,8 +220,8 @@ export const init = Effect.fn("init")(function* (flags: {
   );
 
   const text = draftText({
+    version: flags.version,
     machines,
-    ...(pin && vpVersion !== undefined ? { vp: { version: vpVersion, node } } : {}),
     globals,
     formulae,
     casks,
@@ -250,7 +244,9 @@ export const init = Effect.fn("init")(function* (flags: {
       path,
       config,
       tailnet,
-      footer: ["Add more with fizz config add repos|files|vp|brew|cask."],
+      footer: [
+        `Add more with fizz config add repos|files|${PACKAGE_MANAGERS.join("|")}|brew|cask.`,
+      ],
     }),
   );
   const dryRun = yield* Prompt.Confirm({

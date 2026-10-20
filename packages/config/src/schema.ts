@@ -31,14 +31,35 @@ export const Origin = Schema.String.check(
 export const Ref = Schema.NonEmptyString;
 export const isPin = (ref: string): boolean => /^[0-9a-f]{40}$/.test(ref);
 
-// The built-in Providers, each a top-level config key. Their order is only
-// the tie-break when dependsOn leaves two Providers unordered: Shared Files
-// come first and packages and skills before repos, so an Install Command can
-// read a Shared File or use a Formula or skill from the same Ship without a
-// dependsOn.
-export const PROVIDER_NAMES = ["files", "vp", "brew", "cask", "skills", "repos"] as const;
-export const ProviderName = Schema.Literals(PROVIDER_NAMES);
-export type ProviderName = typeof ProviderName.Type;
+// The package managers whose Globals a Ship keeps, each its own section.
+export const PACKAGE_MANAGERS = ["vp", "npm", "bun", "pnpm"] as const;
+export type PackageManager = (typeof PACKAGE_MANAGERS)[number];
+
+// The Providers with a config section, each a top-level config key. Their
+// order is only the tie-break when dependsOn leaves two Providers unordered
+// (ADR 0010): Homebrew first, then Shared Files, so a Shared File's `after`
+// can use a Formula; then the package managers, so they find the Node a
+// Formula or a Shared File set up, npm before the ones it can install; then
+// skills and repos, so an Install Command can use any of them.
+export const SECTION_NAMES = [
+  "brew",
+  "cask",
+  "files",
+  ...PACKAGE_MANAGERS,
+  "skills",
+  "repos",
+] as const;
+export const SectionName = Schema.Literals(SECTION_NAMES);
+export type SectionName = typeof SectionName.Type;
+
+// Every built-in Provider: the sections, then fleetfizz itself, which has no
+// section (its version is the config's `version`) and runs last (ADR 0019).
+export const PROVIDER_NAMES = [...SECTION_NAMES, "fleetfizz"] as const;
+export type ProviderName = (typeof PROVIDER_NAMES)[number];
+
+// The npm package name of this tool, kept at the config's `version` on every
+// Machine (ADR 0019).
+export const SELF_PACKAGE = "fleetfizz";
 
 // A package.json semver spec (ADR 0006):
 // - "*": install when missing, never upgrade.
@@ -92,7 +113,7 @@ const withShorthand = <Fields extends Schema.Struct.Fields, Text extends string>
 const variants = <S extends Schema.Top>(entry: S) =>
   Schema.Union([entry, Schema.NonEmptyArray(entry)]);
 
-const dependsOn = Schema.optionalKey(Schema.Array(ProviderName)).annotateKey({
+const dependsOn = Schema.optionalKey(Schema.Array(SectionName)).annotateKey({
   description: "Providers whose Items must succeed on a Machine before this one changes there.",
 });
 
@@ -120,55 +141,22 @@ export const Global = withShorthand(Schema.Struct({ ...Targeting, range: Range }
 });
 export type Global = typeof Global.Type;
 
-// The package managers vp keeps a default version of, each its own vp key.
-export const PACKAGE_MANAGERS = ["npm", "pnpm", "yarn", "bun"] as const;
-export type PackageManager = (typeof PACKAGE_MANAGERS)[number];
-
-// Packages a Ship manages through other vp keys (or pins itself), and the
-// names of vp's implicit Items, so they cannot be Globals too.
-const NOT_GLOBALS: Readonly<Record<string, string>> = {
-  vp: "the vp Item is vp itself; set it with vp.version",
-  mode: "the mode Item is vp's managed mode",
-  node: "set Node with vp.node",
-  ...Object.fromEntries(PACKAGE_MANAGERS.map((pm) => [pm, `set ${pm} with vp.${pm}`])),
-  "vite-plus": "set vp with vp.version",
-  fleetfizz: "a Ship installs the fleetfizz that ships",
-};
-
-// Whether a package can be a Global, or is managed some other way.
-export const isGlobalName = (name: string): boolean => !Object.hasOwn(NOT_GLOBALS, name);
-
-export const VpSection = section(
-  {
-    // Exact pins are recommended for vp and Node: a change affects every tool.
-    version: Schema.optionalKey(Range).annotateKey({
-      description: "The vp version. Pin it exactly.",
-    }),
-    node: Schema.optionalKey(Range).annotateKey({
-      description: "The default Node version. Pin it exactly.",
-    }),
-    // Each package manager's default version.
-    npm: Schema.optionalKey(Range).annotateKey({ description: "The default npm version." }),
-    pnpm: Schema.optionalKey(Range).annotateKey({ description: "The default pnpm version." }),
-    yarn: Schema.optionalKey(Range).annotateKey({ description: "The default Yarn version." }),
-    bun: Schema.optionalKey(Range).annotateKey({ description: "The default Bun version." }),
-  },
+// Every package manager's section: its Globals, kept inside their Ranges
+// with its own global install (ADR 0020). fleetfizz is not one of them: the
+// config's `version` sets it.
+export const GlobalsSection = section(
+  {},
   Schema.Record(Schema.NonEmptyString, variants(Global)).check(
     Schema.makeFilter(
-      (globals) => {
-        const name = Object.keys(globals).find((n) => !isGlobalName(n));
-        return name === undefined || `"${name}" is not a Global: ${NOT_GLOBALS[name]}`;
-      },
-      {
-        title: "Globals",
-        description:
-          "npm packages other than vp, node, a package manager, vite-plus, and fleetfizz",
-      },
+      (globals) =>
+        !Object.hasOwn(globals, SELF_PACKAGE) ||
+        `"${SELF_PACKAGE}" is not a Global: the config's "version" sets it`,
+      { title: "Globals", description: `npm packages other than ${SELF_PACKAGE}` },
     ),
   ),
-  `Globals, keyed by package. Each is a Range, \`{ range, platforms?, machines? }\` to target it, ${VARIANTS}.`,
+  `Globals the section's package manager installs, keyed by package. Each is a Range, \`{ range, platforms?, machines? }\` to target it, ${VARIANTS}.`,
 );
-export type VpSection = typeof VpSection.Type;
+export type GlobalsSection = typeof GlobalsSection.Type;
 
 // A Formula's or Cask's Range. Homebrew installs only its newest version:
 // - "*": install when missing, never upgrade.
@@ -275,6 +263,10 @@ export const SharedFile = Schema.Struct({
     description:
       "Globs inside a directory that are neither copied nor deleted. One without a `/` matches a name at any depth. `.DS_Store` and `._*` are always excluded. Every Variant of one Shared File has the same exclude.",
   }),
+  after: Schema.optionalKey(Schema.NonEmptyString).annotateKey({
+    description:
+      "A command run after a Ship writes the file there, in its directory, with shell.init and the known bin directories set up (`mise install`). If it fails, the next Ship runs it again.",
+  }),
 });
 export type SharedFile = typeof SharedFile.Type;
 
@@ -314,7 +306,7 @@ export const FilesSection = section(
       },
     ),
   ),
-  `Shared Files, keyed by name, which names the \`files:<name>\` Item. Each is a path, \`{ path, exclude?, platforms?, machines? }\`, ${VARIANTS}.`,
+  `Shared Files, keyed by name, which names the \`files:<name>\` Item. Each is a path, \`{ path, exclude?, after?, platforms?, machines? }\`, ${VARIANTS}.`,
 );
 export type FilesSection = typeof FilesSection.Type;
 
@@ -378,10 +370,54 @@ export const SkillsSection = section(
 );
 export type SkillsSection = typeof SkillsSection.Type;
 
+// Whether `version` is a fleetfizz from before the config's `version` (ADR
+// 0019): one that cannot read this config, or switch away from it.
+export const predatesVersion = (version: string): boolean =>
+  semver.valid(version) !== null && semver.lt(version, "0.14.0");
+
+// An exact version, as `version` takes: what a Ship and every fizz run.
+export const ExactVersion = Schema.String.check(
+  Schema.makeFilter(
+    (version) => semver.valid(version) === version || 'an exact version, like "0.14.0"',
+    { title: "version", description: 'an exact version, like "0.14.0"' },
+  ),
+);
+
+// A command every Check and Apply runs first on a Machine, before anything
+// else in its shell: one for every Machine, or Variants of `{ command }`.
+const ShellInit = variants(
+  withShorthand(
+    Schema.Struct({ ...Targeting, command: Schema.NonEmptyString }),
+    Schema.NonEmptyString,
+    {
+      decode: (command) => ({ command }),
+      encode: (init) => init.command,
+    },
+  ),
+);
+
+export const ShellSection = Schema.Struct({
+  init: Schema.optionalKey(ShellInit).annotateKey({
+    description:
+      "Shell run before every script a Ship runs on a Machine (`source ~/.zshrc`): a command, or a list of `{ command, platforms?, machines? }` where a Machine gets the first that targets it. By default no rc file is read; the known bin directories of vp, pnpm, bun, mise, volta, nvm, and fnm are on PATH.",
+  }),
+});
+export type ShellSection = typeof ShellSection.Type;
+
+const globalsDescription = (pm: string) =>
+  `Globals installed with ${pm}'s global install. Needs ${pm} on the Machine; a Ship never installs it.`;
+
 // The whole config.jsonc. Shorthands decode to their full entries, so
 // `FleetConfig.Encoded` is the config as a user writes it.
 export const FleetConfig = Schema.Struct({
   $schema: Schema.optionalKey(Schema.String),
+  // Read from the raw text before anything else, by every fizz (ADR 0019).
+  version: ExactVersion.annotateKey({
+    messageMissingKey:
+      'add "version", the fleetfizz every Machine runs, such as the one fizz --version prints',
+    description:
+      "The fleetfizz version every Machine runs. A fizz of any other version installs this one before it does anything else.",
+  }),
   // Every name must exist on the tailnet, and the Starting Machine must be one of them.
   machines: Schema.Array(Schema.NonEmptyString)
     .check(
@@ -392,6 +428,9 @@ export const FleetConfig = Schema.Struct({
       description:
         "The Fleet: each Machine's tailnet name. A tailnet member that is not listed is not part of the Fleet.",
     }),
+  shell: Schema.optionalKey(ShellSection).annotateKey({
+    description: "How a Ship's scripts start on each Machine.",
+  }),
   files: Schema.optionalKey(FilesSection).annotateKey({
     description:
       "Files and directories copied from the Starting Machine to every targeted Machine. A directory is mirrored.",
@@ -400,7 +439,10 @@ export const FleetConfig = Schema.Struct({
     description:
       "Each Tracked Repo is cloned on every targeted Machine and installed from its origin ref.",
   }),
-  vp: Schema.optionalKey(VpSection).annotateKey({ description: "The vite-plus toolchain." }),
+  vp: Schema.optionalKey(GlobalsSection).annotateKey({ description: globalsDescription("vp") }),
+  npm: Schema.optionalKey(GlobalsSection).annotateKey({ description: globalsDescription("npm") }),
+  bun: Schema.optionalKey(GlobalsSection).annotateKey({ description: globalsDescription("bun") }),
+  pnpm: Schema.optionalKey(GlobalsSection).annotateKey({ description: globalsDescription("pnpm") }),
   brew: Schema.optionalKey(BrewSection).annotateKey({
     description: "Homebrew Formulae. Needs Homebrew on the Machine; a Ship never installs it.",
   }),
@@ -409,10 +451,7 @@ export const FleetConfig = Schema.Struct({
   }),
   skills: Schema.optionalKey(SkillsSection).annotateKey({
     description:
-      "Agent skills, installed with the skills CLI, which `vp.items` must list. Kept at their source's ref.",
+      "Agent skills, installed with the skills CLI, which a package manager's section must list as a Global. Kept at their source's ref.",
   }),
 });
 export type FleetConfig = typeof FleetConfig.Type;
-
-// The npm package name of this tool, which a Ship pins implicitly (ADR 0008).
-export const SELF_PACKAGE = "fleetfizz";

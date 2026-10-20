@@ -38,16 +38,17 @@ export const cellOf = (m: MachineEntry, address: string): Cell => {
   return item.changes ? { glyph: "↑", tone: "run" } : { glyph: "✓", tone: "ok" };
 };
 
-// The Items to show, by Provider in `fizz config`'s order: every Item the
-// config lists, so one that targets only Machines that were not checked
-// still has a row, then every other Item a Machine planned (vp's implicit
-// Items, with or without a vp section). The config copy is shown per Machine.
+// The Items to show, by Provider in `fizz config`'s order, then fleetfizz
+// itself: every Item the config lists, so one that targets only Machines that
+// were not checked still has a row, then every other Item a Machine planned
+// (implicit Items: brew:brew, fleetfizz:fleetfizz). The config copy is shown
+// per Machine.
 export const rowsOf = (state: LedgerState, config: FleetConfig) => {
   const sections = sectionsOf(config);
   const planned = state.machines
     .flatMap((m) => m.items.map((i) => parseAddress(i.name)))
     .filter((at) => at !== undefined);
-  return SHOWN.flatMap((provider) => {
+  return [...SHOWN, "fleetfizz" as const].flatMap((provider) => {
     const rows = sections.find((s) => s.provider === provider)?.rows ?? [];
     const names = [
       ...new Set([

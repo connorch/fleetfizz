@@ -1,8 +1,8 @@
-Add a Global.
+Add a Global that vp installs.
 
 | Argument | Description |
 | --- | --- |
-| `<package>` | An npm package, with a Range (`vercel@^59`) or without one: then `^` the version installed here, or the newest published. |
+| `<package>` | An npm package, with a Range (`vercel@^59`) or without one: then `^` the version vp has installed here, or the newest published. |
 
 | Flag | Description |
 | --- | --- |

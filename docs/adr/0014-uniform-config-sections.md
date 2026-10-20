@@ -1,3 +1,7 @@
+---
+status: amended by ADR-0020 (the vp section has no settings that create Items)
+---
+
 # Uniform config sections: one envelope, an items map, and Variants
 
 Each section of the config had its own shape. `vp`, `brew`, and `cask` were objects with Targeting and `dependsOn`, but their Items sat under different keys (`globals`, `items`). `repos` was a bare array, so it could not take section Targeting or `dependsOn`, and its one setting, the Clone Root, lived outside it in `machines.<name>.clones`. Every Provider parsed its own section and copied Targeting by hand. A `files` Provider for Shared Files was coming next and would have added a fifth shape.

@@ -10,10 +10,9 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import {
   configPath,
   type JsonPath,
-  PACKAGE_MANAGERS,
   parseConfig,
-  PROVIDER_NAMES,
   removeAt,
+  SECTION_NAMES,
   targetingLists,
   SCHEMA_FILE,
   saveConfig,
@@ -25,14 +24,9 @@ import { changeText } from "./configView.tsx";
 import { homeRelative, interactive } from "./local.ts";
 import { T } from "./view.tsx";
 
-// Where a `provider:item` address sits in the config. vp's own settings are
-// Items too: `vp:vp` is `vp.version`, and `vp:node` is `vp.node`.
-export const pathOf = (provider: string, item: string): JsonPath | undefined => {
-  if (provider === "vp" && item === "vp") return ["vp", "version"];
-  if (provider === "vp" && (item === "node" || PACKAGE_MANAGERS.some((pm) => pm === item)))
-    return ["vp", item];
-  return PROVIDER_NAMES.some((p) => p === provider) ? [provider, "items", item] : undefined;
-};
+// Where a `provider:item` address sits in the config.
+export const pathOf = (provider: string, item: string): JsonPath | undefined =>
+  SECTION_NAMES.some((p) => p === provider) ? [provider, "items", item] : undefined;
 
 // The Item a Targeting list belongs to, for messages: `brew.items.tmux`.
 const owner = (path: JsonPath) => path.slice(0, -1).join(".");
@@ -88,7 +82,7 @@ export const removeItem = Effect.fn("removeItem")(function* (input: {
   const path = pathOf(at.provider, at.item);
   if (path === undefined)
     return yield* new ConfigAddError({
-      reason: `${at.provider}: expected machines or a Provider (${PROVIDER_NAMES.join(", ")})`,
+      reason: `${at.provider}: expected machines or a Provider (${SECTION_NAMES.join(", ")})`,
     });
   const { path: file, text } = yield* openConfig(input.config);
   const result = removeAt(text, path);
