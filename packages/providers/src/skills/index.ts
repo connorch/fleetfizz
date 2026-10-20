@@ -1,5 +1,5 @@
 // The skills Provider: agent skills, installed with the skills CLI (ADR
-// 0017). The CLI does every install, `skills add`, and keeps its own lock of
+// 0018). The CLI does every install, `skills add`, and keeps its own lock of
 // each skill's source, ref, and folder hash; fleetfizz never writes a
 // skill's folder or the lock. Its own Install Record holds only the agents
 // a Ship installed the skill for, which the CLI does not record. A skill

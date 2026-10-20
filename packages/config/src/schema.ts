@@ -321,7 +321,7 @@ export type FilesSection = typeof FilesSection.Type;
 // An agent id the skills CLI knows (`claude-code`, `codex`), passed to `skills add -a`.
 const Agents = Schema.NonEmptyArray(Schema.NonEmptyString);
 
-// An agent skill, installed with the skills CLI from its source (ADR 0017).
+// An agent skill, installed with the skills CLI from its source (ADR 0018).
 // Its name is its key in `skills.items`.
 export const Skill = Schema.Struct({
   ...Targeting,

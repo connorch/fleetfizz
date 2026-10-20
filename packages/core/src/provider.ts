@@ -72,7 +72,7 @@ export interface Context extends Scope {
 // system-first mode (ADR 0011); a "file" Question is a Shared File the
 // Starting Machine would overwrite on a target (ADR 0016); a "skill" Question
 // is a skill folder an install would replace, edited there or put there by
-// something other than the skills CLI (ADR 0017).
+// something other than the skills CLI (ADR 0018).
 export const QUESTION_CHOICES = {
   range: ["bump", "skip", "downgrade"],
   config: ["overwrite", "stop"],
