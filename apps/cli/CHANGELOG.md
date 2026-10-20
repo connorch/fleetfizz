@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.13.0
+
+### Minor Changes
+
+- [#65](https://github.com/connorch/fleetfizz/pull/65) [`cbeed50`](https://github.com/connorch/fleetfizz/commit/cbeed5057eb27192eb14c0e5d08445f579bb9b0b) Thanks [@connorch](https://github.com/connorch)! - New `skills` section: agent skills, installed on every targeted Machine with the skills CLI (list it in `vp.items`) for the agents you name. A skill from GitHub is kept at its ref, or the default branch: when its folder's hash moves there, the next Ship installs it again. A Ship asks before an install replaces a skill folder that was edited there or that the skills CLI did not install (`--answer skill=overwrite|skip`), and `--rebuild skills:<name>` installs one again. Private sources use the same gh token as private repos.
+
 ## 0.12.0
 
 ### Minor Changes
