@@ -8,7 +8,9 @@
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import { Prompt } from "effect/cli";
 import { Box, Text } from "ink";
 
@@ -28,7 +30,7 @@ import {
 import { MANAGERS } from "@fleetfizz/providers";
 import { CHECK_ENV, readTailnet, type Tailnet } from "@fleetfizz/remote";
 
-import { ConfigAddError, fileName, machineNote } from "./configAdd.tsx";
+import { ConfigAddError, fileName, machineNote, rangeEntry } from "./configAdd.tsx";
 import { configText } from "./configView.tsx";
 import { expandHome, homeRelative, interactive, runLocal } from "./local.ts";
 import { checksOf, readFacts, type Check } from "./prerequisites.ts";
@@ -48,11 +50,13 @@ export interface Picks {
     readonly name: string;
     readonly version: string;
   }>;
-  readonly formulae: ReadonlyArray<string>;
+  // Each picked Formula, and whether Homebrew requires macOS for it.
+  readonly formulae: ReadonlyArray<{ readonly name: string; readonly macos: boolean }>;
   readonly casks: ReadonlyArray<string>;
   readonly files: ReadonlyArray<string>;
-  // A Cask fails on Linux, so with a Linux Machine in the Fleet the cask
-  // section targets darwin.
+  // A Cask fails on Linux, and so does a Formula that requires macOS, so
+  // with a Linux Machine in the Fleet the cask section and those Formulae
+  // target darwin.
   readonly linux: boolean;
 }
 
@@ -63,7 +67,14 @@ export const draftText = (picks: Picks): EditResult => {
   const edits: ReadonlyArray<readonly [string, JsonPath, unknown]> = [
     ...picks.machines.map((m, i) => [m, ["machines", i], m] as const),
     ...picks.globals.map((g) => [g.name, [g.pm, "items", g.name], `^${g.version}`] as const),
-    ...picks.formulae.map((f) => [f, ["brew", "items", f], "*"] as const),
+    ...picks.formulae.map(
+      (f) =>
+        [
+          f.name,
+          ["brew", "items", f.name],
+          rangeEntry("*", picks.linux && f.macos ? { platforms: ["darwin"] } : {}),
+        ] as const,
+    ),
     ...(picks.casks.length > 0 && picks.linux
       ? [["the cask platforms", ["cask", "platforms"], ["darwin"]] as const]
       : []),
@@ -121,6 +132,58 @@ export const checksText = (checks: ReadonlyArray<Check>): string => {
 const lines = Effect.fn("lines")(function* (command: string, args: ReadonlyArray<string>) {
   const ran = yield* runLocal(command, args);
   return ran.code === 0 ? ran.stdout.split("\n").filter((l) => l.trim() !== "") : [];
+});
+
+const Requirements = Schema.Array(Schema.Struct({ name: Schema.String }));
+const requiresMacos = (requirements: typeof Requirements.Type) =>
+  requirements.some((r) => r.name === "macos");
+
+const BrewInfo = Schema.fromJsonString(
+  Schema.Struct({
+    formulae: Schema.Array(
+      Schema.Struct({
+        full_name: Schema.String,
+        tap: Schema.NullOr(Schema.String),
+        requirements: Requirements,
+      }),
+    ),
+  }),
+);
+
+// Whether formulae.brew.sh lists a macOS requirement for a homebrew/core
+// Formula; false when it cannot be read.
+const coreRequiresMacos = Effect.fn("coreRequiresMacos")(
+  function* (name: string) {
+    const response = yield* HttpClient.get(`https://formulae.brew.sh/api/formula/${name}.json`);
+    const body = yield* HttpClientResponse.schemaBodyJson(
+      Schema.Struct({ requirements: Requirements }),
+    )(response);
+    return requiresMacos(body.requirements);
+  },
+  Effect.timeout("10 seconds"),
+  Effect.orElseSucceed(() => false),
+  Effect.provide(FetchHttpClient.layer),
+);
+
+// The Formulae in `names` that Homebrew requires macOS for (`depends_on
+// :macos`), which fail on a Linux Machine. Homebrew 7 reads homebrew/core
+// from an internal API that leaves out a requirement this Mac meets, so a
+// core Formula's come from formulae.brew.sh; a tap's are in `brew info`.
+const macosFormulae = Effect.fn("macosFormulae")(function* (names: ReadonlyArray<string>) {
+  if (names.length === 0) return new Set<string>();
+  const ran = yield* runLocal("brew", ["info", "--json=v2", "--formula", ...names]);
+  const info = yield* Schema.decodeEffect(BrewInfo)(ran.stdout).pipe(
+    Effect.orElseSucceed(() => ({ formulae: [] })),
+  );
+  const macos = yield* Effect.filter(
+    info.formulae,
+    (f) =>
+      f.tap === "homebrew/core"
+        ? coreRequiresMacos(f.full_name)
+        : Effect.succeed(requiresMacos(f.requirements)),
+    { concurrency: 8 },
+  );
+  return new Set(macos.map((f) => f.full_name));
 });
 
 // A multi-select with nothing picked, or nothing to ask when there is nothing.
@@ -205,11 +268,14 @@ export const init = Effect.fn("init")(function* (flags: {
     `Which Globals from this Machine? (${installed.length} installed)`,
     installed.map((g) => ({ title: `${g.name}  ${g.version}  ${g.pm}`, value: g })),
   );
+  const linux = machines.some((m) => tailnet.fleet.find((f) => f.name === m)?.platform === "linux");
   const leaves = yield* lines("brew", ["leaves", "--installed-on-request"]);
-  const formulae = yield* pickSome(
+  const pickedFormulae = yield* pickSome(
     `Which Formulae from this Machine? (${leaves.length} installed on request)`,
     leaves.map((f) => ({ title: f, value: f })),
   );
+  const macos = linux ? yield* macosFormulae(pickedFormulae) : new Set<string>();
+  const formulae = pickedFormulae.map((name) => ({ name, macos: macos.has(name) }));
   const installedCasks =
     process.platform === "darwin" ? yield* lines("brew", ["list", "--cask"]) : [];
   const casks = yield* pickSome(
@@ -229,7 +295,7 @@ export const init = Effect.fn("init")(function* (flags: {
     formulae,
     casks,
     files,
-    linux: machines.some((m) => tailnet.fleet.find((f) => f.name === m)?.platform === "linux"),
+    linux,
   });
   if ("reason" in draft) return yield* new ConfigAddError({ reason: draft.reason });
   const config = yield* saveConfig(path, draft.text);

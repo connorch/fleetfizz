@@ -16,7 +16,7 @@ describe("draftText", () => {
         { pm: "pnpm", name: "wrangler", version: "4.136.3" },
         { pm: "vp", name: "@posthog/cli", version: "0.18.9" },
       ],
-      formulae: ["gh"],
+      formulae: [{ name: "gh", macos: false }],
       casks: [],
       files: ["~/.gitconfig"],
       linux: false,
@@ -56,6 +56,28 @@ describe("draftText with a Linux Machine", () => {
       `"cask": { "platforms": ["darwin"], "items": { "ghostty": "*" } },`,
     );
   });
+
+  it("targets a Formula that requires macOS at darwin, and leaves the rest", () => {
+    const draft = draftText({
+      version: "0.14.0",
+      machines: ["studio", "homelab"],
+      globals: [],
+      formulae: [
+        { name: "gh", macos: false },
+        { name: "pinentry-mac", macos: true },
+      ],
+      casks: [],
+      files: [],
+      linux: true,
+    });
+    if (!("text" in draft)) throw new Error(draft.reason);
+    expect(draft.text).toContain(`"gh": "*",`);
+    expect(draft.text).toContain(`"pinentry-mac": { "range": "*", "platforms": ["darwin"] }`);
+    expect(Effect.runSync(parseConfig("config.jsonc", draft.text)).machines).toEqual([
+      "studio",
+      "homelab",
+    ]);
+  });
 });
 
 describe("draftText when an edit fails", () => {
@@ -64,7 +86,10 @@ describe("draftText when an edit fails", () => {
       version: "0.14.0",
       machines: ["studio"],
       globals: [],
-      formulae: ["gh", "gh"],
+      formulae: [
+        { name: "gh", macos: false },
+        { name: "gh", macos: false },
+      ],
       casks: [],
       files: [],
       linux: false,
