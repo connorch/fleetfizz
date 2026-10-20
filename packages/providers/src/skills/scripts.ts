@@ -26,7 +26,8 @@ const emit = (fact) => console.log("ff-state " + JSON.stringify({ provider: "ski
 // until someone edits it. With core.autocrlf off, a folder holds GitHub's
 // exact bytes (ff_skills installs it that way) and hashes to GitHub's tree;
 // core.eol and core.safecrlf act only on a conversion, so they cannot
-// change it. `skills ls` finds each folder wherever the CLI put
+// change it. A .gitattributes text or eol rule in the folder still can.
+// `skills ls` finds each folder wherever the CLI put
 // it; which agents a skill is installed for, it cannot say reliably (only
 // for agents it detects), so the Install Record keeps that.
 export const OBSERVE = `${LOCK}
