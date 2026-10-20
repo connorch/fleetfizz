@@ -123,10 +123,11 @@ export const installedHere = (
     );
   });
 
-// Whether a Formula is one that gives `pm`: Node's (with npm), pnpm, or bun.
+// Whether a Formula is one that gives `pm` on PATH: Node's (with npm), pnpm,
+// or bun. `node@<n>` is keg-only, so its npm is not on PATH.
 const givesManager = (pm: PackageManager, formula: string): boolean =>
   pm === "npm"
-    ? /^node(@\d+)?$/.test(formula)
+    ? formula === "node"
     : pm === "vp"
       ? false
       : formula === pm || formula.endsWith(`/${pm}`);

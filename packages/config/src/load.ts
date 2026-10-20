@@ -67,8 +67,10 @@ const repeatedKeys = (text: string): string[] => {
 // Undefined when the text does not parse or has no exact `version`: the
 // config's own load then says what is wrong.
 export const readVersion = (text: string): string | undefined => {
-  const parsed: unknown = jsonc.parse(text, [], { allowTrailingComma: true });
-  if (typeof parsed !== "object" || parsed === null || !("version" in parsed)) return undefined;
+  const errors: jsonc.ParseError[] = [];
+  const parsed: unknown = jsonc.parse(text, errors, { allowTrailingComma: true });
+  if (errors.length > 0 || typeof parsed !== "object" || parsed === null || !("version" in parsed))
+    return undefined;
   return Schema.is(ExactVersion)(parsed.version) ? parsed.version : undefined;
 };
 
