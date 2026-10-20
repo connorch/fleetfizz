@@ -19,7 +19,7 @@ import {
   type Question,
   type Step,
 } from "@fleetfizz/core";
-import { quote, recordDir, recordFile } from "@fleetfizz/remote";
+import { quote, recordDir } from "@fleetfizz/remote";
 
 import { OBSERVE, REPORT } from "./scripts.ts";
 
@@ -256,25 +256,24 @@ const decideSkill = (
 };
 
 // One `skills add` per source and agents, so a repo is cloned once for all
-// its skills, then the hash each skill reached, and, once the install
-// succeeded, each one's Install Record. The Step's result is the install's.
+// its skills. Its --json result says, skill by skill, what it installed
+// (without --json it can exit 0 after a partial failure), and REPORT turns
+// that into each skill's hash and Install Record. The Step fails if the CLI
+// or any skill did.
 const installStep = (batch: ReadonlyArray<SkillItem>): Step => {
   const [first] = batch;
   const names = batch.map((item) => item.name);
   const agents = first?.agents ?? [];
-  const record = quote(JSON.stringify({ agents }));
   return {
     id: `skills:${first?.name ?? ""}:install`,
     items: names,
     doing: "installing",
     run: [
-      `ff_skills add ${quote(first === undefined ? "" : installSource(first))} -g -y -s ${names.map(quote).join(" ")} -a ${agents.map(quote).join(" ")}`,
+      `ff_o=$(ff_skills add ${quote(first === undefined ? "" : installSource(first))} -g -y --json -s ${names.map(quote).join(" ")} -a ${agents.map(quote).join(" ")})`,
       "ff_rc=$?",
-      `node -e ${quote(REPORT)} ${quote(JSON.stringify(names))}`,
-      `if [ "$ff_rc" -eq 0 ]; then`,
-      `  mkdir -p ${recordDir("skills")}`,
-      ...names.map((name) => `  ff_lit ${record} > ${recordFile("skills", name)} || ff_rc=$?`),
-      "fi",
+      `printf '%s' "$ff_o" | node -e ${quote(REPORT)} ${quote(JSON.stringify([names, agents]))} ${recordDir("skills")}`,
+      `ff_rr=$?`,
+      `if [ "$ff_rc" -eq 0 ]; then ff_rc=$ff_rr; fi`,
       `(exit "$ff_rc")`,
     ],
   };

@@ -34,9 +34,18 @@ const [names, agents] = JSON.parse(process.argv[1]);
 const lock = readLock();
 const paths = new Map();
 const text = (value) => (typeof value === "string" && value !== "" ? value : undefined);
+const { existsSync } = require("node:fs");
 try {
   const list = JSON.parse(execFileSync("skills", ["ls", "-g", "-a", ...agents, "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
   for (const s of list) if (names.includes(s.name) && !paths.has(s.name)) paths.set(s.name, s.path);
+  // \`skills ls\` leaves out a folder whose SKILL.md it cannot parse (deleted,
+  // or edited badly), which an install would still replace. The CLI's
+  // shared folder is checked directly, so such a folder is never taken as
+  // missing.
+  for (const name of names) {
+    const shared = join(homedir(), ".agents", "skills", name);
+    if (!paths.has(name) && existsSync(shared)) paths.set(name, shared);
+  }
 } catch (e) {
   // The CLI prints an unknown agent id on stdout: "Invalid agents: x".
   const error = String(e.stderr || e.stdout || e.message).replace(/\\u001b\\[[0-9;]*m/g, "").trim().split("\\n")[0];
@@ -75,12 +84,35 @@ for (const name of names) {
 }
 `;
 
-// After an install. argv[1] is JSON names: prints the hash each one reached,
-// from the lock the CLI just wrote, as core's AtFact.
+// After an install. stdin is `skills add --json`'s result per skill;
+// argv[1] is JSON [names, agents], argv[2] the directory of Install Records.
+// For each skill the CLI installed for every agent asked: prints the hash it
+// reached, from the lock the CLI just wrote, as core's AtFact, and writes its
+// Install Record. A skill it failed or skipped, or installed for only some
+// agents, gets no record, so the next Ship installs it again. Exits non-zero
+// if any skill asked for did not install.
 export const REPORT = `${LOCK}
+const { mkdirSync, renameSync, writeFileSync } = require("node:fs");
+const [names, agents] = JSON.parse(process.argv[1]);
+const dir = process.argv[2];
+let results = [];
+try {
+  results = JSON.parse(readFileSync(0, "utf8"));
+} catch {}
 const lock = readLock();
-for (const item of JSON.parse(process.argv[1])) {
-  const hash = lock[item]?.skillFolderHash;
-  if (typeof hash === "string" && hash !== "") emit({ fact: "at", item, at: hash.slice(0, 7) });
+let ok = 0;
+for (const r of Array.isArray(results) ? results : []) {
+  if (!names.includes(r.name) || r.status !== "installed") continue;
+  const hash = lock[r.name]?.skillFolderHash;
+  if (typeof hash === "string" && hash !== "") emit({ fact: "at", item: r.name, at: hash.slice(0, 7) });
+  // The result names agents by display name ("Claude Code"), one per agent
+  // it installed for, so a short list means some agent was left out.
+  if (!Array.isArray(r.agents) || r.agents.length < agents.length) continue;
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, r.name + ".json");
+  writeFileSync(file + ".tmp", JSON.stringify({ agents }) + "\\n");
+  renameSync(file + ".tmp", file);
+  ok += 1;
 }
+process.exit(ok === names.length ? 0 : 1);
 `;

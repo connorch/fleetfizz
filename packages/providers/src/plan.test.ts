@@ -17,6 +17,7 @@ import {
 } from "@fleetfizz/core";
 
 import { PROVIDERS } from "./index.ts";
+import { REPORT } from "./skills/scripts.ts";
 
 // A config as written, decoded as the CLI decodes it.
 const decode = Schema.decodeSync(FleetConfig);
@@ -742,23 +743,51 @@ describe("the skills Provider", () => {
       [
         "skills:grilling:install",
         ["grilling", "grill-me"],
-        "ff_skills add 'mattpocock/skills' -g -y -s 'grilling' 'grill-me' -a 'claude-code' 'codex'",
+        "ff_o=$(ff_skills add 'mattpocock/skills' -g -y --json -s 'grilling' 'grill-me' -a 'claude-code' 'codex')",
       ],
       [
         "skills:find-skills:install",
         ["find-skills"],
-        "ff_skills add 'vercel-labs/skills#v2' -g -y -s 'find-skills' -a 'claude-code'",
+        "ff_o=$(ff_skills add 'vercel-labs/skills#v2' -g -y --json -s 'find-skills' -a 'claude-code')",
       ],
       [
         "skills:local:install",
         ["local"],
-        "ff_skills add 'https://example.com/skills.git' -g -y -s 'local' -a 'claude-code' 'codex'",
+        "ff_o=$(ff_skills add 'https://example.com/skills.git' -g -y --json -s 'local' -a 'claude-code' 'codex')",
       ],
     ]);
-    expect(steps[1]?.run.join("\n")).toContain(
-      `ff_lit '{"agents":["claude-code"]}' > "$HOME"'/.local/state/fleetfizz/records'/'skills'/'find-skills.json'`,
-    );
   });
+
+  // The report the install Step pipes the CLI's --json result into.
+  it.effect("records only skills the CLI installed for every agent, and fails otherwise", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const results =
+        '[{"name":"grilling","status":"installed","agents":["Claude Code","Codex"]},' +
+        '{"name":"grill-me","status":"installed","agents":["Claude Code"]},' +
+        '{"name":"nope","status":"skipped"}]';
+      const report = (names: string) =>
+        exec(
+          "sh",
+          [
+            "-c",
+            `printf '%s' "$1" | node -e "$2" "$3" "$HOME/records"`,
+            "sh",
+            results,
+            REPORT,
+            `[${names},["claude-code","codex"]]`,
+          ],
+          home,
+        );
+      expect((yield* report('["grilling","grill-me","nope"]')).code).toBe(1);
+      expect(yield* fs.readDirectory(`${home}/records`)).toEqual(["grilling.json"]);
+      expect(yield* fs.readFileString(`${home}/records/grilling.json`)).toBe(
+        '{"agents":["claude-code","codex"]}\n',
+      );
+      expect((yield* report('["grilling"]')).code).toBe(0);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 
   it("leaves a skill at its ref's hash, updates one whose source moved, and reinstalls on --rebuild", () => {
     const result = plan({ config: withSkills, resolved: tips, state: state(current) });
