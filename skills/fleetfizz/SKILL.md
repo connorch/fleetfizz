@@ -25,7 +25,7 @@ When the user wants the change on their Machines, go on to Ship.
 
 ## Ship
 
-1. Run `fizz ship --dry-run`, with `--only <machine>` when the user named Machines.
+1. Run `fizz ship --dry-run`, with `--only <machine>` only when the user asks to ship to just those Machines. Targeting already decides which Machines get an Item, and every Machine a Ship skips keeps the old config.
 2. Collect every Question in the plan. Each is a `?` line, `? pnpm:vercel 60.1.0 on connors-macbook-pro is above ^59.25.4`, then `→ not asked (dry run)`. A Ship without a terminal answers each one with its default, skip, so every Question goes to the user: what it found, where, and the choices.
 
    | Kind     | Asked when                                  | Subject         | Choices               |
@@ -35,7 +35,7 @@ When the user wants the change on their Machines, go on to Ship.
    | `skill`  | an install would replace a skill folder     | `skills:<name>` | overwrite, skip       |
    | `config` | another Machine's config is newer or edited | the Machine     | overwrite, stop       |
 
-   A `config` Question shows instead as a line that `a Ship would ask before overwriting it`, and stops a Ship without a terminal. Its third choice, adopting that Machine's config here, exists only in a terminal: offer the user `fizz ship` there, or overwrite once they choose it.
+   A `config` Question shows instead as a line that `a Ship would ask before overwriting it`, and stops a Ship without a terminal. A terminal offers more: adopting that Machine's config here (`config`), or a diff and keeping the target's copy (`file`). When the user wants one of those, they run `fizz ship` themselves.
 
 3. Run `fizz ship` with one `--answer kind:subject=choice` per Question, as the user decided (`--answer range:pnpm:vercel=bump --answer config:connors-macbook-pro=overwrite`). The blanket forms (`--answer kind=choice`, `--bump`, `--enforce`, `--overwrite-config`) are for when the user asks for that behavior across the Fleet by name.
 4. Done when you have told the user each Machine's result: what changed, what failed, and what was skipped (an offline Machine is skipped and catches up on the next Ship), with the Ship id the Ship prints at its end. A failure goes on to Debug.

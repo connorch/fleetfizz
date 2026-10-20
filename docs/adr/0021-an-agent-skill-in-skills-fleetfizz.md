@@ -1,6 +1,6 @@
 # An agent skill in skills/fleetfizz, lean and deferring to --help
 
-People ask their coding agent to "put tmux on the Linux boxes" or "find out why the Ship failed on the Studio". The agent can run `fizz`, but it does not know the workflow, and it has no terminal: every prompt fleetfizz shows a person is a default or a stop for an agent. So the repo carries a skill, installed with `npx skills add connorch/fleetfizz` and listed on skills.sh once people install it.
+People ask their coding agent to "put tmux on the Linux boxes" or "find out why the Ship failed on the Studio". The agent can run `fizz`, but it does not know the workflow, and it has no terminal: every prompt fleetfizz shows a person is a default or a stop for an agent. So the repo carries a skill, installed with `npx skills add connorch/fleetfizz -g` and listed on skills.sh once people install it.
 
 - **It lives at `skills/fleetfizz/SKILL.md`**, the skills CLI's documented location, and is named `fleetfizz`, the product, not `fizz`, its command.
 - **It covers three jobs: change the config, ship, and debug a Ship.** Setting fleetfizz up is not one of them: `fizz init` needs a terminal, and it happens once per person.

@@ -95,7 +95,7 @@ fizz self-update      # set the config's version to the newest fleetfizz and ins
 
 `fleetfizz` is an alias of `fizz`.
 
-To let your coding agent edit the config, ship, and debug a Ship, install the fleetfizz skill with `npx skills add connorch/fleetfizz`, or keep it on every Machine as a Skill in the config, as above.
+To let your coding agent edit the config, ship, and debug a Ship, install the fleetfizz skill with `npx skills add connorch/fleetfizz -g`, or keep it on every Machine as a Skill in the config, as above.
 
 The Ledger lists each Machine and, under it, what changes there, by address: `pnpm:vercel`, `repos:t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 
