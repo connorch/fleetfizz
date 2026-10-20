@@ -11,6 +11,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import {
   configPath,
+  ExactVersion,
   PACKAGE_MANAGERS,
   readVersion,
   saveConfig,
@@ -81,8 +82,8 @@ const install = Effect.fn("install")(function* (version: string, why: string) {
 
 // Runs `effect` only when this fizz is the version the config at `flag` (or
 // the default path) names. Otherwise installs that version and runs this
-// command again with it, exiting with its code. A config that is missing is
-// left for the command to report.
+// command again with it, exiting with its code. A config that is missing, or
+// names a version that is not exact, is left for the command to report.
 export const atConfigVersion = <A, E, R>(
   flag: string | undefined,
   running: string,
@@ -97,7 +98,8 @@ export const atConfigVersion = <A, E, R>(
       return yield* new VersionError({
         reason: `${homeRelative(path)} has no "version": add "version": "${running}"`,
       });
-    if (wanted === running) return yield* effect;
+    // A version that is not exact is the schema's to report.
+    if (wanted === running || !Schema.is(ExactVersion)(wanted)) return yield* effect;
     if (process.env[SWITCHED] !== undefined)
       return yield* new VersionError({
         reason: `${homeRelative(path)} needs fleetfizz ${wanted}, but the fizz on PATH is still ${running} after installing it; see which fizz comes first (command -v fizz)`,
@@ -118,6 +120,7 @@ const latest = Effect.fn("latest")(function* () {
 });
 
 // `fizz self-update [version]`: the config's `version`, then this Machine.
+// Each is changed only when it is not that version already.
 export const selfUpdate = Effect.fn("selfUpdate")(function* (input: {
   readonly config: string | undefined;
   readonly version: string | undefined;
@@ -130,13 +133,19 @@ export const selfUpdate = Effect.fn("selfUpdate")(function* (input: {
       reason: `no config at ${homeRelative(path)}; run fizz init to write one, or pass --config`,
     });
   const version = input.version ?? (yield* latest());
-  if (version === input.running) {
+  const text = yield* fs.readFileString(path);
+  const named = readVersion(text) === version;
+  if (named && version === input.running) {
     yield* Console.log(`fleetfizz ${version} already`);
     return;
   }
-  const edited = setVersion(yield* fs.readFileString(path), version);
-  if ("reason" in edited) return yield* new VersionError({ reason: edited.reason });
-  yield* saveConfig(path, edited.text);
-  yield* install(version, `${homeRelative(path)} now names fleetfizz ${version}`);
+  if (!named) {
+    const edited = setVersion(text, version);
+    if ("reason" in edited) return yield* new VersionError({ reason: edited.reason });
+    yield* saveConfig(path, edited.text);
+  }
+  // A fizz someone already updated by hand needs no install.
+  if (version !== input.running)
+    yield* install(version, `${homeRelative(path)} now names fleetfizz ${version}`);
   yield* Console.log(`fleetfizz ${version} here. Run fizz ship to update every Machine.`);
 });

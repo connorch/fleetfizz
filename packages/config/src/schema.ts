@@ -372,10 +372,10 @@ export type SkillsSection = typeof SkillsSection.Type;
 
 // An exact version, as `version` takes: what a Ship and every fizz run.
 export const ExactVersion = Schema.String.check(
-  Schema.makeFilter((version) => semver.valid(version) === version, {
-    title: "version",
-    description: 'an exact version, like "0.13.0"',
-  }),
+  Schema.makeFilter(
+    (version) => semver.valid(version) === version || 'an exact version, like "0.13.0"',
+    { title: "version", description: 'an exact version, like "0.13.0"' },
+  ),
 );
 
 // A command every Check and Apply runs first on a Machine, before anything

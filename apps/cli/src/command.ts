@@ -411,15 +411,14 @@ const selfUpdateCommand = Command.make("self-update", {
   Command.withDescription(
     "Set the config's `version` and install that fleetfizz here, with the package manager that installed this one. The next Ship installs it on every Machine.",
   ),
+  // Not gated: it is the command that changes the version, and it edits the
+  // raw text, so a fizz of any version can run it.
   Command.withHandler((flags) =>
-    gated(
-      Option.getOrUndefined(flags.config),
-      selfUpdate({
-        config: Option.getOrUndefined(flags.config),
-        version: Option.getOrUndefined(flags.version),
-        running: packageJson.version,
-      }),
-    ).pipe(printProblems),
+    selfUpdate({
+      config: Option.getOrUndefined(flags.config),
+      version: Option.getOrUndefined(flags.version),
+      running: packageJson.version,
+    }).pipe(printProblems),
   ),
 );
 
