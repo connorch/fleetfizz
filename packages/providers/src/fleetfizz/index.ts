@@ -4,11 +4,11 @@
 // package manager installed fizz there; a Machine without fizz gets it from
 // the one that installed the Starting Machine's.
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
 
 import { PACKAGE_MANAGERS, SELF_PACKAGE, type PackageManager } from "@fleetfizz/config";
-import { assembleState, type Decision, type Named, type Provider } from "@fleetfizz/core";
-import { checkScript, parseLine, runScript } from "@fleetfizz/remote";
+import type { Decision, Named, Provider } from "@fleetfizz/core";
 
 import { installWith, managerArrives, runs } from "../globals/index.ts";
 
@@ -16,17 +16,30 @@ import { installWith, managerArrives, runs } from "../globals/index.ts";
 // files behind it, where each puts its Globals by default: vp's shims and
 // packages, pnpm's home and global store, bun's global directory, then npm's
 // lib/node_modules (which vp's own Node also has, so vp is checked first).
-// Undefined for anything else, such as a link to a checkout or a shim of
-// another tool: fizz then says to install the version by hand.
+// vp's home is ~/.local/share/vite-plus, or ~/.vite-plus where vp was
+// installed before it moved. Undefined for anything else, such as a link to
+// a checkout or a shim of another tool: fizz then says to install the
+// version by hand.
 export const installerOf = (paths: ReadonlyArray<string>): PackageManager | undefined => {
   const has = (...parts: ReadonlyArray<string>) =>
     paths.some((path) => parts.some((part) => path.includes(part)));
-  if (has("/vite-plus/packages/", "/vite-plus/bin/")) return "vp";
+  if (has("vite-plus/packages/", "vite-plus/bin/")) return "vp";
   if (has("/pnpm/")) return "pnpm";
   if (has("/.bun/")) return "bun";
   if (has("/lib/node_modules/")) return "npm";
   return undefined;
 };
+
+// The package manager that installed the running fizz, from the path it was
+// started at and the file behind it. A vp or pnpm shim on PATH resolves to
+// vp itself or a script, so only the running fizz's own path reaches its
+// package.
+export const ownInstaller = Effect.fn("ownInstaller")(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const main = process.argv[1] ?? "";
+  const real = yield* fs.realPath(main).pipe(Effect.orElseSucceed(() => main));
+  return { at: main, installer: installerOf([main, real]) };
+});
 
 // What one Machine has: its fizz, if any, and the package managers that run there.
 export interface FleetfizzObserved {
@@ -34,10 +47,9 @@ export interface FleetfizzObserved {
   readonly managers: ReadonlySet<string>;
 }
 
-// The Starting Machine, and the package manager that installed its fizz,
-// read there as its Check would: after fizz checks its version (ADR 0019),
-// the fizz on its PATH is the one running. Undefined when no package manager
-// fleetfizz knows installed it.
+// The Starting Machine, and the package manager that installed the fizz
+// running this Ship there. Undefined when no package manager fleetfizz knows
+// installed it.
 export interface FleetfizzResolved {
   readonly from: string;
   readonly installer: PackageManager | undefined;
@@ -99,27 +111,12 @@ export const fleetfizz: Provider<
   items: () => [{ name: ITEM }],
   observe: () => OBSERVE,
   parse,
-  // Reads the Starting Machine's fizz here, as its Check would, so a Ship
-  // with --only another Machine still knows what to install fizz with.
-  resolve: (items, { starting }) =>
-    Effect.gen(function* () {
-      const facts: unknown[] = [];
-      yield* runScript(
-        { name: starting.machine.name, local: true },
-        checkScript({ scope: starting, providers: [{ provider: fleetfizz, items }] }),
-        [],
-        (line) =>
-          Effect.sync(() => {
-            const parsed = parseLine(line);
-            if (parsed.kind === "state") facts.push(parsed.fact);
-          }),
-      ).pipe(Effect.timeout("2 minutes"));
-      const { fizz } = parse(assembleState(facts).facts.fleetfizz ?? []);
-      return {
-        from: starting.machine.name,
-        installer: fizz === undefined ? undefined : installerOf([fizz.path, fizz.real]),
-      };
-    }).pipe(Effect.orElseSucceed(() => ({ from: starting.machine.name, installer: undefined }))),
+  // Resolve runs in the fizz running this Ship, on the Starting Machine, so
+  // a Ship with --only another Machine still knows what to install fizz with.
+  resolve: (_, { starting }) =>
+    ownInstaller().pipe(
+      Effect.map(({ installer }) => ({ from: starting.machine.name, installer })),
+    ),
   decide({ observed, resolved, ctx }): ReadonlyArray<Decision<FleetfizzChange>> {
     const version = ctx.config.version;
     const { fizz } = observed;

@@ -424,6 +424,10 @@ describe("the fleetfizz Provider", () => {
         "/Users/connor/.local/share/vite-plus/packages/fleetfizz/x/lib/node_modules/fleetfizz/dist/fleetfizz.mjs",
       ]),
     ).toBe("vp");
+    // vp's older home, and the vp binary its shim resolves to.
+    expect(
+      installerOf(["/Users/connor/.vite-plus/bin/fizz", "/Users/connor/.vite-plus/1.1.0/bin/vp"]),
+    ).toBe("vp");
     expect(
       installerOf([
         "/Users/connor/Library/pnpm/global/v11/.pnpm/fleetfizz@0.2.0/node_modules/fleetfizz/dist/fleetfizz.mjs",
