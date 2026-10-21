@@ -83,6 +83,7 @@ export const mixedFleet = Layer.effect(
           ssh: `-i ${privateKeyPath} -p ${sshPorts[i]} fizz@${BRIDGE}`,
         })),
       ],
+      sshToStart: mac.sshToStart,
       registry,
       run: (machine, script, stdin) =>
         isLinux(machine) ? containers.run(machine, script, stdin) : mac.run(machine, script, stdin),

@@ -1,6 +1,6 @@
 // Readies a Fleet for the scenarios and runs them: publishes the build to the
 // Fleet's Verdaccio, sets up the Starting Machine as a user would (fizz from
-// a package manager, a Config, a Shared File), then ships from it and reads
+// a package manager, a Config, a Shared File), then runs fizz there and reads
 // back what happened, from fizz's Ledger and from each Machine itself.
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
@@ -25,8 +25,9 @@ import {
   writeShared,
 } from "./fixture.ts";
 
-// Where the shim lives on the Starting Machine. fizz finds it first on PATH;
-// nothing else there sees it.
+// Where the shim lives on the Machines that run fizz: the Starting Machine,
+// and the second Machine for `fizz logs`. fizz finds it first on PATH; nothing
+// else there sees it.
 const SHIM_DIR = "$HOME/.e2e/bin";
 
 // What `tailscale status --json` reports, as much of it as fizz reads.
@@ -40,12 +41,39 @@ const StatusJson = Schema.fromJsonString(
   Schema.Struct({ Self: StatusNode, Peer: Schema.Record(Schema.String, StatusNode) }),
 );
 
-const statusNode = (machine: FleetMachine) => ({
+const statusNode = (machine: FleetMachine, self: boolean) => ({
   DNSName: `${machine.name}.fleetfizz-e2e.ts.net.`,
   OS: machine.platform === "darwin" ? "macOS" : "linux",
   Online: true,
   // Tailscale reports no host keys for itself.
-  sshHostKeys: machine.ssh === undefined ? null : ["fleetfizz-e2e"],
+  sshHostKeys: self ? null : ["fleetfizz-e2e"],
+});
+
+// Installs the shim on `self`, with the tailnet as `self` sees it and the ssh
+// arguments for each Machine it reaches (`targets`).
+const installShim = Effect.fn("installShim")(function* (
+  self: FleetMachine,
+  targets: ReadonlyArray<readonly [name: string, ssh: string]>,
+) {
+  const fleet = yield* Fleet;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const shim = yield* fs.readFileString(
+    yield* path.fromFileUrl(new URL("../fleet/tailscale", import.meta.url)),
+  );
+  const status = yield* Schema.encodeEffect(StatusJson)({
+    Self: statusNode(self, true),
+    Peer: Object.fromEntries(
+      fleet.machines.filter((m) => m !== self).map((m) => [m.name, statusNode(m, false)]),
+    ),
+  });
+  const write = (file: string, text: string, then = "") =>
+    fleet
+      .run(self.name, `mkdir -p ${SHIM_DIR} && cat > ${SHIM_DIR}/${file}${then}`, text)
+      .pipe(Effect.flatMap(succeeded(`writing the shim's ${file} on ${self.name}`)));
+  yield* write("tailscale", shim, ` && chmod +x ${SHIM_DIR}/tailscale`);
+  yield* write("status.json", status);
+  yield* write("targets", targets.map(([name, ssh]) => `${name} ${ssh}\n`).join(""));
 });
 
 // The fixtures' branch: E2E_REF, else this checkout's branch when GitHub has
@@ -63,9 +91,22 @@ const fixtureRef = Effect.gen(function* () {
   return remote.trim() === "" ? "main" : branch;
 });
 
+// The version after `version`, its next patch, for `fizz self-update` to move
+// the Fleet to.
+const nextPatch = (version: string) => {
+  const [, major, minor, patch] = /^(\d+)\.(\d+)\.(\d+)$/.exec(version) ?? [];
+  return patch === undefined
+    ? Effect.fail(new E2EError({ message: `not a release version: ${version}` }))
+    : Effect.succeed(`${major}.${minor}.${Number(patch) + 1}`);
+};
+
+// The bundle's own version, the one `fizz --version` prints and a config's
+// `version` is checked against.
+const bundledVersion = (version: string) => `var version = "${version}";`;
+
 // Publishes apps/cli, already built, to the Fleet's Verdaccio as a new user
-// there.
-const publish = Effect.fn("publish")(function* (registry: string) {
+// there: as `version`, then the same build again as `next`.
+const publish = Effect.fn("publish")(function* (registry: string, version: string, next: string) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const cli = yield* path.fromFileUrl(new URL("../../cli", import.meta.url));
@@ -88,10 +129,34 @@ const publish = Effect.fn("publish")(function* (registry: string) {
     `${dir}/npmrc`,
     `${registry.replace(/^https?:/, "")}:_authToken=${token}\n`,
   );
-  yield* execOk("pnpm", ["publish", "--registry", registry, "--no-git-checks"], {
-    cwd: cli,
-    env: { NPM_CONFIG_USERCONFIG: `${dir}/npmrc` },
-  });
+  const npmPublish = (what: string) =>
+    execOk("npm", ["publish", what, "--registry", registry], {
+      env: { NPM_CONFIG_USERCONFIG: `${dir}/npmrc` },
+    });
+
+  // pnpm packs with its workspace and catalog versions resolved.
+  yield* execOk("pnpm", ["pack", "--out", `${dir}/fleetfizz.tgz`], { cwd: cli });
+  yield* npmPublish(`${dir}/fleetfizz.tgz`);
+
+  yield* execOk("tar", ["-xzf", `${dir}/fleetfizz.tgz`, "-C", dir]);
+  const manifestPath = `${dir}/package/package.json`;
+  const Manifest = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
+  const manifest = yield* Schema.decodeEffect(Manifest)(yield* fs.readFileString(manifestPath));
+  yield* fs.writeFileString(
+    manifestPath,
+    yield* Schema.encodeEffect(Manifest)({ ...manifest, version: next }),
+  );
+  const bundlePath = `${dir}/package/dist/fleetfizz.mjs`;
+  const bundle = yield* fs.readFileString(bundlePath);
+  if (bundle.split(bundledVersion(version)).length !== 2)
+    return yield* new E2EError({
+      message: `expected one \`${bundledVersion(version)}\` in the bundle, to publish it as ${next}`,
+    });
+  yield* fs.writeFileString(
+    bundlePath,
+    bundle.replace(bundledVersion(version), bundledVersion(next)),
+  );
+  yield* npmPublish(`${dir}/package`);
 }, Effect.scoped);
 
 // A Fleet, ready to ship from: what the scenarios check against.
@@ -100,6 +165,8 @@ export class Prepared extends Context.Service<
   {
     // The fleetfizz under test, on every Machine after the first Ship.
     readonly version: string;
+    // The same build as a later version, for `fizz self-update`.
+    readonly next: string;
     // The commit of the fixtures' branch: every Managed Clone's HEAD.
     readonly commit: string;
   }
@@ -108,10 +175,9 @@ export class Prepared extends Context.Service<
     Prepared,
     Effect.gen(function* () {
       const fleet = yield* Fleet;
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const [start, ...remotes] = fleet.machines;
+      const [start, second, ...rest] = fleet.machines;
       const version = packageJson.version;
+      const next = yield* nextPatch(version);
       const ref = yield* fixtureRef;
       const heads = yield* execOk("git", [
         "ls-remote",
@@ -120,38 +186,29 @@ export class Prepared extends Context.Service<
       ]);
       const commit = heads.split("\t")[0] ?? "";
 
-      yield* publish(fleet.registry);
+      yield* publish(fleet.registry, version, next);
 
       const onStart = (script: string, stdin?: string) =>
         fleet
           .run(start.name, script, stdin)
           .pipe(Effect.flatMap(succeeded(`on ${start.name}: ${script}`)), Effect.asVoid);
-      const shim = yield* fs.readFileString(
-        yield* path.fromFileUrl(new URL("../fleet/tailscale", import.meta.url)),
-      );
-      const status = yield* Schema.encodeEffect(StatusJson)({
-        Self: statusNode(start),
-        Peer: Object.fromEntries(remotes.map((m) => [m.name, statusNode(m)])),
-      });
-      const targets = remotes.map((m) => `${m.name} ${m.ssh}\n`).join("");
       const config = yield* Schema.decodeEffect(FleetConfig)(
         fixtureConfig(fleet.machines, version, ref),
       );
       const configText = yield* Schema.encodeEffect(Schema.fromJsonString(FleetConfig))(config);
 
-      yield* onStart(
-        `mkdir -p ${SHIM_DIR} && cat > ${SHIM_DIR}/tailscale && chmod +x ${SHIM_DIR}/tailscale`,
-        shim,
+      yield* installShim(
+        start,
+        [second, ...rest].map((m) => [m.name, m.ssh ?? ""]),
       );
-      yield* onStart(`cat > ${SHIM_DIR}/status.json`, status);
-      yield* onStart(`cat > ${SHIM_DIR}/targets`, targets);
+      yield* installShim(second, [[start.name, fleet.sshToStart]]);
       yield* onStart(
         "mkdir -p ~/.config/fleetfizz && cat > ~/.config/fleetfizz/config.jsonc",
         configText,
       );
       yield* onStart(writeShared);
       yield* onStart(`npm install --global fleetfizz@${version}`);
-      return Prepared.of({ version, commit });
+      return Prepared.of({ version, next, commit });
     }),
   );
 }
@@ -172,12 +229,19 @@ const LedgerMachine = Schema.Struct({
 const LastShip = Schema.fromJsonString(Schema.Struct({ machines: Schema.Array(LedgerMachine) }));
 export type LedgerMachine = typeof LedgerMachine.Type;
 
-// Runs `fizz ship` on the Starting Machine, with no terminal, and returns its
-// exit code and output, and the Ledger it saved.
+// Runs `fizz <args>` on `machine`, with no terminal and the shim on PATH, for
+// its exit code and output.
+export const fizz = Effect.fn("fizz")(function* (machine: string, ...args: ReadonlyArray<string>) {
+  const fleet = yield* Fleet;
+  return yield* fleet.run(machine, `PATH=${SHIM_DIR}:$PATH fizz ${args.join(" ")}`);
+});
+
+// Runs `fizz ship` on the Starting Machine and returns its exit code and
+// output, and the Ledger it saved.
 export const ship = Effect.fn("ship")(function* (...args: ReadonlyArray<string>) {
   const fleet = yield* Fleet;
   const start = fleet.machines[0].name;
-  const ran = yield* fleet.run(start, `PATH=${SHIM_DIR}:$PATH fizz ship ${args.join(" ")}`);
+  const ran = yield* fizz(start, "ship", ...args);
   const saved = yield* fleet.run(start, "cat ~/.local/state/fleetfizz/last-ship.json");
   const ledger = yield* Schema.decodeEffect(LastShip)(saved.output).pipe(
     Effect.mapError(() => new E2EError({ message: `no Ledger after the Ship:\n${ran.output}` })),
