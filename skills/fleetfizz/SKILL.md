@@ -35,7 +35,7 @@ When the user wants the change on their Machines, go on to Ship.
    | `skill`  | an install would replace a skill folder         | `skills:<name>` | overwrite, skip       |
    | `config` | another Machine's config is newer or edited     | the Machine     | overwrite, stop       |
 
-   A `config` Question shows instead as a line that `a Ship would ask before overwriting it`, and stops a Ship without a terminal. A terminal offers more: adopting that Machine's config here (`config`), or a diff, keeping the target's copy, and pulling a Shared File the Starting Machine lacks (`file`). When the user wants one of those, they run `fizz ship` themselves.
+   A `config` Question shows instead as a line that `a Ship would ask before overwriting it`, and stops a Ship without a terminal. A terminal offers more: a diff (`config`, `file`), adopting that Machine's config here (`config`), and keeping the target's copy or pulling a Shared File the Starting Machine lacks (`file`). When the user wants one of those, they run `fizz ship` themselves.
 
 3. Run `fizz ship` with one `--answer kind:subject=choice` per Question, as the user decided (`--answer range:pnpm:vercel=bump --answer config:connors-macbook-pro=overwrite`). The blanket forms (`--answer kind=choice`, `--bump`, `--enforce`, `--overwrite-config`) are for when the user asks for that behavior across the Fleet by name.
 4. Done when you have told the user each Machine's result: what changed, what failed, and what was skipped (an offline Machine is skipped and catches up on the next Ship), with the Ship id the Ship prints at its end. An Item skipped with `ship again` waits for a package manager or the skills CLI this Ship installed: ship again. A failure goes on to Debug.

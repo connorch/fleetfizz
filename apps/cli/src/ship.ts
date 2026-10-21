@@ -273,6 +273,7 @@ export const shipPass = Effect.fn("shipPass")(function* (
   show: Show = "ledger",
 ) {
   const fs = yield* FileSystem.FileSystem;
+  const paths = yield* Path.Path;
   const parsed = parseAnswers(flags.answers);
   if ("invalid" in parsed) return yield* Effect.fail(new ShipError(parsed.invalid));
   const given = parsed.answer;
@@ -403,6 +404,30 @@ export const shipPass = Effect.fn("shipPass")(function* (
     { concurrency: "unbounded" },
   ).pipe(Effect.map((list) => list.filter((g) => g !== undefined)));
 
+  // Shows the diff from a Stale Config to the config here: both texts go into
+  // an owner-only temporary directory, removed after, and git shows them with
+  // the Ledger set aside. Only failures are noted, never contents.
+  const showConfigDiff = (s: Stale) =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const dir = yield* fs.makeTempDirectoryScoped({ prefix: "fleetfizz-diff-" });
+        const name = paths.basename(path);
+        // Named for the Machines that hold them; --config's file has none.
+        const sides = { old: `${s.machines[0]}/${name}`, new: `${own ?? "--config"}/${name}` };
+        for (const [side, text] of [
+          [sides.old, s.text],
+          [sides.new, yield* fs.readFileString(path)],
+        ] as const) {
+          yield* fs.makeDirectory(paths.join(dir, paths.dirname(side)), { recursive: true });
+          yield* fs.writeFileString(paths.join(dir, side), text);
+        }
+        const code = yield* live.aside(showDiff(dir, sides));
+        if (code > 1) yield* ledger.note("info", `the config: git diff exited with ${code}`);
+      }),
+    ).pipe(
+      Effect.catch((e) => ledger.note("info", `could not show the config's diff: ${e.message}`)),
+    );
+
   // A config elsewhere that a Ship from here must not overwrite unasked stops
   // the Ship unless the person overrides it or picks it, which writes it
   // (and what its record knows) here and starts the Ship over from it.
@@ -442,14 +467,27 @@ export const shipPass = Effect.fn("shipPass")(function* (
         else yield* ledger.note("info", `cannot ship from here: ${why}`);
       }
       yield* ledger.note("ask", what);
-      const choice = yield* live.ask<Stale | "overwrite" | "stop">([
-        ...usable.map((s) => ({
-          title: `use the config on ${s.machines[0]} (replaces this one)`,
-          value: s,
-        })),
-        { title: "overwrite it with this Machine's config", value: "overwrite" },
-        { title: "stop", value: "stop" },
-      ]);
+      // A diff choice shows what differs, as a Shared File's does, and the
+      // Question is asked again. Diff choices come last, so the cursor starts
+      // on an answer.
+      const ask = live.ask;
+      let choice: Stale | "overwrite" | "stop" | undefined;
+      while (choice === undefined) {
+        const picked = yield* ask<Stale | "overwrite" | "stop" | { readonly diff: Stale }>([
+          ...usable.map((s) => ({
+            title: `use the config on ${s.machines[0]} (replaces this one, and its commands run on every Machine, this one too)`,
+            value: s,
+          })),
+          { title: "overwrite it with this Machine's config", value: "overwrite" },
+          { title: "stop", value: "stop" },
+          ...stale.map((s) => ({
+            title: `view the diff from the config on ${s.machines[0]} to this Machine's`,
+            value: { diff: s },
+          })),
+        ]);
+        if (typeof picked === "object" && "diff" in picked) yield* showConfigDiff(picked.diff);
+        else choice = picked;
+      }
       if (choice === "stop") {
         yield* ledger.note("answer", "stop");
         return yield* Effect.fail(new ShipError("stopped before overwriting the config there"));
@@ -704,7 +742,6 @@ export const shipPass = Effect.fn("shipPass")(function* (
   // This version's schema beside the config here too, even when no Step
   // writes this Machine's config, as after `fizz self-update`. Only for the
   // editor, so a directory it cannot write to does not stop the Ship.
-  const paths = yield* Path.Path;
   const schemaHere = paths.join(paths.dirname(path), SCHEMA_FILE);
   if ((yield* fs.readFileString(schemaHere).pipe(Effect.orElseSucceed(() => ""))) !== schema)
     yield* fs
