@@ -17,7 +17,7 @@ const BUBBLES: ReadonlyArray<Bubble> = [
   { x: 1190, y: 20, size: 100, depth: "far" },
 ];
 
-const COMMANDS = [INSTALL, "fizz init", "fizz ship"];
+const COMMANDS = [INSTALL.npm, "fizz init", "fizz ship"];
 
 /** A command after a lime prompt: its program bold, the rest dimmed. */
 const command = (line: string) => {
