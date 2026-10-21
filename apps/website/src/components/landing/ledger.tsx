@@ -83,8 +83,6 @@ const SUMMARY: ReadonlyArray<Row> = [
     { text: "3 updated", tone: "ok" },
     { text: "  in 5m 12s", tone: "dim" },
   ],
-  [{ text: "full report: fizz report", tone: "dim" }],
-  [{ text: "log: fizz logs 2026-10-21T18-16-33Z-mac-studio", tone: "dim" }],
 ];
 
 const GAP = "  ";
