@@ -7,11 +7,12 @@ const early = "2026-10-19T10:00:00.000Z";
 const late = "2026-10-19T11:00:00.000Z";
 
 describe("reachedAfter", () => {
-  it("sets the reached Machines, keeps the others, and drops Machines no longer in the Fleet", () => {
+  it("sets the reached Machines and keeps the others, even Machines no longer in the Fleet", () => {
     const previous = { studio: early, macbook: early, gone: early };
-    expect(reachedAfter(previous, late, ["studio"], ["studio", "macbook"])).toEqual({
+    expect(reachedAfter(previous, late, ["studio"])).toEqual({
       studio: late,
       macbook: early,
+      gone: early,
     });
   });
 });

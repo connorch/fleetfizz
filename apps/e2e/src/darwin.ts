@@ -46,6 +46,7 @@ export const macMachines = Effect.fn("macMachines")(function* (onMac: OnMac, set
     "sudo",
     "env",
     `E2E_PUBLIC_KEY=${setup.publicKey}`,
+    `E2E_PRIVATE_KEY_PATH=${setup.privateKeyPath}`,
     `E2E_REGISTRY=${setup.registry}`,
     `E2E_NODE_DIR=${setup.nodeDir}`,
     // In argv rather than on stdin, which a command in it could read.
@@ -55,6 +56,7 @@ export const macMachines = Effect.fn("macMachines")(function* (onMac: OnMac, set
     "darwin-setup.sh",
   ]).pipe(Effect.flatMap(succeeded("darwin-setup.sh")));
 
+  const startUser = (yield* onMac(["id", "-un"]).pipe(Effect.flatMap(succeeded("id -un")))).trim();
   const authorizedKeys = `/Users/${REMOTE_USER}/.ssh/authorized_keys`;
   const move = (from: string, to: string) =>
     onMac(["sudo", "mv", from, to]).pipe(Effect.flatMap(succeeded(`mv ${from}`)), Effect.asVoid);
@@ -68,6 +70,8 @@ export const macMachines = Effect.fn("macMachines")(function* (onMac: OnMac, set
   ];
   return {
     machines,
+    // m2 signs in with the key darwin-setup.sh gave it.
+    sshToStart: `${startUser}@localhost`,
     run: (machine: string, script: string, stdin?: string) =>
       machine === "start"
         ? // As a Mac user's own Terminal would: zsh, a login shell.
@@ -127,6 +131,7 @@ export const darwinFleet = Layer.effect(
     );
     return Fleet.of({
       machines: mac.machines,
+      sshToStart: mac.sshToStart,
       registry: REGISTRY,
       run: mac.run,
       stop: () => mac.stop,

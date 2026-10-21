@@ -23,6 +23,9 @@ export class Fleet extends Context.Service<
   {
     // The Starting Machine first, then at least one other.
     readonly machines: readonly [FleetMachine, FleetMachine, ...ReadonlyArray<FleetMachine>];
+    // How the second Machine reaches the Starting Machine: the arguments to
+    // `ssh`. `fizz logs` there reads a Ship Log from the Starting Machine.
+    readonly sshToStart: string;
     // The Fleet's npm registry, as the host reaches it to publish the build.
     // Every Machine installs fleetfizz from it.
     readonly registry: string;

@@ -85,6 +85,7 @@ export const dockerFleet = Layer.effect(
         { name: "linux-b", platform: "linux", ssh: "fizz@linux-b" },
         { name: "linux-c", platform: "linux", ssh: "fizz@linux-c" },
       ],
+      sshToStart: "fizz@start",
       registry: `http://${registry}/`,
       run: containers.run,
       stop: containers.stop,
