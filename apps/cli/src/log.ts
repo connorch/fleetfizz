@@ -21,6 +21,7 @@ import {
 } from "@fleetfizz/remote";
 
 import { readConfigRecord } from "./configRecord.ts";
+import { makeStateDirectory } from "./stateDirectory.ts";
 
 // How many Ship Logs a Machine keeps.
 export const KEEP = 20;
@@ -78,16 +79,16 @@ export const toPrune = (names: ReadonlyArray<string>): string[] => {
 const logsDir = () => LOGS_DIR.replace(/^~/, process.env.HOME ?? "~");
 
 // Opens the Ship Log for `id` as a logger that lives as long as the scope,
-// after deleting the oldest logs.
+// after deleting the oldest logs. Only this Machine's user can read it.
 export const openShipLog = Effect.fn("openShipLog")(function* (
   id: string,
   hidden: ReadonlySet<string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const dir = logsDir();
-  yield* fs.makeDirectory(dir, { recursive: true });
+  yield* makeStateDirectory(dir);
   for (const name of toPrune(yield* fs.readDirectory(dir))) yield* fs.remove(`${dir}/${name}`);
-  return yield* Logger.toFile(lineFormat(hidden), `${dir}/${id}.log`);
+  return yield* Logger.toFile(lineFormat(hidden), `${dir}/${id}.log`, { mode: 0o600 });
 });
 
 // Runs a small script on the Machine that has the logs: this one locally, any

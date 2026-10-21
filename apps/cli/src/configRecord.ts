@@ -8,6 +8,8 @@ import * as Option from "effect/Option";
 import { decodeConfigRecordJson } from "@fleetfizz/config";
 import { CONFIG_RECORD } from "@fleetfizz/remote";
 
+import { makeStateDirectory } from "./stateDirectory.ts";
+
 const recordPath = () => CONFIG_RECORD.replace(/^~/, process.env.HOME ?? "~");
 
 // The record, or undefined when there is none or it does not decode.
@@ -21,7 +23,7 @@ export const readConfigRecord = Effect.gen(function* () {
 export const writeConfigRecord = Effect.fn("writeConfigRecord")(function* (json: string) {
   const fs = yield* FileSystem.FileSystem;
   const path = recordPath();
-  yield* fs.makeDirectory(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  yield* makeStateDirectory(path.slice(0, path.lastIndexOf("/")));
   yield* fs.writeFileString(`${path}.tmp`, `${json}\n`);
   yield* fs.rename(`${path}.tmp`, path);
 });
