@@ -8,7 +8,7 @@ The config lives at `~/.config/fleetfizz/config.jsonc` (under `$XDG_CONFIG_HOME`
 ```jsonc title="config.jsonc"
 {
   "$schema": "./schema.json",
-  "version": "0.14.0",
+  "version": "0.15.2",
   "machines": ["connors-mac-studio", "connors-macbook-pro"],
   "repos": {
     "cloneRoot": [
@@ -82,7 +82,7 @@ The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FL
 
 ```jsonc title="config.jsonc"
 {
-  "version": "0.14.0",
+  "version": "0.15.2",
   "machines": ["connors-mac-studio"],
   "files": { "items": { "vp-config": "~/.config/vite-plus/config.json" } },
   "vp": { "items": { "vercel": "^59.25.4" } },
@@ -152,7 +152,7 @@ When one Item needs a different definition on some Machines, write it as a list 
 
 ```jsonc title="config.jsonc"
 {
-  "version": "0.14.0",
+  "version": "0.15.2",
   "machines": ["connors-mac-studio", "bluefin"],
   "pnpm": {
     "items": {
