@@ -13,6 +13,7 @@
     "fmt": "vp fmt",
     "fmt:check": "vp fmt --check",
     "test": "vp run -r test",
+    "e2e": "pnpm build && vp run --filter @fleetfizz/e2e e2e",
     "check": "pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test",
     "changeset": "changeset",
     "release": "pnpm build && changeset publish"

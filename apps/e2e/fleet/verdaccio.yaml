@@ -1,0 +1,20 @@
+# The Fleet's npm registry. fleetfizz comes only from what the suite
+# publishes here, never from npmjs, so every Machine installs the build under
+# test at its own version. Everything else is proxied to npmjs.
+storage: /verdaccio/storage/data
+auth:
+  htpasswd:
+    file: /verdaccio/storage/htpasswd
+uplinks:
+  npmjs:
+    url: https://registry.npmjs.org/
+    timeout: 60s
+packages:
+  fleetfizz:
+    access: $all
+    publish: $authenticated
+  "**":
+    access: $all
+    publish: $authenticated
+    proxy: npmjs
+log: { type: stdout, format: pretty, level: warn }

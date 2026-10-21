@@ -1,0 +1,34 @@
+#!/bin/sh
+# Stands in for `tailscale` on the Starting Machine of an E2E Fleet. fizz
+# calls it two ways:
+#
+#   tailscale status --json         prints status.json next to this script
+#   tailscale ssh <machine> <script>  runs the script over plain ssh, in the
+#                                   remote user's login shell, as Tailscale
+#                                   SSH does; stdin passes through
+#
+# `targets`, next to this script, has one line per remote Machine: its name,
+# then its ssh arguments (`linux-b fizz@linux-b`). ssh exits 255 when it
+# cannot connect, as `tailscale ssh` does, so a stopped Machine is skipped.
+set -eu
+dir=$(cd "$(dirname "$0")" && pwd)
+case "${1:-}" in
+  status) exec cat "$dir/status.json" ;;
+  ssh)
+    machine=$2
+    script=$3
+    args=$(sed -n "s/^$machine //p" "$dir/targets")
+    if [ -z "$args" ]; then
+      echo "tailscale: no Machine $machine" >&2
+      exit 255
+    fi
+    quoted=$(printf '%s' "$script" | sed "s/'/'\\\\''/g")
+    # shellcheck disable=SC2086 # $args is the Machine's ssh arguments.
+    exec ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+      -o LogLevel=ERROR -o ConnectTimeout=5 $args "exec \"\$SHELL\" -lc '$quoted'"
+    ;;
+  *)
+    echo "tailscale (E2E shim): $* is not supported" >&2
+    exit 1
+    ;;
+esac
