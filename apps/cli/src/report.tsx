@@ -13,6 +13,7 @@ import { STATE_DIR } from "@fleetfizz/remote";
 import { Box } from "ink";
 
 import { LedgerState } from "./ledger.ts";
+import { makeStateDirectory } from "./stateDirectory.ts";
 import { LedgerView, NoteLine, T, toText } from "./view.tsx";
 
 const reportPath = () => `${STATE_DIR.replace(/^~/, process.env.HOME ?? "~")}/last-ship.json`;
@@ -24,8 +25,8 @@ const decode = Schema.decodeEffect(LedgerJson);
 export const saveReport = Effect.fn("saveReport")(function* (state: LedgerState) {
   const fs = yield* FileSystem.FileSystem;
   const path = reportPath();
-  yield* fs.makeDirectory(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-  yield* fs.writeFileString(path, yield* encode(state));
+  yield* makeStateDirectory(path.slice(0, path.lastIndexOf("/")));
+  yield* fs.writeFileString(path, yield* encode(state), { mode: 0o600 });
 });
 
 export const report = Effect.fn("report")(function* () {

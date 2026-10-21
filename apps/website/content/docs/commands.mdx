@@ -39,7 +39,7 @@ Each Machine is a column, numbered as the list at the top numbers them: `✓` in
 
 <include>../generated/commands/logs.md</include>
 
-Every Ship, dry runs included, writes a Ship Log on the Machine that started it, under `~/.local/state/fleetfizz/logs`, and ends by printing its id: `log: fizz logs 2026-10-18T14-03-22Z-connors-macbook-pro`. Each line has its time, its level, and the Machine and phase it belongs to; lines a Machine printed start with `> `. A Machine keeps its last 20.
+Every Ship, dry runs included, writes a Ship Log on the Machine that started it, under `~/.local/state/fleetfizz/logs`, and ends by printing its id: `log: fizz logs 2026-10-18T14-03-22Z-connors-macbook-pro`. Each line has its time, its level, and the Machine and phase it belongs to; lines a Machine printed start with `> `. A Machine keeps its last 20. Since a Ship Log holds everything an Install Command printed, only your own user can read `~/.local/state/fleetfizz`, the logs and saved Ledger in it included. `fizz logs` on another Machine reads them over Tailscale SSH as that same user.
 
 ## fizz config
 

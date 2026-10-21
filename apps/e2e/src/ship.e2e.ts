@@ -101,7 +101,15 @@ layer(FleetLive, { timeout: "15 minutes", excludeTestServices: true })("fizz shi
 
   it.effect("fizz logs on another Machine reads the Ship Log over tailscale ssh", () =>
     Effect.gen(function* () {
-      const [start, second] = (yield* Fleet).machines;
+      const fleet = yield* Fleet;
+      const [start, second] = fleet.machines;
+      // Only the Starting Machine's user can read its state: the directory
+      // and the newest Ship Log.
+      const modes = yield* fleet.run(
+        start.name,
+        `cd ~/.local/state/fleetfizz && ls -ld . "logs/$(ls -1 logs | tail -1)" | cut -c1-10`,
+      );
+      expect(modes.output.trim().split("\n")).toEqual(["drwx------", "-rw-------"]);
       const here = yield* fizz(start.name, "logs");
       expect(here.exitCode, here.output).toBe(0);
       expect(here.output).toContain(`[${second.name} `);
