@@ -1,6 +1,6 @@
 {
   "name": "fleetfizz",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "description": "Keep every Machine on your tailnet in line with one config.",
   "keywords": [
     "agent-skills",

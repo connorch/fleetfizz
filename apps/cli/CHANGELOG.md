@@ -1,5 +1,13 @@
 # fleetfizz
 
+## 0.15.2
+
+### Patch Changes
+
+- [#90](https://github.com/connorch/fleetfizz/pull/90) [`4849893`](https://github.com/connorch/fleetfizz/commit/4849893b17377369a1a420fd0875474906579046) Thanks [@connorch](https://github.com/connorch)! - pnpm 11 and newer install Globals again: every script puts `PNPM_HOME/bin`, where they keep their Globals' commands, on PATH beside `PNPM_HOME`. Before, every pnpm Global failed with ERR_PNPM_GLOBAL_BIN_DIR_NOT_IN_PATH on a Machine whose pnpm is 11 or newer.
+
+- [#102](https://github.com/connorch/fleetfizz/pull/102) [`d180d66`](https://github.com/connorch/fleetfizz/commit/d180d66bf898abd4e1e4edceae0d9d47a2eca5e4) Thanks [@connorch](https://github.com/connorch)! - A Machine taken out of the Fleet and added back no longer stops the next Ship with "got a Ship ... that missed this Machine". The config's Install Record keeps when it last reached a removed Machine, so that Machine's older copy is overwritten without a Question.
+
 ## 0.15.1
 
 ### Patch Changes
