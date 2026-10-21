@@ -10,19 +10,20 @@ import * as Layer from "effect/Layer";
 
 import { darwinFleet } from "./darwin.ts";
 import { dockerFleet } from "./docker.ts";
+import { mixedFleet } from "./mixed.ts";
 import { NOTES, SHARED_DIR } from "./fixture.ts";
 import { Fleet } from "./fleet.ts";
 import { type LedgerMachine, Prepared, probe, ship } from "./harness.ts";
 
-// E2E_FLEET picks the Fleet: `docker` (the default) or `darwin`.
+// E2E_FLEET picks the Fleet: `docker` (the default), `darwin`, or `mixed`.
 const FleetLive = Prepared.layer.pipe(
   Layer.provideMerge(
     Layer.unwrap(
       Effect.gen(function* () {
-        const fleet = yield* Config.Literals(["docker", "darwin"], "E2E_FLEET").pipe(
+        const fleet = yield* Config.Literals(["docker", "darwin", "mixed"], "E2E_FLEET").pipe(
           Config.withDefault("docker"),
         );
-        return fleet === "darwin" ? darwinFleet : dockerFleet;
+        return { docker: dockerFleet, darwin: darwinFleet, mixed: mixedFleet }[fleet];
       }),
     ),
   ),

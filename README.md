@@ -121,14 +121,15 @@ The Starting Machine needs `tailscale` (with Tailscale SSH to the others), and `
 
 Node 24 and pnpm 12. `pnpm install` once, then:
 
-| Command             | What it does                                           |
-| ------------------- | ------------------------------------------------------ |
-| `pnpm check`        | typecheck, lint, format check, and tests               |
-| `pnpm e2e`          | build, then ship across a Fleet of containers (Docker) |
-| `pnpm build`        | bundle the CLI to `apps/cli/dist/fleetfizz.mjs`        |
-| `pnpm fmt`          | format                                                 |
-| `pnpm images`       | render the share image, README banner, and icons       |
-| `pnpm video`        | open Remotion Studio for the site's motion graphics    |
-| `pnpm video:render` | render them to transparent WebM and HEVC (macOS)       |
+| Command             | What it does                                                 |
+| ------------------- | ------------------------------------------------------------ |
+| `pnpm check`        | typecheck, lint, format check, and tests                     |
+| `pnpm e2e`          | build, then ship across a Fleet of containers (Docker)       |
+| `pnpm e2e:darwin`   | the same, with a Tart VM's two Mac users joining them (Tart) |
+| `pnpm build`        | bundle the CLI to `apps/cli/dist/fleetfizz.mjs`              |
+| `pnpm fmt`          | format                                                       |
+| `pnpm images`       | render the share image, README banner, and icons             |
+| `pnpm video`        | open Remotion Studio for the site's motion graphics          |
+| `pnpm video:render` | render them to transparent WebM and HEVC (macOS)             |
 
 Layout: `apps/cli` is the published `fleetfizz` package; `packages/config` (the config schema), `packages/core` (the Provider interface and the pure planning engine), `packages/remote` (tailnet, transport, remote scripts), and `packages/providers` (the built-in Providers: brew, cask, files, the package managers, skills, repos, and fleetfizz) are private and bundled into it. `apps/e2e` ships the built package across a Fleet of containers, with a stand-in for `tailscale` (ADR 0021). For the site, `apps/website` is fleetfizz.com; it and `packages/video` (motion graphics as Remotion compositions) share the name, copy, colors, and glyph in `packages/brand-assets`, which also renders the share image, README banner, and favicons from them.

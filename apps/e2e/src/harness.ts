@@ -14,7 +14,7 @@ import * as Schema from "effect/Schema";
 import { FleetConfig } from "@fleetfizz/config";
 
 import packageJson from "../../cli/package.json" with { type: "json" };
-import { E2EError, execOk } from "./exec.ts";
+import { E2EError, execOk, succeeded } from "./exec.ts";
 import { Fleet, type FleetMachine } from "./fleet.ts";
 import {
   FIXTURE_ORIGIN,
@@ -125,15 +125,7 @@ export class Prepared extends Context.Service<
       const onStart = (script: string, stdin?: string) =>
         fleet
           .run(start.name, script, stdin)
-          .pipe(
-            Effect.flatMap((ran) =>
-              ran.exitCode === 0
-                ? Effect.void
-                : Effect.fail(
-                    new E2EError({ message: `on ${start.name}: ${script}\n${ran.output}` }),
-                  ),
-            ),
-          );
+          .pipe(Effect.flatMap(succeeded(`on ${start.name}: ${script}`)), Effect.asVoid);
       const shim = yield* fs.readFileString(
         yield* path.fromFileUrl(new URL("../fleet/tailscale", import.meta.url)),
       );
