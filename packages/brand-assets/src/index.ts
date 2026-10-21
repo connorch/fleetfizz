@@ -15,8 +15,14 @@ export const TAGLINE = {
   rest: "One command, and every machine on your tailnet has the same tools, versions, and repos.",
 };
 
-// How to install fleetfizz, for the landing page and the README banner.
-export const INSTALL = "npm install -g fleetfizz";
+// How to install fleetfizz with each package manager, in the landing page's
+// menu order. The README banner shows npm, the one every reader has.
+export const INSTALL = {
+  vp: "vp install -g fleetfizz",
+  pnpm: "pnpm add -g fleetfizz",
+  bun: "bun add -g fleetfizz",
+  npm: "npm install -g fleetfizz",
+} as const;
 
 // The light theme's ink, which is also the dark theme's background.
 export const INK = "#0B0F05";
