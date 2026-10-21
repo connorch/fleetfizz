@@ -1,5 +1,13 @@
 # fleetfizz
 
+## 0.15.3
+
+### Patch Changes
+
+- [#107](https://github.com/connorch/fleetfizz/pull/107) [`93f32b8`](https://github.com/connorch/fleetfizz/commit/93f32b87aa8f4d85feb48ed7d9e786414aadeedc) Thanks [@connorch](https://github.com/connorch)! - When another Machine's config would be overwritten, the Ship's choice to use that config here now says its commands run on every Machine, this one too, and a new choice shows the diff from that config to this Machine's before you pick.
+
+- [#105](https://github.com/connorch/fleetfizz/pull/105) [`85b853f`](https://github.com/connorch/fleetfizz/commit/85b853f72b095dbc30d45fe8adbfbe6d410e817a) Thanks [@connorch](https://github.com/connorch)! - Only your own user can read the Ship Log and the saved Ledger: every Ship makes `~/.local/state/fleetfizz` owner-only (0700), existing installs included, and writes new Ship Logs and `last-ship.json` as 0600. Before, both were world-readable, along with everything an Install Command printed.
+
 ## 0.15.2
 
 ### Patch Changes
