@@ -7,7 +7,7 @@ description: fizz init, fizz ship, fizz status, fizz report, fizz logs, fizz con
 
 <include>../generated/commands/init.md</include>
 
-It runs no fix itself: the fixes need `sudo` or a login. It needs a terminal, and when a config already exists it shows it and changes nothing. [Getting started](/docs/getting-started) walks through it.
+It runs no fix itself: the fixes need `sudo` or a login. It needs a terminal, and when a config already exists it shows it and changes nothing. After writing a config, it offers a dry run. [Getting started](/docs/getting-started) walks through it.
 
 ## fizz ship
 
@@ -19,7 +19,7 @@ A Ship checks every Machine, plans its Steps, asks any Questions, then applies t
 
 `--answer kind=choice` answers every Question of a kind: `range=bump|skip|downgrade`, `config=overwrite|stop`, `file=overwrite|skip`, or `skill=overwrite|skip`. `--answer kind:subject=choice` answers one, such as `range:pnpm:vercel=bump`, and wins over the kind's answer.
 
-Without a terminal, a Question is never waited on: the answer is skip. Piped to a file, the Ledger prints the full list once at the end.
+Without a terminal, a Question is never waited on: a `range`, `file`, or `skill` Question is skipped, and a `config` Question stops the Ship. Piped to a file, the Ledger prints the full list once at the end.
 
 ### A different config elsewhere
 
@@ -49,7 +49,7 @@ It reads only the config and the tailnet, so it is instant and works with Machin
 
 ### fizz config add
 
-Every `add` writes one entry the way the docs write it, the shorthand (`"gh": "*"`) when it has no Targeting, then prints the lines it changed. It saves the config only when it still loads, and keeps its comments and layout. An Item that is already there is an error; change it with `fizz config edit`. Without a terminal, a missing value is an error instead of a prompt.
+Every `add` writes its entry the way the docs write it, the shorthand (`"gh": "*"`) when it has no Targeting, then prints the lines it changed. It saves the config only when it still loads, and keeps its comments and layout. An Item that is already there is an error; change it with `fizz config edit`. Without a terminal, a missing value is an error instead of a prompt.
 
 #### fizz config add machines
 
@@ -103,4 +103,4 @@ A path under your home is written under `~`, so it names the same place on every
 
 <include>../generated/commands/self-update.md</include>
 
-It sets the config's `version`, then installs that fleetfizz on this Machine with the package manager that installed fizz. The other Machines get it on the next Ship. Every fizz also switches to the config's `version` on its own before it runs a command, older or newer, so a Machine that receives a new config catches up on its next command.
+It installs that fleetfizz on this Machine with the package manager that installed fizz, then sets the config's `version`, so a version that fails to install leaves the config as it was. The other Machines get it on the next Ship. Every fizz also switches to the config's `version` on its own before it runs a command that reads the config, older or newer, so a Machine that receives a new config catches up on its next command.
