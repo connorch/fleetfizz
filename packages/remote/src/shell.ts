@@ -23,11 +23,13 @@ const toolEnv = [
   `ff_env="\${XDG_CONFIG_HOME:-$HOME/.config}/vite-plus/env"`,
   `{ [ ! -f "$ff_env" ] || . "$ff_env"; }`,
   // pnpm installs Globals only with PNPM_HOME set, which `pnpm setup`
-  // writes to an rc file; this is its default.
+  // writes to an rc file; this is its default. Its Globals' bin directory,
+  // which must be on PATH, is PNPM_HOME up to pnpm 10 and PNPM_HOME/bin from
+  // pnpm 11, so both go on PATH below.
   `if [ -z "\${PNPM_HOME:-}" ]; then if [ "$(uname)" = Darwin ]; then PNPM_HOME="$HOME/Library/pnpm"; else PNPM_HOME="\${XDG_DATA_HOME:-$HOME/.local/share}/pnpm"; fi; export PNPM_HOME; fi`,
   // vp (and its VP_HOME or legacy layout), pnpm, bun, mise's shims, volta,
   // and fnm's default (its data directory on linux, then on macOS).
-  `export PATH="$PATH:\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PNPM_HOME:\${BUN_INSTALL:-$HOME/.bun}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims:\${VOLTA_HOME:-$HOME/.volta}/bin:\${FNM_DIR:-\${XDG_DATA_HOME:-$HOME/.local/share}/fnm}/aliases/default/bin:$HOME/Library/Application Support/fnm/aliases/default/bin"`,
+  `export PATH="$PATH:\${VP_HOME:-$HOME/.vite-plus}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/vite-plus/bin:$PNPM_HOME:$PNPM_HOME/bin:\${BUN_INSTALL:-$HOME/.bun}/bin:\${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims:\${VOLTA_HOME:-$HOME/.volta}/bin:\${FNM_DIR:-\${XDG_DATA_HOME:-$HOME/.local/share}/fnm}/aliases/default/bin:$HOME/Library/Application Support/fnm/aliases/default/bin"`,
   // nvm's default is an alias (`24`, `lts/*`) that only nvm.sh resolves,
   // so it is sourced, and only when nothing above gave a node.
   `if ! command -v node >/dev/null 2>&1 && [ -s "\${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then . "\${NVM_DIR:-$HOME/.nvm}/nvm.sh" >/dev/null 2>&1; fi`,
