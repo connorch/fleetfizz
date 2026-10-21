@@ -33,17 +33,14 @@ export const shaOf = (text: string): Effect.Effect<string> =>
     ),
   );
 
-// `previous` after a Ship at `at` reached `machines`: theirs become `at`, the
-// others stay, and Machines no longer in `fleet` are dropped.
+// `previous` after a Ship at `at` reached `machines`: theirs become `at`, and
+// the others stay, even Machines no longer in the Fleet. A Machine added back
+// then compares its copy's time with the last time this Config reached it.
 export const reachedAfter = (
   previous: Reached,
   at: string,
   machines: ReadonlyArray<string>,
-  fleet: ReadonlyArray<string>,
-): Reached => ({
-  ...Object.fromEntries(Object.entries(previous).filter(([name]) => fleet.includes(name))),
-  ...Object.fromEntries(machines.map((name) => [name, at])),
-});
+): Reached => ({ ...previous, ...Object.fromEntries(machines.map((name) => [name, at])) });
 
 // Several copies' `reached`, each Machine at its newest: copies with the same
 // text are one Config, whatever Ships wrote them.

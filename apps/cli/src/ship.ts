@@ -479,7 +479,6 @@ export const shipPass = Effect.fn("shipPass")(function* (
                 mergeReached([base, choice.reached]),
                 DateTime.formatIso(yield* DateTime.now),
                 [own],
-                choice.config.machines,
               ),
             }),
           );
@@ -695,12 +694,7 @@ export const shipPass = Effect.fn("shipPass")(function* (
     encodeConfigRecord({
       ship: id,
       sha,
-      reached: reachedAfter(
-        base,
-        at,
-        [...reached, ...(own === undefined ? [] : [own])],
-        cfg.machines,
-      ),
+      reached: reachedAfter(base, at, [...reached, ...(own === undefined ? [] : [own])]),
     });
   changing = true;
   const record = recordFor(planned.map((g) => g.machine.name));
