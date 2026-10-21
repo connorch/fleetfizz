@@ -1,5 +1,11 @@
 # fleetfizz
 
+## 0.15.4
+
+### Patch Changes
+
+- [#110](https://github.com/connorch/fleetfizz/pull/110) [`b12fef6`](https://github.com/connorch/fleetfizz/commit/b12fef6bf8cdff014a94abbde538a22b6760401a) Thanks [@connorch](https://github.com/connorch)! - `fizz init` asks whether to add the fleetfizz skill to the config, so a Ship keeps it on every Machine and your coding agent can edit the config and ship. Without the skills CLI here, it prints the `npx skills add` command instead.
+
 ## 0.15.3
 
 ### Patch Changes
