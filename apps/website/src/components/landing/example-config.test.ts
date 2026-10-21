@@ -2,6 +2,7 @@ import { FleetConfig, parseConfig } from "@fleetfizz/config";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { expect, it } from "@effect/vitest";
+import { version } from "../../../../cli/package.json" with { type: "json" };
 import { EXAMPLE, exampleText } from "./example-config";
 
 // The page's example must be a config the CLI would load as written.
@@ -10,11 +11,12 @@ it("the example config parses as the CLI's config.jsonc", () => {
   expect(parsed).toEqual(Schema.decodeSync(FleetConfig)(EXAMPLE));
 });
 
+// The version moves with every release; the rest reads as it did by hand.
 it("the example reads as it did by hand", () => {
-  expect(exampleText()).toMatchInlineSnapshot(`
+  expect(exampleText().replace(`"${version}"`, '"<version>"')).toMatchInlineSnapshot(`
     "{
       // The fleetfizz every Machine runs.
-      "version": "0.14.0",
+      "version": "<version>",
       // The Fleet: every Machine a Ship touches.
       "machines": ["mac-studio", "macbook-pro", "homelab"],
       // Tracked Repos, installed from origin on every Machine.

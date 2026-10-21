@@ -27,6 +27,7 @@ jobs:
             - args: [--frozen-lockfile]
       - uses: changesets/action@v2
         with:
+          version-script: pnpm version-packages
           publish-script: pnpm release
           github-token: ${{ secrets.GITHUB_TOKEN }}
         env:

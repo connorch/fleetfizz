@@ -20,7 +20,7 @@ A config written by hand looks like this:
   "$schema": "./schema.json",
   // The fleetfizz every Machine runs. A fizz of another version installs this
   // one first; fizz self-update changes it.
-  "version": "0.14.0",
+  "version": "0.15.2",
   // The Fleet: every Machine a Ship touches, by its tailnet name. The Machine
   // you ship from must be listed.
   "machines": ["connors-mac-studio", "connors-macbook-pro"],

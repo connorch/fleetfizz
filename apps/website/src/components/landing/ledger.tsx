@@ -1,12 +1,14 @@
 import { cn } from "@fleetfizz/ui/lib/utils";
+import { version } from "../../../../cli/package.json" with { type: "json" };
 import { CodeBlock } from "./code-block";
 
-// A finished `fizz ship`, laid out the way the CLI draws it (apps/cli/src/
-// view.tsx): notes above, then each Machine's line with its time and summary
-// and, under it, one line per item that changed, its status first. The same
-// columns run through every line. The run itself is invented: three
-// Machines, one Question. Its bump edits the config, so every Machine also
-// gets the new copy.
+// A finished `fizz ship` in a terminal, laid out the way the CLI draws it
+// (apps/cli/src/view.tsx): notes above, then each Machine's line with its time
+// and summary and, under it, one line per item that changed, its status
+// first, then the Ship's summary and the hints under it. The same columns run
+// through every line. The run itself is invented: three Machines, one
+// Question. Its bump edits the config, so every Machine also gets the new
+// copy, and the MacBook Pro catches up to the fleetfizz the config names.
 
 type Tone = "dim" | "bold" | "ok" | "fail" | "skip" | "run" | "ask";
 interface Segment {
@@ -28,8 +30,11 @@ interface Machine {
   readonly items: ReadonlyArray<Item>;
 }
 
+// The fleetfizz the MacBook Pro had: the minor release before this one.
+const [major = 0, minor = 0] = version.split(".").map(Number);
+const PREVIOUS = minor > 0 ? `${major}.${minor - 1}.0` : `${major - 1}.0.0`;
+
 const NOTES: ReadonlyArray<Row> = [
-  [{ text: "3 machines from mac-studio" }],
   [{ text: "?", tone: "ask" }, { text: " pnpm:wrangler 4.141.0 on mac-studio is above ^4.136.3" }],
   [{ text: "  → bump the config to ^4.141.0", tone: "dim" }],
 ];
@@ -48,15 +53,15 @@ const MACHINES: ReadonlyArray<Machine> = [
     items: [
       {
         status: "✓ installed",
-        name: "fleetfizz:fleetfizz",
-        value: "0.13.0 → 0.14.0",
-        time: "16.6s",
-      },
-      {
-        status: "✓ installed",
         name: "repos:t3code",
         value: "3f1a2b0 → 9e02bb1",
         time: "4m 50s",
+      },
+      {
+        status: "✓ done",
+        name: "fleetfizz:fleetfizz",
+        value: `${PREVIOUS} → ${version}`,
+        time: "16.6s",
       },
       { status: "✓ copied", name: "config", value: "4c8e1f2 → b07d93a", time: "0.3s" },
     ],
@@ -73,21 +78,26 @@ const MACHINES: ReadonlyArray<Machine> = [
   },
 ];
 
-const SUMMARY: Row = [
-  { text: "3 updated", tone: "ok" },
-  { text: "  in 5m 12s", tone: "dim" },
+const SUMMARY: ReadonlyArray<Row> = [
+  [
+    { text: "3 updated", tone: "ok" },
+    { text: "  in 5m 12s", tone: "dim" },
+  ],
+  [{ text: "full report: fizz report", tone: "dim" }],
+  [{ text: "log: fizz logs 2026-10-21T18-16-33Z-mac-studio", tone: "dim" }],
 ];
 
 const GAP = "  ";
 const INDENT = "  ";
 
 // The CLI's column rules: every width is the widest value in that column,
-// and a Machine's name spans the status, name, and value columns.
+// and a Machine's name spans the status, name, and value columns. An item's
+// name is indented under its Machine's, so it starts at `nameAt`.
 const rows = (): Row[] => {
   const items = MACHINES.flatMap((m) => m.items);
   const widest = (texts: string[]) => Math.max(0, ...texts.map((t) => t.length));
   const status = widest(items.map((i) => i.status));
-  const item = INDENT.length + widest(items.map((i) => i.name));
+  const item = widest(items.map((i) => i.name));
   const nameAt = status + GAP.length + INDENT.length;
   const value = Math.max(
     widest(items.map((i) => i.value)),
@@ -106,12 +116,12 @@ const rows = (): Row[] => {
       out.push([
         { text: i.status.padEnd(status), tone: "ok" },
         {
-          text: `${GAP}${INDENT}${i.name.padEnd(item - INDENT.length)}${GAP}${i.value.padEnd(value)}`,
+          text: `${GAP}${INDENT}${i.name.padEnd(item)}${GAP}${i.value.padEnd(value)}`,
         },
         { text: `${GAP}${i.time.padStart(time)}`, tone: "dim" },
       ]);
     }
-    if (n === MACHINES.length - 1) out.push([], SUMMARY);
+    if (n === MACHINES.length - 1) out.push([], ...SUMMARY);
   });
   return out;
 };

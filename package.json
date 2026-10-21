@@ -17,6 +17,7 @@
     "e2e:darwin": "pnpm build && E2E_FLEET=mixed vp run --filter @fleetfizz/e2e e2e",
     "check": "pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm test",
     "changeset": "changeset",
+    "version-packages": "changeset version && node apps/cli/scripts/write-example-versions.ts",
     "release": "pnpm build && changeset publish"
   },
   "devDependencies": {

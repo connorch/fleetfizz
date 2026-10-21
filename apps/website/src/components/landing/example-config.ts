@@ -1,11 +1,13 @@
 import type { FleetConfig } from "@fleetfizz/config";
+import { version } from "../../../../cli/package.json" with { type: "json" };
 
 // The config the landing page shows. Typed as the config as written
 // (FleetConfig's Encoded side), so a schema change that this example no
 // longer fits fails the typecheck, and the test decodes it with the CLI's own
-// parser for the runtime rules.
+// parser for the runtime rules. Its `version` is the CLI's own, so a copy of
+// it never moves fizz to another version.
 export const EXAMPLE: typeof FleetConfig.Encoded = {
-  version: "0.14.0",
+  version,
   machines: ["mac-studio", "macbook-pro", "homelab"],
   repos: {
     cloneRoot: [{ machines: ["mac-studio"], path: "/Volumes/Stack/clones" }],
