@@ -30,7 +30,7 @@ You run `fizz ship` on any Machine in the Fleet, the Starting Machine. It reache
 
 The Ledger shows the result: one line per Machine and, under it, each Item that changed. `fizz ship --dry-run` stops after the Plan, and `fizz report` prints the last Ledger of a Ship from this Machine again.
 
-The config names one fleetfizz `version`. Every fizz switches to it before it reads the config, and every Ship copies the config and installs that version on every Machine, so any Machine can run the next one.
+The config names one fleetfizz `version`. Every fizz switches to it before it reads the config, and every Ship copies the config and installs that version on every Machine, so any Machine can run the next one. Add only Machines you trust as much as the one you ship from: what any of them ships runs on every Machine.
 
 ## What it does not do
 
