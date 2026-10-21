@@ -5,53 +5,19 @@ description: Put your Machines on Tailscale SSH, run fizz init, and run your fir
 
 This guide takes two or more macOS or Linux Machines to a first Ship. Pick one Machine to ship from; the first Ship sets up fleetfizz on the others.
 
+Every Machine needs `git`, Node 24 or newer, and a package manager: npm, pnpm, bun, or vp. The first Ship installs fleetfizz on the others with the one that installed it on the Machine you ship from. A Ship never installs Node, a package manager, or Homebrew; if the config's `brew` section targets a Linux Machine, install Homebrew there too.
+
 ## 1. Put every Machine on your tailnet
 
-fleetfizz reaches every Machine with `tailscale ssh`, so every Machine must be on the same tailnet with Tailscale SSH on, before `fizz init` lists them.
-
-On a Mac, use the open-source `tailscaled` from Homebrew. The Tailscale app cannot accept Tailscale SSH, so quit and remove it first if you have it.
+Install [Tailscale](https://tailscale.com/download) on every Machine, sign each in to the same tailnet, and turn on Tailscale SSH with `sudo tailscale set --ssh`. On a Mac, only Homebrew's open-source `tailscaled` can accept Tailscale SSH, not the Tailscale app:
 
 ```sh
 brew install --formula tailscale
 sudo brew services start tailscale
-sudo tailscale up
-sudo tailscale set --ssh
+sudo tailscale up --ssh
 ```
 
-On Linux:
-
-```sh
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-sudo tailscale set --ssh
-```
-
-Then, in the Tailscale admin console under **Access controls**, let your own user in with `accept` instead of `check`. With `check`, Tailscale can ask you to sign in in a browser, and a Ship's Check of that Machine waits on that prompt until it gives up after two minutes. fleetfizz never logs in as root, so root can stay behind `check`:
-
-```json
-"ssh": [
-  {
-    "action": "accept",
-    "src": ["autogroup:member"],
-    "dst": ["autogroup:self"],
-    "users": ["autogroup:nonroot"]
-  },
-  {
-    "action": "check",
-    "src": ["autogroup:member"],
-    "dst": ["autogroup:self"],
-    "users": ["root"]
-  }
-]
-```
-
-From the Machine you will ship from, check each other Machine. It should print `ok` with no prompt:
-
-```sh
-tailscale ssh connors-macbook-pro echo ok
-```
-
-Every Machine needs `git`. The Machine you ship from needs Node 24 or newer and a package manager: npm, pnpm, bun, or vp. The first Ship installs fleetfizz on the others with the same package manager, so give them Node 24 and that package manager too. A Ship never installs Node, a package manager, or Homebrew; if the config's `brew` section targets a Linux Machine, install Homebrew there too.
+Then, under **Access controls** in the Tailscale admin console, change the default SSH rule's `"action"` from `"check"` to `"accept"`, so a Ship never waits on a browser sign-in.
 
 ## 2. Run fizz init
 
