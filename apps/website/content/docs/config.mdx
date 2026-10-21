@@ -3,7 +3,7 @@ title: Config
 description: The one config.jsonc that describes the Fleet.
 ---
 
-The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every Machine. The copy on the Machine you ship from is the one a Ship reads, and the Ship copies it (and `schema.json`, for editor validation) to every other Machine.
+The config lives at `~/.config/fleetfizz/config.jsonc` (under `$XDG_CONFIG_HOME` when it is set), the same path on every Machine, and must be a regular file, not a symlink. The copy on the Machine you ship from is the one a Ship reads, and the Ship copies it (and `schema.json`, for editor validation) to every other Machine.
 
 ```jsonc title="config.jsonc"
 {
@@ -62,9 +62,9 @@ The config lives at `~/.config/fleetfizz/config.jsonc`, the same path on every M
 
 <include>../generated/config/version.md</include>
 
-It is an exact version, never a Range, so one Ship's logic is always one version's. `fizz init` writes the version that is running. Every command that reads the config compares it first: a fizz of another version, older or newer, installs this one with the package manager that installed it (vp, npm, bun, or pnpm, read from its path), then runs the same command again. A fizz that none of them installed, such as a `pnpm link`, stops with the command to run.
+It is an exact version, never a Range, so one Ship's logic is always one version's. `fizz init` writes the version that is running. Every command that reads the config compares it first: a fizz of another version, older or newer, installs this one with the package manager that installed it (vp, npm, bun, or pnpm, read from its path), then runs the same command again. A fizz that none of them installed, such as a `pnpm link`, stops and names the version to install yourself.
 
-Every Ship also keeps `fleetfizz:fleetfizz` in line on each Machine, last: a fizz of another version is changed with the package manager that installed it there, and a Machine without fizz gets it with the package manager that installed the Starting Machine's. `fizz self-update` changes `version` and installs it here; the next Ship installs it everywhere.
+Every Ship also keeps `fleetfizz:fleetfizz` in line on each Machine, last: a fizz of another version is changed with the package manager that installed it there, and a Machine without fizz gets it with the package manager that installed the Starting Machine's, or skips it until it has that package manager. `fizz self-update` changes `version` and installs it here; the next Ship installs it everywhere.
 
 ## machines
 
@@ -74,7 +74,7 @@ Every Ship also keeps `fleetfizz:fleetfizz` in line on each Machine, last: a fiz
 
 <include>../generated/config/repos.md</include>
 
-The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
+The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set. A `cloneRoot` under `~` is created when it is missing; any other path is taken to be a volume, so a Machine where it is missing fails ("clone root not mounted") rather than cloning to the internal drive.
 
 ## vp, npm, bun, pnpm
 
@@ -90,9 +90,9 @@ The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FL
 }
 ```
 
-Each package manager lists its Globals with its own command (`pnpm ls -g --json`, `bun pm ls -g`, and so on) and installs with its own global install. A Global of a package manager that is not on a Machine fails ("pnpm is not installed"), unless another section installs that package manager there in the same Ship: then it waits for the next Ship. Yarn has no section, since Yarn 2 and newer has no global installs.
+Each package manager lists its Globals with its own command (`pnpm ls -g --depth=0 --json`, `bun pm ls -g`, and so on) and installs with its own global install. A Global of a package manager that is not on a Machine fails ("pnpm is not installed"), unless another section installs that package manager there in the same Ship: then it waits for the next Ship. Yarn has no section, since Yarn 2 and newer has no global installs.
 
-A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` always installs the newest version, and `*` installs only when missing. A Global not in the config is never uninstalled.
+A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` keeps it at the newest version, and `*` installs only when missing. The Starting Machine reads published versions from the npm registry, so every Machine gets the same version. A Global not in the config is never uninstalled.
 
 A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
 
@@ -112,7 +112,7 @@ A Ship never installs a package manager or Node, and never keeps their versions.
 
 <include>../generated/config/skills.md</include>
 
-The [skills CLI](https://github.com/vercel-labs/skills) installs each skill, so list it as a Global of any package manager (`"skills": "^1.7.0"` in `pnpm.items`); a skill on a Machine without it fails. On a Machine that gets the CLI in a Ship, its skills install on the next Ship, once the CLI can show which skill folders are already there. A Ship runs `skills add <source> -g -s <name> -a <agents>`, with telemetry off. The CLI's own lock (`~/.agents/.skill-lock.json`) records the source and hash of what it installed, and each Machine keeps a record of the agents, so adding one to `agents` installs every skill for it on the next Ship. A skill installed by hand with the CLI installs again on its first Ship, to record its agents. Skills the config does not list are left alone, and removing one from the config never uninstalls it.
+The [skills CLI](https://github.com/vercel-labs/skills) installs each skill, so list it as a Global of any package manager (`"skills": "^1.7.0"` in `pnpm.items`); a skill on a Machine without it fails. On a Machine that gets the CLI in a Ship, its skills install on the next Ship, once the CLI can show which skill folders are already there. A Ship runs `skills add <source> -g -y -s <names> -a <agents>` once for each source and set of agents, with telemetry off. The CLI's own lock (`~/.agents/.skill-lock.json`, or under `$XDG_STATE_HOME`) records the source and hash of what it installed, and each Machine keeps a record of the agents, so adding one to `agents` installs every skill for it on the next Ship. A skill installed by hand with the CLI installs again on its first Ship, to record its agents. Skills the config does not list are left alone, and removing one from the config never uninstalls it.
 
 A skill from GitHub (`owner/repo`) follows its `ref`, or the default branch, like a Tracked Repo: once per Ship, the Machine you ship from reads the skill folder's hash at the ref from GitHub, and a Machine whose lock has another hash installs it again. The Ledger shows the hash: `skills:grilling eedaf25 → f073203`. A skill from any other source is installed when missing and never checked. When GitHub cannot be reached, or cannot list a repo in full (past about 100,000 files), installed skills are skipped for that Ship and missing ones still install.
 
@@ -122,11 +122,11 @@ A Ship asks before an install would replace a skill's folder (`--answer skill=ov
 
 <include>../generated/config/files.md</include>
 
-A Ship reads each Shared File on the Machine it runs from and copies it, with its mode bits, to every targeted Machine. A directory is mirrored: what the Starting Machine no longer has is deleted there too, except excluded paths. A symlink is copied as a link. A Shared File over 10 MB in total fails.
+A Ship reads each Shared File on the Machine it runs from and copies it, with its mode bits, to every targeted Machine. A directory is mirrored: what the Starting Machine no longer has is deleted there too, except excluded paths (and `.DS_Store` and `._*`, always). A symlink is copied as a link. A Shared File over 10 MB in total fails.
 
-Each Machine keeps a record of the last copy a Ship wrote there. Before overwriting, a Ship asks (`--answer file=overwrite` or `skip`; skip is the default) when the copy there was edited since, when no Ship wrote it, or when it came from a newer Ship that missed the Starting Machine. The Question can also show the diff from that Machine's copy first (with your own git pager, never logged), keep that Machine's copy instead, and an Item the Starting Machine lacks asks which Machine to take it from: the Ship pulls the copy here, encrypted with `openssl` on the way, then starts over. Contents travel only on the ssh session's stdin, so they never appear in a script, the Ledger, or the Ship Log.
+Each Machine keeps a record of the last copy a Ship wrote there. Before overwriting, a Ship asks (`--answer file=overwrite` or `skip`; skip is the default) when the copy there was edited since, when no Ship wrote it, or when it came from a newer Ship that missed the Starting Machine. The Question can also show the diff from that Machine's copy first (with your own git pager, never logged), keep that Machine's copy instead, and an Item the Starting Machine lacks asks which Machine to take it from: the Ship pulls the copy here, encrypted with `openssl` on the way, then starts over. Contents travel to a Machine on the ssh session's stdin, and back from one only encrypted, so they never appear in a script, the Ledger, or the Ship Log.
 
-`after` runs only on a Machine where the Ship wrote the file, and before its record, so when it fails, the next Ship runs it again on that Machine. `--rebuild files:<name>` runs it on a Machine whose copy is already in line.
+`after` runs on a Machine where the Ship wrote the file, in the file's directory and before its record, so when it fails, the next Ship runs it again on that Machine. It also runs where the copy is already in line but no record shows that its `after` succeeded. `--rebuild files:<name>` runs it on a Machine whose copy is already in line.
 
 ## shell
 
@@ -138,11 +138,11 @@ A Ship runs every script in a login shell, which reads no rc file over ssh: Ubun
 
 Sections run in a built-in order: brew, cask, files, vp, npm, bun, pnpm, skills, repos, then fleetfizz itself. Homebrew is first, so an `after` can use a Formula; then the package managers, so they find the Node a Formula or a Shared File set up; then skills and repos, so an Install Command can use any of them. The order sections are written in the config never matters.
 
-`dependsOn` changes the order, and only `dependsOn` holds a section back: when an Item of a section it names fails on a Machine, that Machine's changes for this section are skipped ("depends on npm"). A section it names that does not target the Machine holds nothing back. bun installed as a pnpm Global runs before pnpm by default; `"bun": { "dependsOn": ["pnpm"] }` fixes it.
+`dependsOn` changes the order, and only `dependsOn` holds a section back: when an Item of a section it names fails on a Machine, that Machine's changes for this section are skipped ("depends on npm"). `cask` always depends on `brew`. A section it names that does not target the Machine holds nothing back. bun installed as a pnpm Global runs before pnpm by default; `"bun": { "dependsOn": ["pnpm"] }` fixes it.
 
 ## Targeting
 
-Every section, each Item in its `items`, and each Variant take two optional fields that narrow where they apply. They combine with AND, so an Item applies where both it and its section do, and an unset field means every one.
+Every section but `shell`, each Item in its `items`, and each Variant take two optional fields that narrow where they apply. They combine with AND, so an Item applies where both it and its section do, and an unset field means every one.
 
 <include>../generated/config/targeting.md</include>
 
@@ -162,4 +162,4 @@ When one Item needs a different definition on some Machines, write it as a list 
 }
 ```
 
-`repos.cloneRoot` takes Variants the same way: a path, or a list of `{ path, platforms?, machines? }`.
+`repos.cloneRoot` and `shell.init` take Variants the same way: a value, or a list of entries with Targeting (`{ path, platforms?, machines? }`). A Machine with no Variant gets the default, `~/.local/share/fleetfizz/clones` or no `init`.

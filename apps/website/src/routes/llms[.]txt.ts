@@ -13,7 +13,7 @@ export const Route = createFileRoute("/llms.txt")({
             `# ${NAME}`,
             `> ${TAGLINE.lead} ${TAGLINE.rest}`,
             `${NAME} is a CLI that keeps every macOS and Linux machine on a Tailscale tailnet in line with one config: the global packages of vp, npm, bun, and pnpm, Homebrew formulae and casks, agent skills, shared dotfiles, and a clone of each tracked git repo. \`fizz ship\` runs on one machine and drives the others over Tailscale SSH. There is no daemon, agent, or server to run.`,
-            "Install it with any of them, then set up a config and ship:",
+            "Install it with npm, pnpm, bun, or vp (Node 24 or newer), then set up a config in a terminal and ship:",
             "```sh\nnpm install -g fleetfizz\nfizz init\nfizz ship\n```",
             "## Docs",
             pagesInOrder()

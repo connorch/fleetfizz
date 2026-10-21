@@ -6,7 +6,7 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/
 
 ## Usage
 
-Install fleetfizz with any package manager (npm, pnpm, bun, or vp) on the Machine you will ship from, then run `fizz init`. It checks that this Machine is ready to ship, asks which Machines on your tailnet are in the Fleet and what to keep in line, and writes the config at `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
+Install fleetfizz with any package manager (npm, pnpm, bun, or vp, on Node 24 or newer) on the Machine you will ship from, then run `fizz init`. It checks that this Machine is ready to ship, asks which Machines on your tailnet are in the Fleet and what to keep in line, and writes the config at `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
 
 ```sh
 npm install -g fleetfizz   # or: pnpm add -g, bun add -g, vp install -g
@@ -101,7 +101,7 @@ The Ledger lists each Machine and, under it, what changes there, by address: `pn
 
 To debug a Ship, read its Ship Log: every script each Machine ran, every line it printed, every decision, and full errors. Each Ship ends by printing its id (`log: fizz logs <ship-id>`). The log lives on the Machine that started the Ship, and `fizz logs` reads it from any Machine over Tailscale SSH.
 
-Every fizz runs the `version` the config names: an older or newer one installs it with the package manager that installed it, then runs the same command again. Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs that fleetfizz there (`fleetfizz:fleetfizz`), with the package manager that installed fizz on that Machine, or the Starting Machine's when it has none, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`. If another Machine's config was edited there, was never written by a Ship, or was shipped there more recently than this one last reached it, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
+Every fizz that reads the config runs the `version` it names: an older or newer one installs it with the package manager that installed it, then runs the same command again. Every Ship copies this config (and `schema.json`, for editor validation) to every Machine in the Fleet and installs that fleetfizz there (`fleetfizz:fleetfizz`), with the package manager that installed fizz on that Machine, or the Starting Machine's when it has none, so any Machine can run the next Ship. A new Machine joins by enabling Tailscale SSH and being added to `machines`. If another Machine's config was edited there, was never written by a Ship, or was shipped there more recently than this one last reached it, the Ship asks first: use that config here and ship it, overwrite it with this one, or stop. `--overwrite-config` answers overwrite in advance, and without a terminal the Ship stops instead.
 
 Each Install Command runs in a login shell inside its Managed Clone, with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FLEETFIZZ_MACHINES` (every Machine in the Fleet, comma-separated) set.
 
@@ -115,7 +115,7 @@ Scripts on each Machine run in a login shell, with the usual bin directories of 
 
 Flags: `--only <machine>` (repeatable), `--rebuild repos:<name>` to reinstall a Tracked Repo (or `skills:<name>` a skill, or `files:<name>` to run a Shared File's `after` again) or `--rebuild all`, `--answer kind=choice` to answer Questions in advance (`range=bump|skip|downgrade`, `config=overwrite|stop`, `file=overwrite|skip`, `skill=overwrite|skip`, or one subject: `range:pnpm:vercel=bump`; repeatable), `--bump`, `--enforce`, and `--overwrite-config` (short for `range=bump`, `range=downgrade`, and `config=overwrite`), `--config <path>`.
 
-The Starting Machine needs `tailscale` (with Tailscale SSH to the others), and `gh` logged in if any Tracked Repo is private; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, and a shell, plus the package managers its sections use.
+The Starting Machine needs `tailscale` (with Tailscale SSH to the others), and `gh` logged in if any Tracked Repo is private; its token is lent to each Machine on stdin for one Ship so private repos clone, and is never written anywhere. A remote Machine needs only Tailscale SSH, `git`, and a shell, plus the package managers its sections use and Node 24 with one to install fizz.
 
 ## Development
 
