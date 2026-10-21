@@ -1,17 +1,15 @@
 ---
 title: Getting started
-description: Set up Tailscale SSH, run fizz init, and run your first Ship.
+description: Put your Machines on Tailscale SSH, run fizz init, and run your first Ship.
 ---
 
 This guide takes two or more macOS or Linux Machines to a first Ship. Pick one Machine to ship from; the first Ship sets up fleetfizz on the others.
 
-Every Machine needs `git`. The Machine you ship from also needs Node 24 or newer and a package manager: npm, pnpm, bun, or vp.
+## 1. Put every Machine on your tailnet
 
-## 1. Turn on Tailscale SSH everywhere
+fleetfizz reaches every Machine with `tailscale ssh`, so every Machine must be on the same tailnet with Tailscale SSH on, before `fizz init` lists them.
 
-fleetfizz reaches every Machine with `tailscale ssh`, so every Machine must be on the same tailnet with Tailscale SSH on.
-
-On a Mac, use the open-source `tailscaled` from [Homebrew](https://brew.sh). The Tailscale app can connect to other Machines but cannot accept Tailscale SSH, so quit and remove it first if you have it.
+On a Mac, use the open-source `tailscaled` from Homebrew. The Tailscale app cannot accept Tailscale SSH, so quit and remove it first if you have it.
 
 ```sh
 brew install --formula tailscale
@@ -27,8 +25,6 @@ curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 sudo tailscale set --ssh
 ```
-
-If a Machine is already on your tailnet, skip `tailscale up` and run only `sudo tailscale set --ssh`.
 
 Then, in the Tailscale admin console under **Access controls**, let your own user in with `accept` instead of `check`. With `check`, Tailscale can ask you to sign in in a browser, and a Ship's Check of that Machine waits on that prompt until it gives up after two minutes. fleetfizz never logs in as root, so root can stay behind `check`:
 
@@ -55,73 +51,36 @@ From the Machine you will ship from, check each other Machine. It should print `
 tailscale ssh connors-macbook-pro echo ok
 ```
 
-## 2. Install fleetfizz
+Every Machine needs `git`. The Machine you ship from needs Node 24 or newer and a package manager: npm, pnpm, bun, or vp. The first Ship installs fleetfizz on the others with the same package manager, so give them Node 24 and that package manager too. A Ship never installs Node, a package manager, or Homebrew; if the config's `brew` section targets a Linux Machine, install Homebrew there too.
 
-On the Machine you will ship from, install fleetfizz with any package manager:
+## 2. Run fizz init
+
+On the Machine you will ship from, install fleetfizz with any package manager and run `fizz init`:
 
 ```sh
 npm install -g fleetfizz   # or: pnpm add -g, bun add -g, vp install -g
-```
-
-The first Ship installs the same version on the other Machines, with the package manager that installed fizz there, or this one's when they have none, so give them Node 24 and that package manager too. A Ship never installs a package manager or Node: install them yourself, or keep them in the config as a Global, a Formula, or a Shared File.
-
-## 3. Run fizz init
-
-```sh
 fizz init
 ```
 
-`fizz init` needs a terminal. It first checks this Machine: Tailscale connected with Tailscale SSH on, then Homebrew (on a Mac, for Formulae and Casks) and a logged-in `gh` (for private repos), which are optional. It changes nothing there; for each problem it prints the command that fixes it. Fix any that are required and run it again.
+`fizz init` first checks that this Machine can ship: Tailscale connected, with Tailscale SSH on. For each problem it prints the command that fixes it; run them, then run `fizz init` again.
 
-Then it asks:
+Then it asks which Machines on your tailnet are in the Fleet, marking any that are offline or have Tailscale SSH off, what to keep in line from this Machine (Globals, Formulae, Casks, skills, and dotfiles), and whether to add the fleetfizz skill, which teaches your coding agent to edit the config and ship. It writes the config to `~/.config/fleetfizz/config.jsonc` and offers a dry run.
 
-- **Which Machines are in the Fleet**, from your tailnet. This Machine is always one. A Machine that is offline or has no Tailscale SSH yet can still be picked; a Ship skips it until it can reach it.
-- **Which Globals, Formulae, and Casks to keep in line**, from what this Machine has installed with vp, npm, bun, pnpm, and Homebrew (the Formulae you installed, not their dependencies).
-- **Which skills to keep in line**, from the ones the [skills CLI](https://github.com/vercel-labs/skills) installed here from GitHub, all picked to start, and which agents they are for. When a package manager here has the skills CLI, it joins the config as a Global of that one, so a Ship can install them; otherwise `init` says to add it with `fizz config add <package manager> skills`.
-- **Which Shared Files to copy**, from common dotfiles like `~/.gitconfig` and `~/.zshrc` that exist here.
-
-It writes `~/.config/fleetfizz/config.jsonc` (under `$XDG_CONFIG_HOME` when it is set), with the fleetfizz `version` that is running and `schema.json` beside it, so your editor checks the config as you edit it, shows what each Machine gets, and offers a dry run. Add more at any time:
+Add more at any time with `fizz config add`, including a Machine that joins the tailnet later (`fizz config add machines`), or edit the config by hand; [Config](/docs/config) covers every field.
 
 ```sh
 fizz config add repos connorch/t3code --install "pnpm install && pnpm build"
-fizz config add brew tmux --platform linux
-fizz config add pnpm wrangler
 fizz config add files ~/.config/ghostty
-fizz config add skills grilling --source mattpocock/skills
 ```
 
-The config must be a regular file, not a symlink. [Config](/docs/config) covers every field, if you would rather write it by hand.
-
-If your config's `brew` section targets a Linux Machine, install Homebrew there too. A Ship never installs Homebrew itself.
-
-If a Machine already has a config, `fizz init` shows it instead. A new Machine joins an existing Fleet from a Machine that has the config: `fizz config add machines`, then ship.
-
-## 4. Ship
-
-See where each Machine stands, without changing anything:
-
-```sh
-fizz status
-```
-
-Then ship:
+## 3. Ship
 
 ```sh
 fizz ship
 ```
 
-The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. The Ship ends by printing its id, and `fizz logs <ship-id>` shows everything it did. If the Ship asks a Question, such as whether to bump a Range a Machine has outgrown, answer it before anything changes. Any Tracked Repo that is private needs `gh` logged in here: the Ship lends its token to each Machine for that Ship only.
+The Ledger lists each Machine and what changes there, and updates as the Ship runs. Press `f` to see every Item, unchanged ones included. If the Ship asks a Question, such as whether to bump a Range a Machine has outgrown, answer it before anything changes. A private Tracked Repo needs `gh` logged in here: the Ship lends its token to each Machine for that Ship only. The Ship ends by printing its id, and `fizz logs <ship-id>` shows everything it did.
 
-On a Machine that lacks a tool the config installs for another section, such as pnpm as an npm Global or the skills CLI as a pnpm Global, the first Ship installs it and skips what needs it ("ship again"). Run `fizz ship` again to install the rest.
+When a Machine lacks a tool the config installs in another section, such as pnpm as an npm Global or the skills CLI as a pnpm Global, the first Ship installs it and skips what needs it ("ship again"). Run `fizz ship` again to install the rest.
 
-After the first Ship, every Machine it reached has fleetfizz and the config, so you can ship from any of them. To move every Machine to a new fleetfizz, run `fizz self-update` and ship. An offline Machine is skipped and catches up on a later Ship.
-
-## 5. Let your agent ship
-
-The fleetfizz skill teaches a coding agent to edit the config, ship, and debug a Ship. It always runs a dry run first and brings every Question to you:
-
-```sh
-npx skills add connorch/fleetfizz -g
-```
-
-Or keep it on every Machine as a skill in the config, `"fleetfizz": "connorch/fleetfizz"`, with the [skills](/docs/config#skills) section and the skills CLI it needs.
+After the first Ship, every Machine it reached has fleetfizz and the config, so you can ship from any of them, or ask your agent to. An offline Machine is skipped and catches up on a later Ship. A new Machine joins with `fizz config add machines`, then a Ship.

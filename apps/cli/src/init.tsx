@@ -1,11 +1,12 @@
 // `fizz init`: a first config on the Machine you will ship from. It checks
 // this Machine and prints any fixes, picks the Fleet from the tailnet, offers
 // the Globals of every package manager here, Formulae, Casks, the skills the
-// skills CLI installed from GitHub, and common dotfiles, writes the config at
-// this fizz's version (ADR 0019) with the same edits as `fizz config add`
-// (ADR 0017) and schema.json beside it, and offers a dry run. A Machine joins an
-// existing Fleet by being added to its config and shipped to (ADR 0008), so
-// when a config exists here, `init` shows it and points to `fizz config add`.
+// skills CLI installed from GitHub and the fleetfizz skill, and common
+// dotfiles, writes the config at this fizz's version (ADR 0019) with the same
+// edits as `fizz config add` (ADR 0017) and schema.json beside it, and offers
+// a dry run. A Machine joins an existing Fleet by being added to its config
+// and shipped to (ADR 0008), so when a config exists here, `init` shows it and
+// points to `fizz config add`.
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -42,6 +43,9 @@ import { T, toText } from "./view.tsx";
 
 // Dotfiles most developers keep the same everywhere, offered when they exist here.
 export const DOTFILES = ["~/.gitconfig", "~/.zshrc", "~/.bashrc", "~/.profile", "~/.vimrc"];
+
+// The skill that teaches a coding agent to drive fizz (ADR 0021).
+const FLEETFIZZ_SKILL: LocalSkill = { name: "fleetfizz", source: "connorch/fleetfizz" };
 
 // What `init` writes: the Fleet, then each section from what was picked.
 export interface Picks {
@@ -336,7 +340,7 @@ export const init = Effect.fn("init")(function* (flags: {
   // skills CLI sees some here.
   const agentsHere = yield* localAgents();
   const fromGitHub = agentsHere.length === 0 ? [] : yield* localSkills();
-  const skills = yield* pickSome(
+  const pickedSkills = yield* pickSome(
     `Which skills from this Machine? (${fromGitHub.length} installed from GitHub)`,
     fromGitHub.map((skill) => ({
       title: `${skill.name}  ${skill.source}${skill.ref === undefined ? "" : `#${skill.ref}`}`,
@@ -344,6 +348,19 @@ export const init = Effect.fn("init")(function* (flags: {
       selected: true,
     })),
   );
+  // The fleetfizz skill, unless it was just offered with the rest.
+  const addSkill =
+    agentsHere.length > 0 &&
+    !fromGitHub.some((skill) => skill.name === FLEETFIZZ_SKILL.name) &&
+    (yield* Prompt.Confirm({
+      message: "Add the fleetfizz skill, so your agents can edit the config and ship?",
+      initial: true,
+    }));
+  if (agentsHere.length === 0)
+    yield* Console.log(
+      `The skills CLI sees no agents here, so the config keeps no skills. To let your agents edit the config and ship: npx skills add ${FLEETFIZZ_SKILL.source} -g`,
+    );
+  const skills = addSkill ? [...pickedSkills, FLEETFIZZ_SKILL] : pickedSkills;
   const agents = skills.length === 0 ? [] : yield* pickAgents(agentsHere);
   // A Ship installs skills with the skills CLI, so the config keeps the CLI
   // too, with the package manager that has it here.
