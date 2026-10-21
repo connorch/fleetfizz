@@ -26,8 +26,9 @@ export const writeShared = [
 
 // The fixture Config, as written in config.jsonc. pnpm and the skills CLI are
 // Globals of other package managers, as the README tells users. One Global is
-// targeted at the first remote Machine only, and one has a Variant per
-// Platform, so Targeting is checked on real Machines.
+// targeted at the Starting Machine only, and one has a Variant per Platform,
+// so Targeting is checked on real Machines. No Item targets a remote Machine
+// alone, so any of them can be taken out of the Fleet.
 export const fixtureConfig = (
   machines: readonly [FleetMachine, FleetMachine, ...ReadonlyArray<FleetMachine>],
   version: string,
@@ -41,7 +42,7 @@ export const fixtureConfig = (
     dependsOn: ["npm"],
     items: {
       skills: "^1",
-      semver: { range: "^7", machines: [machines[1].name] },
+      semver: { range: "^7", machines: [machines[0].name] },
       "is-number": [
         { platforms: ["darwin"], range: "^6" },
         { platforms: ["linux"], range: "^7" },

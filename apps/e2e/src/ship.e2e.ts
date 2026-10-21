@@ -78,9 +78,9 @@ layer(FleetLive, { timeout: "15 minutes", excludeTestServices: true })("fizz shi
           expect(found.output, machine.name).toBe(commit);
           expect(found.skill, machine.name).toBe("yes");
           expect(found.globals.skills, machine.name).toMatch(/^1\./);
-          // Targeted by `machines` at the first remote Machine only.
+          // Targeted by `machines` at the Starting Machine only.
           expect(found.globals.semver, machine.name).toEqual(
-            i === 1 ? expect.stringMatching(/^7\./) : undefined,
+            i === 0 ? expect.stringMatching(/^7\./) : undefined,
           );
           // A Variant per Platform.
           expect(found.globals["is-number"], machine.name).toMatch(
