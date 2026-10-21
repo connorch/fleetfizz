@@ -6,7 +6,7 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md); decisions in [docs/adr](./docs/
 
 ## Usage
 
-Install fleetfizz with any package manager (npm, pnpm, bun, or vp, on Node 24 or newer) on the Machine you will ship from, then run `fizz init`. It checks that this Machine is ready to ship, asks which Machines on your tailnet are in the Fleet and what to keep in line, and writes the config at `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
+Install fleetfizz with any package manager (npm, pnpm, bun, or vp, on Node 24 or newer) on the Machine you will ship from, then run `fizz init`. It checks that this Machine is ready to ship, asks which Machines on your tailnet are in the Fleet and what to keep in line, offers the fleetfizz skill, and writes the config at `~/.config/fleetfizz/config.jsonc` (or `$XDG_CONFIG_HOME/fleetfizz/`):
 
 ```sh
 npm install -g fleetfizz   # or: pnpm add -g, bun add -g, vp install -g
@@ -95,7 +95,7 @@ fizz self-update      # set the config's version to the newest fleetfizz and ins
 
 `fleetfizz` is an alias of `fizz`.
 
-To let your coding agent edit the config, ship, and debug a Ship, install the fleetfizz skill with `npx skills add connorch/fleetfizz -g`, or keep it on every Machine as a Skill in the config, as above.
+To let your coding agent edit the config, ship, and debug a Ship, keep the fleetfizz skill on every Machine as a Skill in the config, as above. `fizz init` offers to add it; without the skills CLI, install it here with `npx skills add connorch/fleetfizz -g`.
 
 The Ledger lists each Machine and, under it, what changes there, by address: `pnpm:vercel`, `repos:t3code`. In a terminal it updates as the Ship runs; press `f` to see every item, unchanged ones included. Piped to a file, it prints the full list once at the end.
 

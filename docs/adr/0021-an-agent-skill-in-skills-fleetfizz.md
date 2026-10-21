@@ -17,4 +17,4 @@ People ask their coding agent to "put tmux on the Linux boxes" or "find out why 
 ## Consequences
 
 - A change to how a command behaves without a terminal, or to the Question kinds, changes the skill too.
-- `fizz init` does not offer the skill yet. Offering it needs a `skills` section, with `agents` and the skills CLI as a Global, which init does not write today.
+- `fizz init` offers the skill as a Skill in the config when the skills CLI sees agents here, since a `skills` section needs `agents`. Without them, it prints the `npx skills add` command instead.
