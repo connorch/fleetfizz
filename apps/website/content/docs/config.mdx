@@ -92,7 +92,7 @@ The Install Command runs with `FLEETFIZZ_MACHINE`, `FLEETFIZZ_PLATFORM`, and `FL
 
 Each package manager lists its Globals with its own command (`pnpm ls -g --depth=0 --json`, `bun pm ls -g`, and so on) and installs with its own global install. A Global of a package manager that is not on a Machine fails ("pnpm is not installed"), unless another section installs that package manager there in the same Ship: then it waits for the next Ship. Yarn has no section, since Yarn 2 and newer has no global installs.
 
-A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` keeps it at the newest version, and `*` installs only when missing. All four read published versions with `npm view` on the Starting Machine. A Global not in the config is never uninstalled.
+A Ship installs the newest version in a Global's Range when it is missing or below the Range, and leaves it alone anywhere inside it. `latest` keeps it at the newest version, and `*` installs only when missing. The Starting Machine reads published versions from the npm registry, so every Machine gets the same version. A Global not in the config is never uninstalled.
 
 A Global above its Range usually means someone updated it by hand, so the Ship asks before changing anything: bump the Range, skip it on that Machine, or downgrade into the Range.
 
