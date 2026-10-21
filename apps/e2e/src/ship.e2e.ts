@@ -4,23 +4,36 @@
 // the Machines.
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, layer } from "@effect/vitest";
+import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
+import { darwinFleet } from "./darwin.ts";
 import { dockerFleet } from "./docker.ts";
 import { NOTES, SHARED_DIR } from "./fixture.ts";
 import { Fleet } from "./fleet.ts";
 import { type LedgerMachine, Prepared, probe, ship } from "./harness.ts";
 
+// E2E_FLEET picks the Fleet: `docker` (the default) or `darwin`.
 const FleetLive = Prepared.layer.pipe(
-  Layer.provideMerge(dockerFleet),
+  Layer.provideMerge(
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const fleet = yield* Config.Literals(["docker", "darwin"], "E2E_FLEET").pipe(
+          Config.withDefault("docker"),
+        );
+        return fleet === "darwin" ? darwinFleet : dockerFleet;
+      }),
+    ),
+  ),
   Layer.provide(NodeServices.layer),
 );
 
 const itemsOf = (machines: ReadonlyArray<LedgerMachine>) =>
   machines.flatMap((m) => m.items.map((item) => ({ machine: m.name, ...item })));
 
-layer(FleetLive, { timeout: "15 minutes" })("fizz ship", (it) => {
+// Real time, not a TestClock: the Fleets wait on Schedules.
+layer(FleetLive, { timeout: "15 minutes", excludeTestServices: true })("fizz ship", (it) => {
   it.effect(
     "a fresh Fleet comes in line Ship by Ship, then every Item is where it is targeted",
     () =>

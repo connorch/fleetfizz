@@ -54,5 +54,7 @@ export const sshKeys = Effect.gen(function* () {
   return {
     publicKey: (yield* fs.readFileString(`${dir}/key.pub`)).trim(),
     privateKey: yield* fs.readFileString(`${dir}/key`),
+    // Removed with the rest of the run's scope.
+    privateKeyPath: `${dir}/key`,
   };
 });
