@@ -15,8 +15,8 @@ const SETUP_PROMPT = `Help me set up fleetfizz, a CLI that keeps my dev machines
 - Once Tailscale SSH works, check that every machine I want in the fleet has git, plus Node 24 or newer and the package manager fleetfizz is installed with here, and tell me what is missing.
 - \`fizz init\` asks its questions in a terminal, so I run it myself. Before I do, look at what this machine has (npm, pnpm, bun, or vp globals, Homebrew packages, agent skills, dotfiles, and the git repos I work in) and suggest what to pick and what to add after.
 - Add what \`fizz init\` does not ask about, like Tracked Repos, with \`fizz config add\`. You have no terminal, so pass every value it would prompt for (\`fizz config add <provider> --help\` lists them). Run \`fizz config\` to show me the result.
-- Run \`fizz status\` and \`fizz ship --dry-run\`, and show me where each machine stands and every question the dry run asks. Then run \`fizz ship\` with an \`--answer\` for each question as I decide. If an item is skipped with "ship again", ship again.
-- Finally, install the fleetfizz skill from the last step, so my agents can change the config and ship from now on.`;
+- If I skipped the fleetfizz skill in \`fizz init\`, add it with \`fizz config add skills fleetfizz --source connorch/fleetfizz\`, so my agents can change the config and ship from now on.
+- Run \`fizz status\` and \`fizz ship --dry-run\`, and show me where each machine stands and every question the dry run asks. Then run \`fizz ship\` with an \`--answer\` for each question as I decide. If an item is skipped with "ship again", ship again.`;
 
 // Fumadocs' page actions under a docs page's description: copy the page's
 // Markdown, or open it in GitHub or an AI. Getting started adds the setup
