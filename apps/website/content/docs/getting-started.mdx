@@ -1,35 +1,15 @@
 ---
 title: Getting started
-description: Install fleetfizz, run fizz init, ready your other Machines, and run your first Ship.
+description: Put your Machines on Tailscale SSH, run fizz init, and run your first Ship.
 ---
 
 This guide takes two or more macOS or Linux Machines to a first Ship. Pick one Machine to ship from; the first Ship sets up fleetfizz on the others.
 
-## 1. Run fizz init
+## 1. Put every Machine on your tailnet
 
-On the Machine you will ship from, with Node 24 or newer, install fleetfizz with any package manager and run `fizz init`:
+fleetfizz reaches every Machine with `tailscale ssh`, so every Machine must be on the same tailnet with Tailscale SSH on, before `fizz init` lists them.
 
-```sh
-npm install -g fleetfizz   # or: pnpm add -g, bun add -g, vp install -g
-fizz init
-```
-
-`fizz init` first checks that this Machine can ship: Tailscale connected, with Tailscale SSH on. For each problem it prints the command that fixes it; run them, then run `fizz init` again. On a Mac, Tailscale SSH needs the open-source `tailscaled` from Homebrew: the Tailscale app cannot accept it, so quit and remove the app if you have it.
-
-Then it asks which Machines on your tailnet are in the Fleet, what to keep in line from this Machine (Globals, Formulae, Casks, skills, and dotfiles), and whether to add the fleetfizz skill, which teaches your coding agent to edit the config and ship. It writes the config to `~/.config/fleetfizz/config.jsonc` and offers a dry run.
-
-Add more at any time with `fizz config add`, or edit the config by hand; [Config](/docs/config) covers every field.
-
-```sh
-fizz config add repos connorch/t3code --install "pnpm install && pnpm build"
-fizz config add files ~/.config/ghostty
-```
-
-## 2. Ready the other Machines
-
-Each other Machine needs `git`, Node 24, and the package manager that installed fizz here, so the first Ship can install fleetfizz there. A Ship never installs Node, a package manager, or Homebrew; if the config's `brew` section targets a Linux Machine, install Homebrew there too.
-
-Each one also needs to be on your tailnet with Tailscale SSH on. `fizz init` marks any that have it off. On a Mac:
+On a Mac, use the open-source `tailscaled` from Homebrew. The Tailscale app cannot accept Tailscale SSH, so quit and remove it first if you have it.
 
 ```sh
 brew install --formula tailscale
@@ -65,10 +45,32 @@ Then, in the Tailscale admin console under **Access controls**, let your own use
 ]
 ```
 
-From the Machine you ship from, check each other Machine. It should print `ok` with no prompt:
+From the Machine you will ship from, check each other Machine. It should print `ok` with no prompt:
 
 ```sh
 tailscale ssh connors-macbook-pro echo ok
+```
+
+Every Machine needs `git`. The Machine you ship from needs Node 24 or newer and a package manager: npm, pnpm, bun, or vp. The first Ship installs fleetfizz on the others with the same package manager, so give them Node 24 and that package manager too. A Ship never installs Node, a package manager, or Homebrew; if the config's `brew` section targets a Linux Machine, install Homebrew there too.
+
+## 2. Run fizz init
+
+On the Machine you will ship from, install fleetfizz with any package manager and run `fizz init`:
+
+```sh
+npm install -g fleetfizz   # or: pnpm add -g, bun add -g, vp install -g
+fizz init
+```
+
+`fizz init` first checks that this Machine can ship: Tailscale connected, with Tailscale SSH on. For each problem it prints the command that fixes it; run them, then run `fizz init` again.
+
+Then it asks which Machines on your tailnet are in the Fleet, marking any that are offline or have Tailscale SSH off, what to keep in line from this Machine (Globals, Formulae, Casks, skills, and dotfiles), and whether to add the fleetfizz skill, which teaches your coding agent to edit the config and ship. It writes the config to `~/.config/fleetfizz/config.jsonc` and offers a dry run.
+
+Add more at any time with `fizz config add`, including a Machine that joins the tailnet later (`fizz config add machines`), or edit the config by hand; [Config](/docs/config) covers every field.
+
+```sh
+fizz config add repos connorch/t3code --install "pnpm install && pnpm build"
+fizz config add files ~/.config/ghostty
 ```
 
 ## 3. Ship
